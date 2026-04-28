@@ -85,3 +85,26 @@ V3 planning and implementation outputs:
 See `docs/V3_ROADMAP.md` for the starting V3 plan and `docs/V3_LOWERCASE_GEOMETRY.md` for the first lowercase guide spec.
 
 V3.x should still avoid professional font-editor sprawl unless the current pipeline remains stable.
+
+## V4.x Direction
+
+V4.x starts a workflow-acceleration track after the V3 alpha character expansion.
+
+The first V4 feature is Inter-based starter glyph generation:
+
+- Add a `Generate starter glyphs` action.
+- Create editable filled vector outlines inside empty supported slots.
+- Seed outlines from Figma's Inter Regular font and flatten them into vectors.
+- Preserve existing user artwork by default.
+- Reuse the existing board, scan, preview, spacing, verification, and static OTF export pipeline.
+- Keep the generated outlines intentionally simple to use: real font outlines are still just editable Figma vectors after generation.
+
+V4.0 should remain a canvas helper, not a new font engine path. Once generated outlines exist in slots, scanning should treat them the same as user-drawn vectors.
+
+Manual V4.0 QA should confirm:
+
+- Fresh board -> generate starters -> scan -> preview -> export works end to end.
+- Re-running starter generation does not duplicate artwork.
+- Partially edited boards keep existing artwork and only fill empty slots.
+- Inter-based lowercase starters respect ascender, x-height, baseline, and descender guides.
+- Generated punctuation and common symbols scan as valid filled vectors.

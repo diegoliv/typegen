@@ -2,6 +2,7 @@ import type { GlyphScanResult, PersistedTypegenSettings, ScanSummary } from './t
 
 export type UiToPluginMessage =
   | { type: 'CREATE_GLYPH_BOARD' }
+  | { type: 'GENERATE_STARTER_GLYPHS' }
   | { type: 'SCAN_SELECTED_GLYPHS' }
   | { type: 'RESTORE_SAVED_SCAN'; nodeIds: string[] }
   | { type: 'SAVE_SETTINGS'; settings: PersistedTypegenSettings }
@@ -21,6 +22,12 @@ export type PluginToUiMessage =
   | {
       type: 'GLYPH_BOARD_CREATED';
       message: string;
+      warnings: string[];
+    }
+  | {
+      type: 'STARTER_GLYPHS_GENERATED';
+      message: string;
+      warnings: string[];
     }
   | {
       type: 'GLYPHS_SCANNED';

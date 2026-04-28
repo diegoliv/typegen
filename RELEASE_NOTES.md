@@ -1,5 +1,25 @@
 # Release Notes
 
+## 4.0.0-alpha.1
+
+Typegen V4.0 alpha Inter-based starter glyph generation.
+
+### Added
+
+- Added `Generate starter glyphs`, which creates editable filled vector outlines in empty supported glyph slots.
+- Starter glyphs are seeded from Figma's Inter Regular font when available, then flattened into regular vector outlines.
+- Starter generation creates or updates the glyph board first, then fills only empty slots.
+- Existing slot artwork is preserved; re-running the action skips slots that already contain non-helper artwork.
+- Starter outlines use the current per-glyph guide profiles, including lowercase x-height, ascenders, and descenders.
+- A simple geometric fallback remains available if Inter cannot be loaded or a glyph cannot be flattened.
+- Updated plugin copy and QA docs for the starter-generation workflow.
+
+### Still Out Of Scope
+
+- Replacing existing artwork from the starter generator.
+- AI glyph generation from prompts or references.
+- Kerning, ligatures, variable fonts, and broader Unicode support.
+
 ## V3 Alpha Closeout Notes
 
 V3 alpha now includes the V3.0 lowercase pilot, V3.1 full lowercase expansion, V3.2 common symbols, and V3.3 metrics/readability signoff.

@@ -1,23 +1,26 @@
-# Typegen V3 Alpha QA Checklist
+# Typegen V4 Alpha QA Checklist
 
 ## QA Goal
 
 Validate that the smallest working Typegen loop remains stable and becomes reliable enough for a repeatable demo:
 
 1. Create an A-Z, a-z, 0-9, punctuation, and common-symbol glyph board in Figma.
-2. Draw a few supported vector glyphs.
-3. Scan the selected board or glyph slots.
-4. Preview available glyphs and missing glyphs.
-5. Generate and export one static font file.
-6. Smoke test the exported font in a browser or font viewer.
+2. Generate starter glyph outlines in empty slots or draw a few supported vector glyphs.
+3. Refine generated vector outlines as needed.
+4. Scan the selected board or glyph slots.
+5. Preview available glyphs and missing glyphs.
+6. Generate and export one static font file.
+7. Smoke test the exported font in a browser or font viewer.
 
-V3 alpha QA should first re-run the V2 happy path, then focus on lowercase geometry: x-height, ascenders, descenders, and mixed-case preview/export.
+V4 alpha QA should first re-run the V3 happy path, then focus on Inter-based starter generation safety: fill empty slots, preserve existing artwork, scan generated vectors, and export through the unchanged font pipeline.
 
 ## Supported Glyph Recipe
 
 - Uppercase A-Z, lowercase a-z, numbers 0-9, basic punctuation, and common symbols.
 - Glyph slots are named `glyph-A` through `glyph-Z`, `glyph-a` through `glyph-z`, `glyph-0` through `glyph-9`, `glyph-period`, `glyph-comma`, `glyph-exclamation`, `glyph-question`, `glyph-hyphen`, `glyph-colon`, `glyph-apostrophe`, `glyph-quote`, `glyph-slash`, `glyph-paren-left`, `glyph-paren-right`, `glyph-ampersand`, `glyph-plus`, `glyph-equals`, and `glyph-at`.
 - Glyphs are simple filled vector shapes inside glyph slots.
+- `Generate starter glyphs` may be used to create editable Inter-based starting outlines in empty slots.
+- Starter generation must skip slots that already contain non-helper artwork.
 - Use vector outlines, not live text.
 - Strokes should be expanded before export.
 - Use solid fills only.
@@ -75,6 +78,18 @@ Record these before each QA pass:
 26. Confirm counters remain open/transparent in preview and exported font rendering.
 27. Confirm lowercase proportions match the board guides in preview and exported font rendering.
 
+## V4.0 Starter Glyph Checks
+
+- [ ] Fresh board plus `Generate starter glyphs` fills all 77 supported slots with editable Inter-based vector outlines.
+- [ ] Clicking `Generate starter glyphs` with no existing board creates/updates the board before filling empty slots.
+- [ ] Generated starter outlines scan as valid filled vectors.
+- [ ] Preview renders `ABC box @2+2` after generating starters and scanning the board.
+- [ ] Exported OTF and smoke-test HTML preserve generated starter glyphs.
+- [ ] Re-running `Generate starter glyphs` does not duplicate starter outlines in already-filled slots.
+- [ ] If a user edits or replaces artwork in one slot, starter generation preserves that slot and fills only other empty slots.
+- [ ] Lowercase starters align with ascender, x-height, baseline, and descender guides.
+- [ ] Punctuation and common-symbol starters remain compact enough to inspect and refine.
+
 ## V3.1 Board Migration Checks
 
 - [ ] Fresh board creates slots in A-Z, a-z, 0-9, punctuation order.
@@ -114,6 +129,7 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] UI includes font name input.
 - [ ] UI includes glyph source instructions.
 - [ ] UI includes `Create/update glyph board`.
+- [ ] UI includes `Generate starter glyphs`.
 - [ ] UI includes `Scan selected glyphs`.
 - [ ] UI includes glyph status list/table.
 - [ ] UI includes preview text input.
@@ -141,6 +157,17 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Each slot includes left/right width boundary guides.
 - [ ] Each slot includes a readable character label.
 - [ ] Board creation failure shows an actionable error.
+
+### Starter Glyph Generation
+
+- [ ] `Generate starter glyphs` creates or updates the glyph board if needed.
+- [ ] Empty supported slots receive filled vector starter outlines.
+- [ ] Slots with existing user artwork are skipped.
+- [ ] Re-running starter generation does not duplicate artwork.
+- [ ] Generated vectors are editable on the Figma canvas.
+- [ ] Generated vectors are flattened outlines, not live text layers.
+- [ ] Generated vectors are not marked as Typegen helper layers.
+- [ ] Generated vectors scan through the same validation path as hand-drawn vectors.
 
 ### Selection Scanning
 

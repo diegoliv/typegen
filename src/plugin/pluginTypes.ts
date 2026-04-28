@@ -84,6 +84,11 @@ export type PluginToUiMessage =
       warnings: string[];
     }
   | {
+      type: "STARTER_GLYPHS_GENERATED";
+      message: string;
+      warnings: string[];
+    }
+  | {
       type: "GLYPHS_SCANNED";
       glyphs: GlyphScanResult[];
       summary: GlyphScanSummary;
@@ -95,6 +100,7 @@ export type PluginToUiMessage =
 
 export type UiToPluginMessage =
   | { type: "CREATE_GLYPH_BOARD" }
+  | { type: "GENERATE_STARTER_GLYPHS" }
   | { type: "SCAN_SELECTED_GLYPHS" }
   | { type: "RESTORE_SAVED_SCAN"; nodeIds: string[] }
   | { type: "SAVE_SETTINGS"; settings: PersistedTypegenSettings }

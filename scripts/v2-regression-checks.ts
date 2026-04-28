@@ -555,7 +555,7 @@ assert.equal(lowercasePilotFont.glyphCount, 2, "lowercase pilot fixture should i
 assert.equal(lowercasePilotFont.verification.failedGlyphs.length, 0, "lowercase pilot fixture should verify cleanly");
 assertRoundTripGlyph(lowercasePilotFont.arrayBuffer, "a", 700, "lowercase pilot fixture should preserve a");
 
-console.log("V3.2 symbol regression checks passed.");
+console.log("V4.0 starter glyph regression baseline passed.");
 
 function makeRectGlyph(
   char: string,
