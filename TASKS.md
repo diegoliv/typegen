@@ -1,5 +1,118 @@
 # Typegen MVP Implementation Plan
 
+## 52. V5.0 Export Package Polish
+
+Goal: make exported fonts easier to use outside Figma without expanding beyond one static OTF format.
+
+Completed:
+
+- Added package HTML `@font-face` generation from verified font results.
+- Updated the plugin UI label to `Typegen V5.0 alpha`.
+- Collapsed output to one `Generate font` button.
+- Added a plugin-side `SCAN_ALL_GLYPH_BOARDS` flow so `Generate font` scans every Typegen board on the page.
+- Updated `Generate font` to immediately package all valid verified board weights into a ZIP.
+- Added ZIP contents: `fonts/*-Regular.otf`, `fonts/*-Bold.otf` when available, and `index.html`.
+- Added inline `@font-face` CSS in the ZIP HTML, with one specimen row per generated weight.
+- Fixed exported OpenType contour winding so same-direction Figma/Inter compound contours are rewritten with opposite counter directions.
+- Made `.notdef` empty so missing glyph fallback does not draw Typegen box/cross fragments in the ZIP HTML.
+- Kept newly generated starter vectors Inter-based, then boolean-merged and flattened each glyph to avoid even-odd overlap holes in Figma/exported fonts.
+- Re-running starter generation now replaces Typegen-owned starter outlines while preserving user artwork.
+- Tightened contour containment detection so overlapping construction contours, such as an `f` stem and crossbar, do not export as counters.
+- Updated regression coverage for CSS filename/snippet generation, weighted filenames, package HTML, ZIP creation, and HTML font loading CSS.
+- Updated regression coverage for same-direction counter contour export.
+- Updated regression coverage for empty `.notdef` export.
+- Updated regression coverage for overlapping construction contours.
+- Updated README, release notes, roadmap, QA docs, smoke-test docs, package metadata, and rebuilt `dist/`.
+
+Out of scope:
+
+- WOFF and WOFF2 export.
+- Separate OTF/CSS/HTML export buttons.
+- Automatically creating missing board weights.
+- Production specimen pages.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run build` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Manual QA target:
+
+- Generate Regular and Bold starter boards, click `Generate font`, confirm the ZIP contains OTF files for both weights plus `index.html`, and confirm the HTML shows one row per weight in a browser.
+
+## 51. V4.3 Board / Weight Clarity
+
+Goal: make multi-board Regular/Bold workflows visible and less confusing.
+
+Completed:
+
+- Added active board metadata to board creation, starter generation, and scan responses.
+- Added an active board indicator in the UI showing board name and Inter weight.
+- Synced the starter style selector to the active board weight after board, generate, or scan actions.
+- Updated scan notifications to mention the active board when available.
+- Updated README, release notes, roadmap, QA docs, package metadata, and rebuilt `dist/`.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Manual QA target:
+
+- Create Regular and Bold boards, select each board or one of its slots, run generate and scan, and confirm the active board indicator and starter style selector follow the selected board.
+
+## 50. V4.2 Starter Style Controls
+
+Goal: add a small starter-generation control without changing the scan, preview, or export pipeline.
+
+Completed:
+
+- Added a starter style selector for Inter Regular and Inter Bold.
+- Passed the selected starter style from the UI to board creation and starter generation.
+- Made glyph board lookup style-aware so Regular and Bold use separate boards.
+- Made board actions context-aware: selected boards and selected slots determine the active board/weight before the UI style fallback is used.
+- Added active-board scan fallback after board creation or starter generation.
+- Updated Inter starter generation to load and flatten the selected Inter style.
+- Added fallback from Inter Bold to Inter Regular if Bold cannot load.
+- Preserved the existing geometric fallback for cases where Inter cannot load or flatten a specific glyph.
+- Kept starter generation artwork-safe: only empty supported slots are filled.
+- Updated README, release notes, roadmap, QA docs, package metadata, and rebuilt `dist/`.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Manual QA target:
+
+- Generate a fresh board with Inter Regular, switch to Inter Bold, click `Create/update glyph board`, and confirm a separate Bold board is created. Select the Bold board or one of its slots, generate Bold starters, scan and preview it, and confirm the actions stay scoped to the Bold board.
+
+## 49. V4.1 Preview Presets
+
+Goal: make generated full-font starter sets easier to inspect without adding a new preview engine.
+
+Completed:
+
+- Added preview preset buttons for mixed text, headline text, lowercase word lists, paragraph-style samples, and numbers/symbols.
+- Presets update the editable preview text input instead of creating separate preview modes.
+- Presets reuse existing missing-glyph warnings, unsupported-character warnings, diagnostics, font generation, and smoke-test HTML behavior.
+- Updated package metadata to `4.1.0-alpha.1`.
+- Updated release notes, roadmap, QA docs, and rebuilt `dist/`.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Manual QA target:
+
+- Generate Inter starters, scan the board, click each preview preset, confirm the preview updates, then type custom text and confirm focus/scroll stability still holds.
+
 ## 48. V4.0 Starter Glyph Generation
 
 Goal: let users create a full editable Inter-based starting alphabet/symbol set inside Figma, then refine it using the existing Typegen scan, preview, spacing, and export workflow.

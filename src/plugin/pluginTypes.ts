@@ -67,6 +67,12 @@ export type PersistedTypegenSettings = {
   };
 };
 
+export type ActiveBoardInfo = {
+  id: string;
+  name: string;
+  style: "Regular" | "Bold";
+};
+
 export type PluginToUiMessage =
   | {
       type: "PLUGIN_READY";
@@ -82,16 +88,23 @@ export type PluginToUiMessage =
       type: "GLYPH_BOARD_CREATED";
       message: string;
       warnings: string[];
+      activeBoard: ActiveBoardInfo;
     }
   | {
       type: "STARTER_GLYPHS_GENERATED";
       message: string;
       warnings: string[];
+      activeBoard: ActiveBoardInfo;
     }
   | {
       type: "GLYPHS_SCANNED";
       glyphs: GlyphScanResult[];
       summary: GlyphScanSummary;
+      activeBoard?: ActiveBoardInfo;
+    }
+  | {
+      type: "ALL_GLYPH_BOARDS_SCANNED";
+      boards: BoardScanResult[];
     }
   | {
       type: "VALIDATION_ERROR";
@@ -99,12 +112,19 @@ export type PluginToUiMessage =
     };
 
 export type UiToPluginMessage =
-  | { type: "CREATE_GLYPH_BOARD" }
-  | { type: "GENERATE_STARTER_GLYPHS" }
+  | { type: "CREATE_GLYPH_BOARD"; style?: "Regular" | "Bold" }
+  | { type: "GENERATE_STARTER_GLYPHS"; style?: "Regular" | "Bold" }
   | { type: "SCAN_SELECTED_GLYPHS" }
+  | { type: "SCAN_ALL_GLYPH_BOARDS" }
   | { type: "RESTORE_SAVED_SCAN"; nodeIds: string[] }
   | { type: "SAVE_SETTINGS"; settings: PersistedTypegenSettings }
   | { type: "RESET_SETTINGS" };
+
+export type BoardScanResult = {
+  activeBoard: ActiveBoardInfo;
+  glyphs: GlyphScanResult[];
+  summary: GlyphScanSummary;
+};
 
 export const TYPEGEN_ROLE_KEY = "typegen-role";
 export const TYPEGEN_ROLE_BOARD = "board";

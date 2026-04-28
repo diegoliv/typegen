@@ -1,4 +1,4 @@
-# Typegen V4 Alpha QA Checklist
+# Typegen V5 Alpha QA Checklist
 
 ## QA Goal
 
@@ -10,16 +10,17 @@ Validate that the smallest working Typegen loop remains stable and becomes relia
 4. Scan the selected board or glyph slots.
 5. Preview available glyphs and missing glyphs.
 6. Generate and export one static font file.
-7. Smoke test the exported font in a browser or font viewer.
+7. Click `Generate font` to export the weight ZIP.
+8. Smoke test the exported font in a browser or font viewer.
 
-V4 alpha QA should first re-run the V3 happy path, then focus on Inter-based starter generation safety: fill empty slots, preserve existing artwork, scan generated vectors, and export through the unchanged font pipeline.
+V5 alpha QA should first re-run the V4 happy path, then focus on export package polish: the OTF remains the only font binary format, one output button packages all valid board weights, and the ZIP test page uses inline CSS with one row per generated weight.
 
 ## Supported Glyph Recipe
 
 - Uppercase A-Z, lowercase a-z, numbers 0-9, basic punctuation, and common symbols.
 - Glyph slots are named `glyph-A` through `glyph-Z`, `glyph-a` through `glyph-z`, `glyph-0` through `glyph-9`, `glyph-period`, `glyph-comma`, `glyph-exclamation`, `glyph-question`, `glyph-hyphen`, `glyph-colon`, `glyph-apostrophe`, `glyph-quote`, `glyph-slash`, `glyph-paren-left`, `glyph-paren-right`, `glyph-ampersand`, `glyph-plus`, `glyph-equals`, and `glyph-at`.
 - Glyphs are simple filled vector shapes inside glyph slots.
-- `Generate starter glyphs` may be used to create editable Inter-based starting outlines in empty slots.
+- `Generate starter glyphs` may be used to create editable Inter-derived starting outlines in empty slots.
 - Starter generation must skip slots that already contain non-helper artwork.
 - Use vector outlines, not live text.
 - Strokes should be expanded before export.
@@ -68,19 +69,19 @@ Record these before each QA pass:
 16. Confirm mixed-case preview renders A, B, C, b, o, x, 0, 1, and 2 using scanned outlines.
 17. Enter preview text: `bag go ox`.
 18. Confirm `g` descends below the baseline while `a`, `o`, and `x` align around x-height.
-19. Click `Generate font file`.
-20. Confirm generation succeeds and reports the generated glyph count.
-21. Click `Export OTF`.
-22. Confirm the downloaded font filename is based on `Typegen Demo`.
-23. Click `Export smoke test HTML`.
-24. Open the downloaded smoke-test HTML file in a browser.
+19. Generate both Regular and Bold boards if testing the multi-weight path.
+20. Click `Generate font`.
+21. Confirm the ZIP filename is based on `Typegen Demo`.
+22. Confirm the ZIP contains `fonts/Typegen-Demo-Regular.otf`, `fonts/Typegen-Demo-Bold.otf`, and `index.html` when both weights have valid glyphs.
+23. Open the ZIP `index.html` in a browser.
+24. Confirm it shows one row for each generated weight.
 25. Smoke test `ABOPR PRO BAR`, `2024 A10`, `ABC, 123! OK?`, `box`, `go`, `bag`, `go ox`, `ABC box 012`, `type`, `glyph`, `font`, `quick`, `boxing glyph`, `a/b @2+2`, `A+B=C`, `font@example`, and `(quick)`.
 26. Confirm counters remain open/transparent in preview and exported font rendering.
 27. Confirm lowercase proportions match the board guides in preview and exported font rendering.
 
 ## V4.0 Starter Glyph Checks
 
-- [ ] Fresh board plus `Generate starter glyphs` fills all 77 supported slots with editable Inter-based vector outlines.
+- [ ] Fresh board plus `Generate starter glyphs` fills all 77 supported slots with editable Inter-derived vector outlines.
 - [ ] Clicking `Generate starter glyphs` with no existing board creates/updates the board before filling empty slots.
 - [ ] Generated starter outlines scan as valid filled vectors.
 - [ ] Preview renders `ABC box @2+2` after generating starters and scanning the board.
@@ -89,6 +90,47 @@ Record these before each QA pass:
 - [ ] If a user edits or replaces artwork in one slot, starter generation preserves that slot and fills only other empty slots.
 - [ ] Lowercase starters align with ascender, x-height, baseline, and descender guides.
 - [ ] Punctuation and common-symbol starters remain compact enough to inspect and refine.
+
+## V4.1 Preview Preset Checks
+
+- [ ] Preview section includes preset buttons for mixed, headline, words, paragraph, and numbers/symbols samples.
+- [ ] Clicking each preset updates the editable preview text input.
+- [ ] After applying a preset, typing in the preview input still works and preserves focus/scroll behavior.
+- [ ] Presets reuse the existing missing-glyph and unsupported-character warnings.
+- [ ] Preset text appears in smoke-test HTML when it contains at least one exportable glyph.
+- [ ] Presets do not change scanned glyphs, spacing controls, advance overrides, generated-font verification, or export behavior.
+
+## V4.2 Starter Style Checks
+
+- [ ] Starter style selector offers Inter Regular and Inter Bold.
+- [ ] `Create/update glyph board` creates or updates the board for the selected starter style.
+- [ ] If a Regular board exists, switching to Inter Bold and clicking `Create/update glyph board` creates a separate Bold board.
+- [ ] If a Bold board or one of its slots is selected, `Create/update glyph board` updates the Bold board even if the UI control still says Regular.
+- [ ] If a Bold board or one of its slots is selected, `Generate starter glyphs` fills the Bold board and uses the Bold starter style.
+- [ ] After creating or generating into a board, `Scan selected glyphs` scans that active board when no other canvas selection is present.
+- [ ] Generating on a fresh Regular board creates editable regular-weight outlines.
+- [ ] Generating on a fresh Bold board creates editable heavier outlines.
+- [ ] Re-running starter generation with a different style does not overwrite existing slot artwork.
+- [ ] Scanning, preview presets, font generation, and export behave the same for both starter styles.
+
+## V4.3 Active Board Checks
+
+- [ ] UI shows an active board indicator after creating a board.
+- [ ] UI shows the selected board name and Inter weight after generating starter glyphs.
+- [ ] UI updates the active board indicator after scanning a selected board.
+- [ ] Selecting a slot inside a Bold board and scanning updates the active board indicator to the Bold board.
+- [ ] Starter style selector syncs to the active board weight after board, generate, or scan actions.
+- [ ] Scan notification mentions the active board when available.
+
+## V5.0 Export Package Checks
+
+- [ ] UI label shows `Typegen V5.0 alpha`.
+- [ ] UI has only one output button: `Generate font`.
+- [ ] `Generate font` downloads a `.zip` file using the sanitized font name.
+- [ ] ZIP contains OTF files only for board weights that scan with at least one valid glyph and verify cleanly.
+- [ ] ZIP `index.html` contains inline `@font-face` CSS with `font-weight: 400` for Regular and `font-weight: 700` for Bold.
+- [ ] ZIP `index.html` shows one specimen row per generated weight.
+- [ ] WOFF and WOFF2 are not exposed in the UI.
 
 ## V3.1 Board Migration Checks
 
@@ -130,11 +172,14 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] UI includes glyph source instructions.
 - [ ] UI includes `Create/update glyph board`.
 - [ ] UI includes `Generate starter glyphs`.
+- [ ] UI includes starter style controls.
+- [ ] UI includes active board/weight status.
 - [ ] UI includes `Scan selected glyphs`.
 - [ ] UI includes glyph status list/table.
 - [ ] UI includes preview text input.
+- [ ] UI includes preview preset controls.
 - [ ] UI includes preview area.
-- [ ] UI includes `Generate font file`.
+- [ ] UI includes `Generate font`.
 - [ ] UI includes an export/download action.
 - [ ] UI includes a supported glyph recipe/help panel.
 - [ ] UI includes a `Ready to export` diagnostics panel.
@@ -163,9 +208,10 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] `Generate starter glyphs` creates or updates the glyph board if needed.
 - [ ] Empty supported slots receive filled vector starter outlines.
 - [ ] Slots with existing user artwork are skipped.
-- [ ] Re-running starter generation does not duplicate artwork.
+- [ ] Re-running starter generation replaces older Typegen-owned starter outlines and does not duplicate artwork.
 - [ ] Generated vectors are editable on the Figma canvas.
 - [ ] Generated vectors are flattened outlines, not live text layers.
+- [ ] Generated Inter starter vectors avoid even-odd overlap holes where contours meet, such as the lowercase `f` stem and crossbar.
 - [ ] Generated vectors are not marked as Typegen helper layers.
 - [ ] Generated vectors scan through the same validation path as hand-drawn vectors.
 
@@ -247,7 +293,7 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 
 ### Font Generation
 
-- [ ] `Generate font file` is disabled or blocked when no valid glyphs exist.
+- [ ] `Generate font` reports a clear message when no Typegen board has valid glyphs.
 - [ ] Generation succeeds with a partial alphabet containing at least one valid glyph.
 - [ ] Regression checks parse generated test fonts and verify glyph unicode, advance width, and outline commands.
 - [ ] Generated-font verification panel shows parsed glyph count after generation.
@@ -272,20 +318,20 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 
 ### Export
 
-- [ ] Export action is disabled until font generation succeeds.
-- [ ] Export action remains disabled if generated-font verification fails.
-- [ ] Export creates a local downloadable font file.
-- [ ] Smoke-test export creates a local downloadable HTML file after generation.
-- [ ] Smoke-test export remains disabled if generated-font verification fails.
+- [ ] Output action is a single `Generate font` button.
+- [ ] `Generate font` scans all Typegen boards before packaging.
+- [ ] `Generate font` creates a local downloadable ZIP file when at least one board has verified glyphs.
 - [ ] Filename is sanitized from the font name.
-- [ ] File extension matches the chosen V2 export format.
-- [ ] Exported file size is greater than zero.
+- [ ] File extension is `.zip`.
+- [ ] Exported ZIP size is greater than zero.
 - [ ] Re-export after changing the font name produces the expected filename.
 
 ### Exported Font Smoke Test
 
 - [ ] Exported font can be loaded by a simple HTML page with `@font-face`.
-- [ ] Generated smoke-test HTML opens without additional setup.
+- [ ] Generated ZIP HTML opens without additional setup after extraction.
+- [ ] Generated ZIP test page references packaged OTF files with relative `fonts/` URLs.
+- [ ] Generated ZIP test page includes rows for each packaged font weight.
 - [ ] Supported A-Z, 0-9, and punctuation glyphs render with custom outlines.
 - [ ] Missing A-Z, 0-9, and punctuation glyphs do not break rendering.
 - [ ] Spaces render with usable spacing.
@@ -301,7 +347,7 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] `glyph-P` renders its counter open.
 - [ ] `glyph-R` renders its counter open and the leg remains visible.
 - [ ] SVG preview and exported font agree on whether counters are open or filled.
-- [ ] Reversing contour direction in one test glyph either still exports correctly or produces a documented limitation.
+- [ ] Reversing contour direction in one test glyph still exports with counters open.
 - [ ] Multiple vector paths inside one glyph slot preserve their relative positions.
 - [ ] Multi-contour glyphs show a counter verification warning in the inspector.
 - [ ] Mixed winding-rule glyphs show a warning in diagnostics or inspector.
@@ -345,6 +391,7 @@ Run these after the main demo flow passes:
 | `glyph-B` with two counters | Both counters remain open or limitation documented |
 | `glyph-P` / `glyph-R` with counters | Counters remain open or limitation documented |
 | Reversed inner contour direction | Correct rendering or limitation documented |
+| `glyph-f` with overlapping stem/crossbar contours | Overlap stays filled instead of becoming a hole |
 | Hidden vector layer | Ignored or warning shown |
 | Vector outside slot bounds | Warning if supported; no crash |
 | Very small vector bounds | Warning or generated glyph; no crash |
@@ -373,9 +420,9 @@ Run these after the main demo flow passes:
 
 ## Smoke-Test HTML
 
-Prefer the plugin's `Export smoke test HTML` action after generating a font. It downloads a self-contained HTML file with the generated OTF embedded as a data URL.
+Prefer the plugin's `Generate font` action after preparing the board weights you want to test. It scans all Typegen boards, downloads OTF files plus an `index.html` page with inline `@font-face` CSS, and shows one row per generated weight.
 
-If the generated smoke-test export is unavailable, use this local template after exporting a font. Update `src` and `font-family` to match the exported file/name.
+If the generated ZIP is unavailable, use this local template after exporting a font from a development build. Update `src` and `font-family` to match the exported file/name.
 
 ```html
 <!doctype html>

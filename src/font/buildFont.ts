@@ -5,6 +5,8 @@ import {
   type FontBuildInput,
   type FontBuildResult,
   type FontVerificationResult,
+  type NormalizedPath,
+  type NormalizedPathCommand,
   type GlyphModel,
   getUsableGlyphs,
   normalizeSpacingSettings,
@@ -73,22 +75,11 @@ function createOpenTypeGlyph(glyph: GlyphModel, spacing: ReturnType<typeof norma
 }
 
 function createNotdefGlyph() {
-  const path = new opentype.Path();
-  path.moveTo(80, 0);
-  path.lineTo(620, 0);
-  path.lineTo(620, 700);
-  path.lineTo(80, 700);
-  path.close();
-  path.moveTo(160, 80);
-  path.lineTo(540, 620);
-  path.moveTo(540, 80);
-  path.lineTo(160, 620);
-
   return new opentype.Glyph({
     name: ".notdef",
     unicode: 0,
     advanceWidth: FONT_METRICS.notdefAdvanceWidth,
-    path,
+    path: new opentype.Path(),
   });
 }
 
@@ -104,7 +95,7 @@ function createSpaceGlyph(spaceWidth: number) {
 function toOpenTypePath(glyph: GlyphModel) {
   const path = new opentype.Path();
 
-  for (const normalizedPath of glyph.paths) {
+  for (const normalizedPath of normalizeContourWinding(glyph.paths)) {
     for (const command of normalizedPath.commands) {
       switch (command.type) {
         case "M":
@@ -134,6 +125,270 @@ function toOpenTypePath(glyph: GlyphModel) {
   }
 
   return path;
+}
+
+type Point = { x: number; y: number };
+
+type Segment =
+  | { type: "L"; start: Point; end: Point }
+  | { type: "C"; start: Point; c1: Point; c2: Point; end: Point }
+  | { type: "Q"; start: Point; c1: Point; end: Point };
+
+type Contour = {
+  segments: Segment[];
+  closed: boolean;
+};
+
+function normalizeContourWinding(paths: NormalizedPath[]): NormalizedPath[] {
+  const contours = paths.flatMap(pathToContours);
+
+  return contours.map((contour) => {
+    const depth = countContainingContours(contour, contours);
+    const shouldBePositive = depth % 2 === 0;
+    const area = contourArea(contour);
+    const normalized = area === 0 || (area > 0) === shouldBePositive ? contour : reverseContour(contour);
+
+    return contourToPath(normalized);
+  });
+}
+
+function pathToContours(path: NormalizedPath): Contour[] {
+  const contours: Contour[] = [];
+  let segments: Segment[] = [];
+  let current: Point | null = null;
+  let start: Point | null = null;
+  let closed = false;
+
+  const flush = () => {
+    if (segments.length > 0) {
+      contours.push({ segments, closed });
+    }
+    segments = [];
+    current = null;
+    start = null;
+    closed = false;
+  };
+
+  for (const command of path.commands) {
+    if (command.type === "M") {
+      flush();
+      current = { x: command.x, y: command.y };
+      start = current;
+      continue;
+    }
+
+    if (!current) {
+      continue;
+    }
+
+    if (command.type === "L") {
+      const end = { x: command.x, y: command.y };
+      segments.push({ type: "L", start: current, end });
+      current = end;
+    } else if (command.type === "C") {
+      const end = { x: command.x, y: command.y };
+      segments.push({
+        type: "C",
+        start: current,
+        c1: { x: command.x1, y: command.y1 },
+        c2: { x: command.x2, y: command.y2 },
+        end,
+      });
+      current = end;
+    } else if (command.type === "Q") {
+      const end = { x: command.x, y: command.y };
+      segments.push({
+        type: "Q",
+        start: current,
+        c1: { x: command.x1, y: command.y1 },
+        end,
+      });
+      current = end;
+    } else if (command.type === "Z") {
+      if (start && !samePoint(current, start)) {
+        segments.push({ type: "L", start: current, end: start });
+        current = start;
+      }
+      closed = true;
+      flush();
+    }
+  }
+
+  flush();
+  return contours;
+}
+
+function contourToPath(contour: Contour): NormalizedPath {
+  if (contour.segments.length === 0) {
+    return { commands: [] };
+  }
+
+  const commands: NormalizedPathCommand[] = [
+    { type: "M", ...contour.segments[0].start },
+  ];
+
+  for (const segment of contour.segments) {
+    if (segment.type === "L") {
+      commands.push({ type: "L", ...segment.end });
+    } else if (segment.type === "C") {
+      commands.push({
+        type: "C",
+        x1: segment.c1.x,
+        y1: segment.c1.y,
+        x2: segment.c2.x,
+        y2: segment.c2.y,
+        ...segment.end,
+      });
+    } else {
+      commands.push({
+        type: "Q",
+        x1: segment.c1.x,
+        y1: segment.c1.y,
+        ...segment.end,
+      });
+    }
+  }
+
+  if (contour.closed) {
+    commands.push({ type: "Z" });
+  }
+
+  return { commands };
+}
+
+function reverseContour(contour: Contour): Contour {
+  return {
+    closed: contour.closed,
+    segments: contour.segments
+      .map((segment): Segment => {
+        if (segment.type === "L") {
+          return { type: "L", start: segment.end, end: segment.start };
+        }
+
+        if (segment.type === "C") {
+          return {
+            type: "C",
+            start: segment.end,
+            c1: segment.c2,
+            c2: segment.c1,
+            end: segment.start,
+          };
+        }
+
+        return {
+          type: "Q",
+          start: segment.end,
+          c1: segment.c1,
+          end: segment.start,
+        };
+      })
+      .reverse(),
+  };
+}
+
+function contourArea(contour: Contour): number {
+  const points = contourSamplePoints(contour);
+  let area = 0;
+
+  for (let index = 0; index < points.length; index++) {
+    const current = points[index];
+    const next = points[(index + 1) % points.length];
+    area += current.x * next.y - next.x * current.y;
+  }
+
+  return area / 2;
+}
+
+function countContainingContours(contour: Contour, contours: Contour[]): number {
+  return contours.filter((other) => other !== contour && contourInsideContour(contour, other)).length;
+}
+
+function contourInsideContour(inner: Contour, outer: Contour): boolean {
+  const innerPoints = contourSamplePoints(inner);
+  if (innerPoints.length === 0 || !boundsInsideBounds(contourBounds(innerPoints), contourBounds(contourSamplePoints(outer)))) {
+    return false;
+  }
+
+  return innerPoints.every((point) => pointInContour(point, outer));
+}
+
+function pointInContour(point: Point, contour: Contour): boolean {
+  const points = contourSamplePoints(contour);
+  let inside = false;
+
+  for (let currentIndex = 0, previousIndex = points.length - 1; currentIndex < points.length; previousIndex = currentIndex++) {
+    const current = points[currentIndex];
+    const previous = points[previousIndex];
+    const crossesY = current.y > point.y !== previous.y > point.y;
+    const xAtY = ((previous.x - current.x) * (point.y - current.y)) / (previous.y - current.y || 1) + current.x;
+    if (crossesY && point.x < xAtY) {
+      inside = !inside;
+    }
+  }
+
+  return inside;
+}
+
+function contourBounds(points: Point[]): { xMin: number; yMin: number; xMax: number; yMax: number } {
+  return {
+    xMin: Math.min(...points.map((point) => point.x)),
+    yMin: Math.min(...points.map((point) => point.y)),
+    xMax: Math.max(...points.map((point) => point.x)),
+    yMax: Math.max(...points.map((point) => point.y)),
+  };
+}
+
+function boundsInsideBounds(
+  inner: { xMin: number; yMin: number; xMax: number; yMax: number },
+  outer: { xMin: number; yMin: number; xMax: number; yMax: number },
+): boolean {
+  return inner.xMin >= outer.xMin && inner.yMin >= outer.yMin && inner.xMax <= outer.xMax && inner.yMax <= outer.yMax;
+}
+
+function contourSamplePoints(contour: Contour): Point[] {
+  const points: Point[] = [];
+  for (const segment of contour.segments) {
+    if (points.length === 0) {
+      points.push(segment.start);
+    }
+
+    const steps = segment.type === "L" ? 1 : 8;
+    for (let step = 1; step <= steps; step++) {
+      points.push(pointOnSegment(segment, step / steps));
+    }
+  }
+
+  return points;
+}
+
+function pointOnSegment(segment: Segment, t: number): Point {
+  if (segment.type === "L") {
+    return lerpPoint(segment.start, segment.end, t);
+  }
+
+  if (segment.type === "Q") {
+    const a = lerpPoint(segment.start, segment.c1, t);
+    const b = lerpPoint(segment.c1, segment.end, t);
+    return lerpPoint(a, b, t);
+  }
+
+  const a = lerpPoint(segment.start, segment.c1, t);
+  const b = lerpPoint(segment.c1, segment.c2, t);
+  const c = lerpPoint(segment.c2, segment.end, t);
+  const d = lerpPoint(a, b, t);
+  const e = lerpPoint(b, c, t);
+  return lerpPoint(d, e, t);
+}
+
+function lerpPoint(a: Point, b: Point, t: number): Point {
+  return {
+    x: a.x + (b.x - a.x) * t,
+    y: a.y + (b.y - a.y) * t,
+  };
+}
+
+function samePoint(a: Point, b: Point): boolean {
+  return a.x === b.x && a.y === b.y;
 }
 
 function normalizeFamilyName(value: string): string {

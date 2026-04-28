@@ -1,5 +1,9 @@
 import { buildFont } from '../font/buildFont';
-import { downloadFont, downloadSmokeTestHtml } from '../font/exportFont';
+import {
+  downloadFontPackageZip,
+  type FontPackageItem,
+  type FontPackageStyle,
+} from '../font/exportFont';
 import {
   DEFAULT_SPACING,
   GLYPH_CHARS,
@@ -12,7 +16,7 @@ import {
   type GlyphChar,
   type GlyphModel,
 } from '../font/glyphModel';
-import { postToPlugin, isPluginMessage, type PluginToUiMessage } from '../shared/messages';
+import { postToPlugin, isPluginMessage, type ActiveBoardInfo, type BoardScanResult, type PluginToUiMessage } from '../shared/messages';
 import type { GlyphScanResult, PersistedTypegenSettings } from '../shared/types';
 import { renderPreviewMarkup } from './preview/renderGlyphPreview';
 import './styles.css';
@@ -20,8 +24,10 @@ import './styles.css';
 type UiState = {
   fontName: string;
   previewText: string;
+  starterStyle: 'Regular' | 'Bold';
   glyphs: GlyphScanResult[];
   selectedGlyph: GlyphChar;
+  activeBoard: ActiveBoardInfo | null;
   lastScanNodeIds: string[];
   statusMessage: string;
   savedStatus: string;
@@ -46,11 +52,27 @@ type ExportDiagnostics = {
   overrideCount: number;
 };
 
+type PreviewPreset = {
+  id: string;
+  label: string;
+  text: string;
+};
+
+const PREVIEW_PRESETS: PreviewPreset[] = [
+  { id: 'default', label: 'Mixed', text: 'ABC box @2+2' },
+  { id: 'headline', label: 'Headline', text: 'TYPEGEN quick fox' },
+  { id: 'words', label: 'Words', text: 'type glyph font quick boxing' },
+  { id: 'paragraph', label: 'Paragraph', text: 'The quick type glyphs box a font.' },
+  { id: 'symbols', label: 'Numbers', text: 'A-Z / a-z @ 10+20 = 30' },
+];
+
 const state: UiState = {
   fontName: 'Typegen Demo',
   previewText: "ABC box @2+2",
+  starterStyle: 'Regular',
   glyphs: [],
   selectedGlyph: 'A',
+  activeBoard: null,
   lastScanNodeIds: [],
   statusMessage: 'Create a board or select glyph slots named glyph-A through glyph-Z, glyph-a through glyph-z, glyph-0 through glyph-9, punctuation, or common symbol slots.',
   savedStatus: 'No saved settings loaded yet.',
@@ -76,12 +98,11 @@ function render() {
 
   const interaction = captureRenderInteraction();
   const validCount = validGlyphs().length;
-  const canGenerate = validCount > 0 && !state.isGenerating;
+  const canGenerate = !state.isGenerating;
   const scanWarning = createScanExportWarning();
   const previewWarning = createPreviewExportWarning();
   const generatedWarnings = state.generatedFont?.warnings ?? [];
   const diagnostics = createExportDiagnostics();
-  const canExport = isGeneratedFontVerified();
   const rows: GlyphScanResult[] = state.glyphs.length
     ? state.glyphs
     : GLYPH_CHARS.map((char) => ({
@@ -97,7 +118,7 @@ function render() {
     <section class="shell">
       <header class="header">
         <div>
-          <p class="eyebrow">Typegen V4.0 alpha</p>
+          <p class="eyebrow">Typegen V5.0 alpha</p>
           <h1>Figma glyphs to font file</h1>
         </div>
         <span class="count">${validCount}/${GLYPH_CHARS.length} ready</span>
@@ -112,10 +133,22 @@ function render() {
           Create a board, draw filled vector outlines in glyph slots, scan, preview, then export an OTF.
         </p>
         <div class="actions">
+          <label class="starter-style-field">
+            <span>Starter</span>
+            <select id="starter-style">
+              <option value="Regular" ${state.starterStyle === 'Regular' ? 'selected' : ''}>Inter Regular</option>
+              <option value="Bold" ${state.starterStyle === 'Bold' ? 'selected' : ''}>Inter Bold</option>
+            </select>
+          </label>
           <button id="create-board">Create/update glyph board</button>
           <button id="generate-starters">Generate starter glyphs</button>
           <button id="scan-glyphs">${state.isScanning ? 'Scanning...' : 'Scan selected glyphs'}</button>
           <button id="toggle-recipe">${state.showRecipe ? 'Hide recipe' : 'Show recipe'}</button>
+        </div>
+        <div class="active-board ${state.activeBoard ? '' : 'empty'}">
+          <span>Active board</span>
+          <strong>${state.activeBoard ? escapeHtml(state.activeBoard.name) : 'None selected'}</strong>
+          <em>${state.activeBoard ? `Inter ${escapeHtml(state.activeBoard.style)}` : 'Select or create a board'}</em>
         </div>
         <p class="status">${escapeHtml(state.statusMessage)}</p>
       </section>
@@ -228,6 +261,12 @@ function render() {
           <span>Preview text</span>
           <input id="preview-text" value="${escapeAttr(state.previewText)}" />
         </label>
+        <div class="preset-grid" aria-label="Preview presets">
+          ${PREVIEW_PRESETS.map(
+            (preset) =>
+              `<button class="preset-button ${preset.text === state.previewText ? 'selected' : ''}" data-preview-preset="${escapeAttr(preset.id)}">${escapeHtml(preset.label)}</button>`,
+          ).join('')}
+        </div>
         <div class="spacing-grid">
           <label class="field compact">
             <span>Letter spacing</span>
@@ -241,9 +280,7 @@ function render() {
         <div class="preview">${renderPreviewMarkup(state.previewText, state.glyphs, state.spacing)}</div>
         ${previewWarning ? `<p class="warning">${escapeHtml(previewWarning)}</p>` : ''}
         <div class="actions">
-          <button id="generate-font" ${canGenerate ? '' : 'disabled'}>${state.isGenerating ? 'Generating...' : 'Generate font file'}</button>
-          <button id="export-font" ${canExport ? '' : 'disabled'}>Export OTF</button>
-          <button id="export-smoke-test" ${canExport ? '' : 'disabled'}>Export smoke test HTML</button>
+          <button id="generate-font" ${canGenerate ? '' : 'disabled'}>${state.isGenerating ? 'Generating...' : 'Generate font'}</button>
         </div>
         ${
           state.generatedFont
@@ -328,10 +365,31 @@ function bindEvents() {
     render();
   });
 
+  document.querySelector<HTMLSelectElement>('#starter-style')?.addEventListener('change', (event) => {
+    const value = (event.target as HTMLSelectElement).value;
+    state.starterStyle = value === 'Bold' ? 'Bold' : 'Regular';
+    state.statusMessage = `Starter style set to Inter ${state.starterStyle}.`;
+    render();
+  });
+
   document.querySelector<HTMLInputElement>('#preview-text')?.addEventListener('input', (event) => {
     state.previewText = (event.target as HTMLInputElement).value;
     persistSettings();
     render();
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('[data-preview-preset]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const preset = PREVIEW_PRESETS.find((item) => item.id === button.dataset.previewPreset);
+      if (!preset) {
+        return;
+      }
+
+      state.previewText = preset.text;
+      state.statusMessage = `Preview preset applied: ${preset.label}.`;
+      persistSettings();
+      render();
+    });
   });
 
   document.querySelector<HTMLInputElement>('#letter-spacing')?.addEventListener('input', (event) => {
@@ -374,15 +432,15 @@ function bindEvents() {
   });
 
   document.querySelector<HTMLButtonElement>('#create-board')?.addEventListener('click', () => {
-    state.statusMessage = 'Creating glyph board...';
-    postToPlugin({ type: 'CREATE_GLYPH_BOARD' });
+    state.statusMessage = `Creating/updating Inter ${state.starterStyle} glyph board...`;
+    postToPlugin({ type: 'CREATE_GLYPH_BOARD', style: state.starterStyle });
     render();
   });
 
   document.querySelector<HTMLButtonElement>('#generate-starters')?.addEventListener('click', () => {
-    state.statusMessage = 'Generating starter glyphs in empty slots...';
+    state.statusMessage = `Generating Inter ${state.starterStyle} starter glyphs in empty slots...`;
     state.generatedFont = null;
-    postToPlugin({ type: 'GENERATE_STARTER_GLYPHS' });
+    postToPlugin({ type: 'GENERATE_STARTER_GLYPHS', style: state.starterStyle });
     render();
   });
 
@@ -395,33 +453,11 @@ function bindEvents() {
   });
 
   document.querySelector<HTMLButtonElement>('#generate-font')?.addEventListener('click', () => {
-    try {
-      state.isGenerating = true;
-      render();
-      state.generatedFont = buildFont({
-        familyName: state.fontName,
-        glyphs: validGlyphs().map((row) => row.glyph!),
-        spacing: state.spacing,
-      });
-      state.statusMessage = `Generated ${state.generatedFont.familyName}.`;
-    } catch (error) {
-      state.statusMessage = error instanceof Error ? error.message : 'Font generation failed.';
-    } finally {
-      state.isGenerating = false;
-      render();
-    }
-  });
-
-  document.querySelector<HTMLButtonElement>('#export-font')?.addEventListener('click', () => {
-    if (state.generatedFont && isGeneratedFontVerified()) {
-      downloadFont(state.generatedFont);
-    }
-  });
-
-  document.querySelector<HTMLButtonElement>('#export-smoke-test')?.addEventListener('click', () => {
-    if (state.generatedFont && isGeneratedFontVerified()) {
-      downloadSmokeTestHtml(state.generatedFont, createSmokeTestSampleText());
-    }
+    state.isGenerating = true;
+    state.generatedFont = null;
+    state.statusMessage = 'Scanning all Typegen glyph boards and generating the ZIP package...';
+    postToPlugin({ type: 'SCAN_ALL_GLYPH_BOARDS' });
+    render();
   });
 }
 
@@ -446,15 +482,24 @@ window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginToUiMessage }>) 
   }
 
   if (message.type === 'GLYPH_BOARD_CREATED') {
+    state.activeBoard = message.activeBoard;
+    state.starterStyle = message.activeBoard.style;
+    state.generatedFont = null;
     state.statusMessage = message.message;
   }
 
   if (message.type === 'STARTER_GLYPHS_GENERATED') {
+    state.activeBoard = message.activeBoard;
+    state.starterStyle = message.activeBoard.style;
     state.generatedFont = null;
     state.statusMessage = [message.message, ...message.warnings].join(' ');
   }
 
   if (message.type === 'GLYPHS_SCANNED') {
+    if (message.activeBoard) {
+      state.activeBoard = message.activeBoard;
+      state.starterStyle = message.activeBoard.style;
+    }
     state.glyphs = message.glyphs;
     state.lastScanNodeIds = collectScanNodeIds(message.glyphs);
     state.selectedGlyph = chooseSelectedGlyph(message.glyphs, state.selectedGlyph);
@@ -464,8 +509,13 @@ window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginToUiMessage }>) 
     persistSettings();
   }
 
+  if (message.type === 'ALL_GLYPH_BOARDS_SCANNED') {
+    generateFontPackageFromBoards(message.boards);
+  }
+
   if (message.type === 'VALIDATION_ERROR') {
     state.isScanning = false;
+    state.isGenerating = false;
     state.statusMessage = message.message;
   }
 
@@ -574,7 +624,7 @@ function createExportDiagnostics(): ExportDiagnostics {
   if (state.glyphs.length === 0) {
     return {
       status: 'needs-scan',
-      headline: 'Scan a selected glyph board before generating a font.',
+      headline: 'Scan a selected glyph board to preview it, or generate font to package all boards.',
       details: [
         state.lastScanNodeIds.length > 0
           ? `${state.lastScanNodeIds.length} saved scan nodes are available for restore.`
@@ -643,18 +693,18 @@ function createExportDiagnostics(): ExportDiagnostics {
 
   if (state.generatedFont) {
     if (isGeneratedFontVerified()) {
-      details.push('Generated font verified and export actions are enabled.');
+      details.push('Last generated package font verified successfully.');
     } else {
-      details.push('Generated font did not verify cleanly; export actions are blocked.');
+      details.push('Last generated package font did not verify cleanly.');
     }
-  } else if (validCount > 0) {
-    details.push('Generate the font before exporting OTF or smoke-test HTML.');
+  } else {
+    details.push('Generate font scans all Typegen boards and downloads one ZIP package.');
   }
 
   if (validCount === 0) {
     return {
       status: 'blocked',
-      headline: 'Export is blocked because no valid glyphs are ready.',
+      headline: 'Current preview scan has no valid glyphs.',
       details,
       validCount,
       emptyCount,
@@ -750,11 +800,11 @@ function createSmokeTestSampleText(): string {
   return firstGlyphs.length > 0 ? firstGlyphs.join(' ') : "ABC box @2+2";
 }
 
-function isGeneratedFontVerified(): boolean {
+function isGeneratedFontVerified(result = state.generatedFont): boolean {
   return Boolean(
-    state.generatedFont &&
-      state.generatedFont.verification.failedGlyphs.length === 0 &&
-      state.generatedFont.verification.verifiedGlyphs.length === state.generatedFont.glyphCount,
+    result &&
+      result.verification.failedGlyphs.length === 0 &&
+      result.verification.verifiedGlyphs.length === result.glyphCount,
   );
 }
 
@@ -878,6 +928,66 @@ function renderFontVerification(result: FontBuildResult): string {
   `;
 }
 
+function generateFontPackageFromBoards(boards: BoardScanResult[]): void {
+  try {
+    const items: FontPackageItem[] = [];
+    const seenStyles = new Set<FontPackageStyle>();
+    const skipped: string[] = [];
+
+    for (const board of boards) {
+      const style = board.activeBoard.style;
+      const validGlyphsForBoard = board.glyphs
+        .filter((glyph) => glyph.status === 'valid' && glyph.glyph)
+        .map((glyph) => glyph.glyph!);
+
+      if (validGlyphsForBoard.length === 0) {
+        skipped.push(`${board.activeBoard.name} has no valid glyphs`);
+        continue;
+      }
+
+      if (seenStyles.has(style)) {
+        skipped.push(`${board.activeBoard.name} duplicates ${style}; first ${style} board was packaged`);
+        continue;
+      }
+
+      const result = buildFont(
+        {
+          familyName: state.fontName,
+          glyphs: validGlyphsForBoard,
+          spacing: state.spacing,
+        },
+        {
+          styleName: style,
+        },
+      );
+
+      if (!isGeneratedFontVerified(result)) {
+        skipped.push(`${board.activeBoard.name} did not verify cleanly`);
+        continue;
+      }
+
+      items.push({ result, style });
+      seenStyles.add(style);
+      state.generatedFont = result;
+    }
+
+    if (items.length === 0) {
+      state.statusMessage = skipped.length
+        ? `No verified fonts were generated. ${skipped.join(' ')}.`
+        : 'No verified fonts were generated. Add valid glyphs to a Typegen board and try again.';
+      return;
+    }
+
+    downloadFontPackageZip(items, createSmokeTestSampleText());
+    const weights = items.map((item) => item.style).join(', ');
+    state.statusMessage = `Generated ZIP package for ${weights}. ${skipped.length ? `Skipped: ${skipped.join(' ')}` : ''}`.trim();
+  } catch (error) {
+    state.statusMessage = error instanceof Error ? error.message : 'Font package generation failed.';
+  } finally {
+    state.isGenerating = false;
+  }
+}
+
 function uniqueString(value: string, index: number, values: string[]): boolean {
   return values.indexOf(value) === index;
 }
@@ -981,6 +1091,7 @@ function resetLocalSettings(): void {
   state.previewText = "ABC box @2+2";
   state.glyphs = [];
   state.selectedGlyph = 'A';
+  state.activeBoard = null;
   state.lastScanNodeIds = [];
   state.statusMessage = 'Saved settings reset. Create a board or scan selected glyphs.';
   state.savedStatus = 'Reset requested.';

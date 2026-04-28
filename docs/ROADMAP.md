@@ -108,3 +108,78 @@ Manual V4.0 QA should confirm:
 - Partially edited boards keep existing artwork and only fill empty slots.
 - Inter-based lowercase starters respect ascender, x-height, baseline, and descender guides.
 - Generated punctuation and common symbols scan as valid filled vectors.
+
+## V4.1 Preview Presets
+
+V4.1 should make the full generated starter set easier to inspect after scanning.
+
+Scope:
+
+- Add preset buttons beside the preview text input.
+- Keep presets as editable text changes, not a separate preview engine.
+- Cover mixed text, headline text, lowercase word lists, paragraph-style samples, and numbers/symbols.
+- Reuse existing missing-glyph, unsupported-character, diagnostics, font generation, and smoke-test export behavior.
+
+Out of scope:
+
+- Multi-panel specimen layouts.
+- Font-size, line-height, and theme controls.
+- Kerning or OpenType feature previews.
+- Any export behavior changes.
+
+## V4.2 Starter Style Controls
+
+V4.2 should add a small amount of control to starter generation without changing scan, preview, or export.
+
+Scope:
+
+- Add a starter style selector for Inter Regular and Inter Bold.
+- Pass the selected style to board creation and starter generation.
+- Keep Regular and Bold starter boards separate.
+- Prefer the selected board or selected slot's parent board over the UI style when running board, starter, and scan actions.
+- Preserve existing artwork and fill empty slots only.
+- Fall back from Bold to Regular if the selected style cannot load.
+
+Out of scope:
+
+- Importing arbitrary user font files.
+- Multiple font families.
+- Replacing existing starter artwork automatically.
+- Weight interpolation, variable fonts, or generated style axes.
+
+## V4.3 Board / Weight Clarity
+
+V4.3 should reduce confusion once multiple boards can coexist.
+
+Scope:
+
+- Show the active board and weight in the plugin UI.
+- Return active board metadata from board creation, starter generation, and scanning.
+- Keep the starter style selector synced to the active board weight after context-aware actions.
+- Make action messages clearer about the board being used.
+
+Out of scope:
+
+- Multi-board comparison UI.
+- Bulk generation across all weights.
+- Board-specific persisted settings.
+- Exporting multiple font files at once.
+
+## V5.0 Export Package Polish
+
+V5.0 starts with small export usability improvements, not new font formats.
+
+Scope:
+
+- Keep OTF as the only font binary format.
+- Keep one output action: `Generate font`.
+- Have `Generate font` scan every Typegen glyph board on the page.
+- Download a ZIP containing OTF files for every valid generated board weight.
+- Include a single `index.html` test page in the ZIP with inline `@font-face` CSS and one row per generated weight.
+
+Out of scope until separately scoped:
+
+- WOFF and WOFF2 export.
+- Separate single-font export buttons.
+- Automatically creating missing board weights.
+- Production specimen pages.

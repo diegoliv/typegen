@@ -1,5 +1,65 @@
 # Release Notes
 
+## 5.0.0-alpha.1
+
+Typegen V5.0 alpha export package polish.
+
+### Added
+
+- Collapsed output to one `Generate font` button.
+- `Generate font` scans every Typegen glyph board on the page and downloads one ZIP package.
+- The ZIP contains OTF files for each valid generated board weight plus a single `index.html` weight test page.
+- The ZIP test page includes inline `@font-face` CSS and one specimen row per generated weight.
+- The package uses sanitized filenames such as `fonts/Typegen-Demo-Regular.otf` and `fonts/Typegen-Demo-Bold.otf`.
+
+### Fixed
+
+- Normalized exported OpenType contour winding so same-direction Figma/Inter compound contours render counters and overlaps more reliably in browsers.
+- Made `.notdef` empty so missing glyph fallback does not draw Typegen box/cross fragments in the HTML specimen.
+- Kept newly generated starter outlines Inter-based, then force boolean-merged and flattened each glyph so overlapping Inter shapes, such as the `f` stem and crossbar, do not export as holes.
+- Re-running starter generation now replaces Typegen-owned starter outlines while preserving user artwork, so older even-odd starter boards can be cleaned in place.
+
+### Still Out Of Scope
+
+- WOFF and WOFF2 export.
+- Automatically generating unscanned or unverified weights.
+- Compressed or nested production packages.
+
+## 4.3.0-alpha.1
+
+Typegen V4.3 alpha active board clarity.
+
+### Added
+
+- Added an active board indicator in the UI showing the board name and Inter weight currently used by board/generate/scan actions.
+- Board creation, starter generation, and scanning responses now carry active board metadata.
+- Scan notifications mention the active board when available.
+- The starter style selector syncs to the active board weight after board, generate, or scan actions.
+
+## 4.2.0-alpha.1
+
+Typegen V4.2 alpha starter style controls.
+
+### Added
+
+- Added a starter style selector for Inter Regular and Inter Bold.
+- `Generate starter glyphs` now uses the selected Inter style when flattening starter outlines.
+- `Create/update glyph board` is now style-aware, so Regular and Bold use separate boards.
+- Board actions now prefer the selected board or selected slot's parent board before falling back to the style control.
+- `Scan selected glyphs` can fall back to the last board Typegen created or generated into when the canvas selection is empty.
+- If Inter Bold is unavailable, starter generation falls back to Inter Regular before using the geometric fallback.
+- Kept starter generation artwork-safe: existing non-helper artwork is still preserved.
+
+## 4.1.0-alpha.1
+
+Typegen V4.1 alpha preview presets.
+
+### Added
+
+- Added preview preset buttons for mixed text, headline text, lowercase word lists, paragraph-style samples, and number/symbol samples.
+- Presets update the editable preview text field, so users can start from a sample and then refine the string manually.
+- Presets reuse the existing preview, diagnostics, generated-font, and smoke-test export workflow.
+
 ## 4.0.0-alpha.1
 
 Typegen V4.0 alpha Inter-based starter glyph generation.
