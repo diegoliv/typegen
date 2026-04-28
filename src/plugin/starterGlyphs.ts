@@ -60,6 +60,7 @@ export async function generateStarterGlyphs(style: StarterGlyphStyle = "Regular"
       continue;
     }
 
+    removeTypegenStarterArtwork(slot);
     addStarterGlyphToSlot(slot, char as GlyphChar, starterFont, warnings);
     filledSlots++;
   }
@@ -112,7 +113,19 @@ function collectSlotsByChar(board: FrameNode): Map<string, SceneNode> {
 }
 
 function hasUserArtwork(slot: FrameNode): boolean {
-  return slot.children.some((child) => child.getPluginData(TYPEGEN_ROLE_KEY) !== TYPEGEN_ROLE_HELPER);
+  return slot.children.some((child) => child.getPluginData(TYPEGEN_ROLE_KEY) !== TYPEGEN_ROLE_HELPER && !isTypegenStarterArtwork(child));
+}
+
+function isTypegenStarterArtwork(node: SceneNode): boolean {
+  return node.name.startsWith("tg-starter-");
+}
+
+function removeTypegenStarterArtwork(slot: FrameNode): void {
+  for (const child of [...slot.children]) {
+    if (isTypegenStarterArtwork(child)) {
+      child.remove();
+    }
+  }
 }
 
 function addStarterGlyphToSlot(slot: FrameNode, char: GlyphChar, starterFont: FontName | null, warnings: string[]): void {
@@ -121,16 +134,20 @@ function addStarterGlyphToSlot(slot: FrameNode, char: GlyphChar, starterFont: Fo
       createInterStarterOutline(slot, char, starterFont);
       return;
     } catch {
-      warnings.push(`${glyphNameForChar(char)} could not be generated from Inter. Used geometric fallback for that slot.`);
+      warnings.push(`${glyphNameForChar(char)} could not be generated, merged, and flattened from Inter. Used geometric fallback for that slot.`);
     }
   }
 
   const vector = createStarterVector(char);
+  vector.name = `tg-starter-geometric-${starterFont?.style.toLowerCase() ?? "fallback"}-${safeNodeName(glyphLabelForChar(char))}`;
   slot.appendChild(vector);
 }
 
 function createInterStarterOutline(slot: FrameNode, char: GlyphChar, starterFont: FontName): void {
   const text = figma.createText();
+  let flattened: VectorNode | null = null;
+  let finalVector: VectorNode | null = null;
+
   try {
     text.name = `tg-inter-source-${safeNodeName(glyphLabelForChar(char))}`;
     text.fontName = starterFont;
@@ -143,14 +160,76 @@ function createInterStarterOutline(slot: FrameNode, char: GlyphChar, starterFont
     text.y = 0;
     slot.appendChild(text);
 
-    const vector = figma.flatten([text], slot);
-    vector.name = `tg-starter-inter-${starterFont.style.toLowerCase()}-${safeNodeName(glyphLabelForChar(char))}`;
-    vector.fills = [FILL];
-    vector.strokes = [];
-    fitStarterVectorToSlot(vector, char);
+    flattened = figma.flatten([text], slot);
+    flattened.name = `tg-starter-inter-raw-${starterFont.style.toLowerCase()}-${safeNodeName(glyphLabelForChar(char))}`;
+    flattened.fills = [FILL];
+    flattened.strokes = [];
+
+    finalVector = booleanMergeAndFlattenStarter(flattened, slot);
+    finalVector.name = `tg-starter-inter-${starterFont.style.toLowerCase()}-${safeNodeName(glyphLabelForChar(char))}`;
+    finalVector.fills = [FILL];
+    finalVector.strokes = [];
+    fitStarterVectorToSlot(finalVector, char);
   } catch (error) {
+    if (finalVector?.parent) {
+      finalVector.remove();
+    }
+    if (flattened?.parent) {
+      flattened.remove();
+    }
     if (text.parent) {
       text.remove();
+    }
+    throw error;
+  }
+}
+
+function booleanMergeAndFlattenStarter(vector: VectorNode, slot: FrameNode): VectorNode {
+  const vectorPaths = [...vector.vectorPaths];
+  if (vectorPaths.length === 0) {
+    return vector;
+  }
+
+  if (vectorPaths.length === 1) {
+    try {
+      const union = figma.union([vector], slot);
+      return figma.flatten([union], slot);
+    } catch {
+      if (vector.parent) {
+        return figma.flatten([vector], slot);
+      }
+      throw new Error("Inter starter outline could not be boolean-merged.");
+    }
+  }
+
+  const parts: VectorNode[] = [];
+  let union: BooleanOperationNode | null = null;
+
+  try {
+    for (const [index, path] of vectorPaths.entries()) {
+      const part = figma.createVector();
+      part.name = `${vector.name}-part-${index + 1}`;
+      part.vectorPaths = [{ windingRule: path.windingRule, data: path.data }];
+      part.fills = [FILL];
+      part.strokes = [];
+      part.x = vector.x;
+      part.y = vector.y;
+      slot.appendChild(part);
+      parts.push(part);
+    }
+
+    vector.remove();
+
+    union = figma.union(parts, slot);
+    return figma.flatten([union], slot);
+  } catch (error) {
+    for (const part of parts) {
+      if (part.parent) {
+        part.remove();
+      }
+    }
+    if (union?.parent) {
+      union.remove();
     }
     throw error;
   }

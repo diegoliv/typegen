@@ -164,3 +164,22 @@ Out of scope:
 - Bulk generation across all weights.
 - Board-specific persisted settings.
 - Exporting multiple font files at once.
+
+## V5.0 Export Package Polish
+
+V5.0 starts with small export usability improvements, not new font formats.
+
+Scope:
+
+- Keep OTF as the only font binary format.
+- Keep one output action: `Generate font`.
+- Have `Generate font` scan every Typegen glyph board on the page.
+- Download a ZIP containing OTF files for every valid generated board weight.
+- Include a single `index.html` test page in the ZIP with inline `@font-face` CSS and one row per generated weight.
+
+Out of scope until separately scoped:
+
+- WOFF and WOFF2 export.
+- Separate single-font export buttons.
+- Automatically creating missing board weights.
+- Production specimen pages.

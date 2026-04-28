@@ -119,6 +119,7 @@ input {
 }
 
 input:focus,
+textarea:focus,
 select:focus {
   outline: 2px solid #7aa98e;
   outline-offset: 1px;

@@ -10,6 +10,7 @@ export type UiToPluginMessage =
   | { type: 'CREATE_GLYPH_BOARD'; style?: 'Regular' | 'Bold' }
   | { type: 'GENERATE_STARTER_GLYPHS'; style?: 'Regular' | 'Bold' }
   | { type: 'SCAN_SELECTED_GLYPHS' }
+  | { type: 'SCAN_ALL_GLYPH_BOARDS' }
   | { type: 'RESTORE_SAVED_SCAN'; nodeIds: string[] }
   | { type: 'SAVE_SETTINGS'; settings: PersistedTypegenSettings }
   | { type: 'RESET_SETTINGS' };
@@ -44,9 +45,19 @@ export type PluginToUiMessage =
       activeBoard?: ActiveBoardInfo;
     }
   | {
+      type: 'ALL_GLYPH_BOARDS_SCANNED';
+      boards: BoardScanResult[];
+    }
+  | {
       type: 'VALIDATION_ERROR';
       message: string;
     };
+
+export type BoardScanResult = {
+  activeBoard: ActiveBoardInfo;
+  glyphs: GlyphScanResult[];
+  summary: ScanSummary;
+};
 
 export function postToPlugin(message: UiToPluginMessage) {
   parent.postMessage({ pluginMessage: message }, '*');

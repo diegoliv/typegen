@@ -14,8 +14,14 @@ import {
 } from "../src/font/glyphModel";
 import {
   createFontDownloadName,
+  createCssDownloadName,
+  createFontFaceCss,
+  createFontPackageHtml,
+  createFontPackageZip,
+  createPackageDownloadName,
   createSmokeTestDownloadName,
   createSmokeTestHtml,
+  createWeightedFontDownloadName,
 } from "../src/font/exportFont";
 import { glyphCharFromName, isSupportedGlyphName, unicodeForChar } from "../src/plugin/pluginTypes";
 import { fitPathsToAdvance, normalizePathsForSlotMetrics } from "../src/plugin/extractPaths";
@@ -82,6 +88,23 @@ const glyphO: GlyphModel = {
   warnings: [],
 };
 
+const glyphOSameDirectionCounter: GlyphModel = {
+  ...glyphO,
+  paths: [
+    glyphO.paths[0],
+    {
+      commands: [
+        { type: "M", x: 220, y: 180 },
+        { type: "L", x: 540, y: 180 },
+        { type: "L", x: 540, y: 520 },
+        { type: "L", x: 220, y: 520 },
+        { type: "Z" },
+      ],
+      windingRule: "EVENODD",
+    },
+  ],
+};
+
 const glyphP: GlyphModel = {
   char: "P",
   unicode: 80,
@@ -116,6 +139,42 @@ const glyphP: GlyphModel = {
         { type: "Z" },
       ],
       windingRule: "NONZERO",
+    },
+  ],
+  warnings: [],
+};
+
+const glyphFOverlappingShapes: GlyphModel = {
+  char: "f",
+  unicode: 102,
+  name: "glyph-f",
+  advanceWidth: 420,
+  bounds: {
+    xMin: 120,
+    yMin: 0,
+    xMax: 380,
+    yMax: 700,
+  },
+  paths: [
+    {
+      commands: [
+        { type: "M", x: 190, y: 0 },
+        { type: "L", x: 260, y: 0 },
+        { type: "L", x: 260, y: 700 },
+        { type: "L", x: 190, y: 700 },
+        { type: "Z" },
+      ],
+      windingRule: "EVENODD",
+    },
+    {
+      commands: [
+        { type: "M", x: 120, y: 360 },
+        { type: "L", x: 380, y: 360 },
+        { type: "L", x: 380, y: 430 },
+        { type: "L", x: 120, y: 430 },
+        { type: "Z" },
+      ],
+      windingRule: "EVENODD",
     },
   ],
   warnings: [],
@@ -473,7 +532,11 @@ assert.ok(
 );
 
 assert.equal(createFontDownloadName(" Typegen Demo! "), "Typegen-Demo.otf");
+assert.equal(createCssDownloadName(" Typegen Demo! "), "Typegen-Demo.css");
 assert.equal(createSmokeTestDownloadName(" Typegen Demo! "), "Typegen-Demo-smoke-test.html");
+assert.equal(createPackageDownloadName(" Typegen Demo! "), "Typegen-Demo-web-test.zip");
+assert.equal(createWeightedFontDownloadName(" Typegen Demo! ", "Regular"), "Typegen-Demo-Regular.otf");
+assert.equal(createWeightedFontDownloadName(" Typegen Demo! ", "Bold"), "Typegen-Demo-Bold.otf");
 
 const font = buildFont({
   familyName: "Typegen Regression",
@@ -489,11 +552,32 @@ assert.equal(font.verification.failedGlyphs.length, 0, "single glyph font should
 assert.equal(font.verification.verifiedGlyphs.length, 1, "single glyph font should verify one glyph");
 assert.ok(font.verification.parsedGlyphCount >= 3, "single glyph font should include notdef, space, and A");
 assertRoundTripGlyph(font.arrayBuffer, "A", 700, "single glyph font should preserve A");
+assert.equal(
+  opentype.parse(font.arrayBuffer).glyphs.get(0).path.commands.length,
+  0,
+  "notdef should stay empty so browser fallback does not show Typegen artifacts",
+);
 
 const smokeHtml = createSmokeTestHtml(font, "A Z");
 assert.ok(smokeHtml.includes("Typegen Regression smoke test"), "smoke HTML should include family name");
 assert.ok(smokeHtml.includes("data:font/otf;base64,"), "smoke HTML should embed the generated OTF");
+assert.ok(smokeHtml.includes("font-display: swap"), "smoke HTML should include practical font loading CSS");
 assert.ok(smokeHtml.includes("A Z"), "smoke HTML should include sample text");
+const fontFaceCss = createFontFaceCss(font);
+assert.ok(fontFaceCss.includes('@font-face'), "CSS helper should include @font-face");
+assert.ok(fontFaceCss.includes('font-family: "Typegen Regression"'), "CSS helper should include the generated family name");
+assert.ok(fontFaceCss.includes('url("./Typegen-Regression.otf")'), "CSS helper should reference the exported OTF filename");
+assert.ok(fontFaceCss.includes('font-display: swap'), "CSS helper should include font-display");
+const packageHtml = createFontPackageHtml([
+  { result: font, style: "Regular" },
+], "A Z");
+assert.ok(packageHtml.includes("Typegen Regression weight test"), "package HTML should identify the weight test");
+assert.ok(packageHtml.includes('url("./fonts/Typegen-Regression-Regular.otf")'), "package HTML should reference the Regular OTF");
+assert.ok(packageHtml.includes("font-weight: 400"), "package HTML should map Regular to weight 400");
+assert.ok(packageHtml.includes("A Z"), "package HTML should include sample text");
+const packageZip = createFontPackageZip([{ result: font, style: "Regular" }], "A Z");
+assert.equal(packageZip.type, "application/zip", "package ZIP should use the zip MIME type");
+assert.ok(packageZip.size > font.arrayBuffer.byteLength, "package ZIP should include font and HTML bytes");
 
 const counterFont = buildFont({
   familyName: "Typegen Counter Regression",
@@ -510,6 +594,30 @@ assertRoundTripGlyph(counterFont.arrayBuffer, "P", 720, "counter fixture should 
 assert.ok(
   createSmokeTestHtml(counterFont, "OP POP").includes("OP POP"),
   "counter smoke HTML should preserve counter sample text",
+);
+
+const sameDirectionCounterFont = buildFont({
+  familyName: "Typegen Same Direction Counter Regression",
+  glyphs: [glyphOSameDirectionCounter],
+  spacing: DEFAULT_SPACING,
+});
+const sameDirectionContourAreas = collectParsedGlyphContourAreas(sameDirectionCounterFont.arrayBuffer, "O");
+assert.equal(sameDirectionContourAreas.length, 2, "same-direction counter fixture should keep two contours");
+assert.ok(
+  sameDirectionContourAreas[0] > 0 && sameDirectionContourAreas[1] < 0,
+  "same-direction counter fixture should be rewritten with opposite contour directions",
+);
+
+const overlappingShapeFont = buildFont({
+  familyName: "Typegen Overlap Regression",
+  glyphs: [glyphFOverlappingShapes],
+  spacing: DEFAULT_SPACING,
+});
+const overlappingContourAreas = collectParsedGlyphContourAreas(overlappingShapeFont.arrayBuffer, "f");
+assert.equal(overlappingContourAreas.length, 2, "overlapping construction fixture should keep two contours");
+assert.ok(
+  overlappingContourAreas.every((area) => area > 0),
+  "overlapping construction contours should not be rewritten as counters",
 );
 
 const numericFont = buildFont({
@@ -555,7 +663,7 @@ assert.equal(lowercasePilotFont.glyphCount, 2, "lowercase pilot fixture should i
 assert.equal(lowercasePilotFont.verification.failedGlyphs.length, 0, "lowercase pilot fixture should verify cleanly");
 assertRoundTripGlyph(lowercasePilotFont.arrayBuffer, "a", 700, "lowercase pilot fixture should preserve a");
 
-console.log("V4.3 active board regression baseline passed.");
+console.log("V5.0 export package regression baseline passed.");
 
 function makeRectGlyph(
   char: string,
@@ -606,4 +714,41 @@ function assertRoundTripGlyph(
   assert.equal(glyph.unicode, char.charCodeAt(0), `${message}: unicode should survive font parse`);
   assert.equal(glyph.advanceWidth, expectedAdvanceWidth, `${message}: advance width should survive font parse`);
   assert.ok(glyph.path.commands.length > 0, `${message}: outline commands should survive font parse`);
+}
+
+function collectParsedGlyphContourAreas(buffer: ArrayBuffer, char: string): number[] {
+  const parsed = opentype.parse(buffer);
+  const glyph = parsed.charToGlyph(char);
+  const contours: { x: number; y: number }[][] = [];
+  let current: { x: number; y: number }[] = [];
+
+  for (const command of glyph.path.commands) {
+    if (command.type === "M") {
+      if (current.length > 0) {
+        contours.push(current);
+      }
+      current = [{ x: command.x, y: command.y }];
+    } else if (command.type === "L" || command.type === "Q" || command.type === "C") {
+      current.push({ x: command.x, y: command.y });
+    } else if (command.type === "Z") {
+      if (current.length > 0) {
+        contours.push(current);
+      }
+      current = [];
+    }
+  }
+
+  if (current.length > 0) {
+    contours.push(current);
+  }
+
+  return contours.map((contour) => {
+    let area = 0;
+    for (let index = 0; index < contour.length; index++) {
+      const currentPoint = contour[index];
+      const nextPoint = contour[(index + 1) % contour.length];
+      area += currentPoint.x * nextPoint.y - nextPoint.x * currentPoint.y;
+    }
+    return area / 2;
+  });
 }

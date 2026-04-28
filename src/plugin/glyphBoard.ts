@@ -104,6 +104,10 @@ function findExistingBoard(style: GlyphBoardStyle): FrameNode | null {
   return figma.currentPage.findOne((node) => isGlyphBoardFrameForStyle(node, style)) as FrameNode | null;
 }
 
+export function findAllGlyphBoards(): FrameNode[] {
+  return figma.currentPage.findAll((node) => isGlyphBoardFrame(node)) as FrameNode[];
+}
+
 export function findSelectedGlyphBoard(): FrameNode | null {
   for (const node of figma.currentPage.selection) {
     const board = findGlyphBoardAncestor(node);

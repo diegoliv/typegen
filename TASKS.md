@@ -1,5 +1,47 @@
 # Typegen MVP Implementation Plan
 
+## 52. V5.0 Export Package Polish
+
+Goal: make exported fonts easier to use outside Figma without expanding beyond one static OTF format.
+
+Completed:
+
+- Added package HTML `@font-face` generation from verified font results.
+- Updated the plugin UI label to `Typegen V5.0 alpha`.
+- Collapsed output to one `Generate font` button.
+- Added a plugin-side `SCAN_ALL_GLYPH_BOARDS` flow so `Generate font` scans every Typegen board on the page.
+- Updated `Generate font` to immediately package all valid verified board weights into a ZIP.
+- Added ZIP contents: `fonts/*-Regular.otf`, `fonts/*-Bold.otf` when available, and `index.html`.
+- Added inline `@font-face` CSS in the ZIP HTML, with one specimen row per generated weight.
+- Fixed exported OpenType contour winding so same-direction Figma/Inter compound contours are rewritten with opposite counter directions.
+- Made `.notdef` empty so missing glyph fallback does not draw Typegen box/cross fragments in the ZIP HTML.
+- Kept newly generated starter vectors Inter-based, then boolean-merged and flattened each glyph to avoid even-odd overlap holes in Figma/exported fonts.
+- Re-running starter generation now replaces Typegen-owned starter outlines while preserving user artwork.
+- Tightened contour containment detection so overlapping construction contours, such as an `f` stem and crossbar, do not export as counters.
+- Updated regression coverage for CSS filename/snippet generation, weighted filenames, package HTML, ZIP creation, and HTML font loading CSS.
+- Updated regression coverage for same-direction counter contour export.
+- Updated regression coverage for empty `.notdef` export.
+- Updated regression coverage for overlapping construction contours.
+- Updated README, release notes, roadmap, QA docs, smoke-test docs, package metadata, and rebuilt `dist/`.
+
+Out of scope:
+
+- WOFF and WOFF2 export.
+- Separate OTF/CSS/HTML export buttons.
+- Automatically creating missing board weights.
+- Production specimen pages.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run build` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Manual QA target:
+
+- Generate Regular and Bold starter boards, click `Generate font`, confirm the ZIP contains OTF files for both weights plus `index.html`, and confirm the HTML shows one row per weight in a browser.
+
 ## 51. V4.3 Board / Weight Clarity
 
 Goal: make multi-board Regular/Bold workflows visible and less confusing.

@@ -248,6 +248,9 @@
   function findExistingBoard(style) {
     return figma.currentPage.findOne((node) => isGlyphBoardFrameForStyle(node, style));
   }
+  function findAllGlyphBoards() {
+    return figma.currentPage.findAll((node) => isGlyphBoardFrame(node));
+  }
   function findSelectedGlyphBoard() {
     for (const node of figma.currentPage.selection) {
       const board = findGlyphBoardAncestor(node);
@@ -967,6 +970,7 @@
         skippedSlots++;
         continue;
       }
+      removeTypegenStarterArtwork(slot);
       addStarterGlyphToSlot(slot, char, starterFont, warnings);
       filledSlots++;
     }
@@ -1011,22 +1015,36 @@
     return slots;
   }
   function hasUserArtwork(slot) {
-    return slot.children.some((child) => child.getPluginData(TYPEGEN_ROLE_KEY) !== TYPEGEN_ROLE_HELPER);
+    return slot.children.some((child) => child.getPluginData(TYPEGEN_ROLE_KEY) !== TYPEGEN_ROLE_HELPER && !isTypegenStarterArtwork(child));
+  }
+  function isTypegenStarterArtwork(node) {
+    return node.name.startsWith("tg-starter-");
+  }
+  function removeTypegenStarterArtwork(slot) {
+    for (const child of [...slot.children]) {
+      if (isTypegenStarterArtwork(child)) {
+        child.remove();
+      }
+    }
   }
   function addStarterGlyphToSlot(slot, char, starterFont, warnings) {
+    var _a;
     if (starterFont) {
       try {
         createInterStarterOutline(slot, char, starterFont);
         return;
       } catch (e) {
-        warnings.push(`${glyphNameForChar2(char)} could not be generated from Inter. Used geometric fallback for that slot.`);
+        warnings.push(`${glyphNameForChar2(char)} could not be generated, merged, and flattened from Inter. Used geometric fallback for that slot.`);
       }
     }
     const vector = createStarterVector(char);
+    vector.name = `tg-starter-geometric-${(_a = starterFont == null ? void 0 : starterFont.style.toLowerCase()) != null ? _a : "fallback"}-${safeNodeName(glyphLabelForChar(char))}`;
     slot.appendChild(vector);
   }
   function createInterStarterOutline(slot, char, starterFont) {
     const text = figma.createText();
+    let flattened = null;
+    let finalVector = null;
     try {
       text.name = `tg-inter-source-${safeNodeName(glyphLabelForChar(char))}`;
       text.fontName = starterFont;
@@ -1038,14 +1056,69 @@
       text.x = 0;
       text.y = 0;
       slot.appendChild(text);
-      const vector = figma.flatten([text], slot);
-      vector.name = `tg-starter-inter-${starterFont.style.toLowerCase()}-${safeNodeName(glyphLabelForChar(char))}`;
-      vector.fills = [FILL];
-      vector.strokes = [];
-      fitStarterVectorToSlot(vector, char);
+      flattened = figma.flatten([text], slot);
+      flattened.name = `tg-starter-inter-raw-${starterFont.style.toLowerCase()}-${safeNodeName(glyphLabelForChar(char))}`;
+      flattened.fills = [FILL];
+      flattened.strokes = [];
+      finalVector = booleanMergeAndFlattenStarter(flattened, slot);
+      finalVector.name = `tg-starter-inter-${starterFont.style.toLowerCase()}-${safeNodeName(glyphLabelForChar(char))}`;
+      finalVector.fills = [FILL];
+      finalVector.strokes = [];
+      fitStarterVectorToSlot(finalVector, char);
     } catch (error) {
+      if (finalVector == null ? void 0 : finalVector.parent) {
+        finalVector.remove();
+      }
+      if (flattened == null ? void 0 : flattened.parent) {
+        flattened.remove();
+      }
       if (text.parent) {
         text.remove();
+      }
+      throw error;
+    }
+  }
+  function booleanMergeAndFlattenStarter(vector, slot) {
+    const vectorPaths = [...vector.vectorPaths];
+    if (vectorPaths.length === 0) {
+      return vector;
+    }
+    if (vectorPaths.length === 1) {
+      try {
+        const union2 = figma.union([vector], slot);
+        return figma.flatten([union2], slot);
+      } catch (e) {
+        if (vector.parent) {
+          return figma.flatten([vector], slot);
+        }
+        throw new Error("Inter starter outline could not be boolean-merged.");
+      }
+    }
+    const parts = [];
+    let union = null;
+    try {
+      for (const [index, path] of vectorPaths.entries()) {
+        const part = figma.createVector();
+        part.name = `${vector.name}-part-${index + 1}`;
+        part.vectorPaths = [{ windingRule: path.windingRule, data: path.data }];
+        part.fills = [FILL];
+        part.strokes = [];
+        part.x = vector.x;
+        part.y = vector.y;
+        slot.appendChild(part);
+        parts.push(part);
+      }
+      vector.remove();
+      union = figma.union(parts, slot);
+      return figma.flatten([union], slot);
+    } catch (error) {
+      for (const part of parts) {
+        if (part.parent) {
+          part.remove();
+        }
+      }
+      if (union == null ? void 0 : union.parent) {
+        union.remove();
       }
       throw error;
     }
@@ -1460,6 +1533,29 @@
           activeBoard: activeBoard ? createActiveBoardInfo(activeBoard) : void 0
         });
         figma.notify(`Scanned glyphs: ${result.summary.valid} valid, ${result.summary.empty} empty${activeBoard ? ` from ${activeBoard.name}` : ""}.`);
+        return;
+      }
+      if (message.type === "SCAN_ALL_GLYPH_BOARDS") {
+        const boards = findAllGlyphBoards();
+        if (boards.length === 0) {
+          postToUi({
+            type: "VALIDATION_ERROR",
+            message: "No Typegen glyph boards found. Create Regular and Bold boards before generating the font package."
+          });
+          return;
+        }
+        postToUi({
+          type: "ALL_GLYPH_BOARDS_SCANNED",
+          boards: boards.map((board) => {
+            const result = scanSelectedGlyphs([board]);
+            return {
+              activeBoard: createActiveBoardInfo(board),
+              glyphs: result.glyphs,
+              summary: result.summary
+            };
+          })
+        });
+        figma.notify(`Scanned ${boards.length} Typegen glyph board${boards.length === 1 ? "" : "s"} for font package export.`);
         return;
       }
       postToUi({ type: "VALIDATION_ERROR", message: "Unknown Typegen action." });

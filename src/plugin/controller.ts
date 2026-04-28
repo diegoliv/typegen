@@ -1,4 +1,4 @@
-import { createGlyphBoard, findSelectedGlyphBoard, getGlyphBoardStyle } from "./glyphBoard";
+import { createGlyphBoard, findAllGlyphBoards, findSelectedGlyphBoard, getGlyphBoardStyle } from "./glyphBoard";
 import { scanSelectedGlyphs } from "./figmaNodes";
 import { generateStarterGlyphs } from "./starterGlyphs";
 import { ActiveBoardInfo, PersistedTypegenSettings, PluginToUiMessage, UiToPluginMessage } from "./pluginTypes";
@@ -88,6 +88,31 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
       });
 
       figma.notify(`Scanned glyphs: ${result.summary.valid} valid, ${result.summary.empty} empty${activeBoard ? ` from ${activeBoard.name}` : ""}.`);
+      return;
+    }
+
+    if (message.type === "SCAN_ALL_GLYPH_BOARDS") {
+      const boards = findAllGlyphBoards();
+      if (boards.length === 0) {
+        postToUi({
+          type: "VALIDATION_ERROR",
+          message: "No Typegen glyph boards found. Create Regular and Bold boards before generating the font package.",
+        });
+        return;
+      }
+
+      postToUi({
+        type: "ALL_GLYPH_BOARDS_SCANNED",
+        boards: boards.map((board) => {
+          const result = scanSelectedGlyphs([board]);
+          return {
+            activeBoard: createActiveBoardInfo(board),
+            glyphs: result.glyphs,
+            summary: result.summary,
+          };
+        }),
+      });
+      figma.notify(`Scanned ${boards.length} Typegen glyph board${boards.length === 1 ? "" : "s"} for font package export.`);
       return;
     }
 
