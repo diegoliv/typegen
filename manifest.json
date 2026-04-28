@@ -1,0 +1,9 @@
+{
+  "name": "Typegen",
+  "id": "typegen-mvp",
+  "api": "1.0.0",
+  "main": "dist/controller.js",
+  "ui": "dist/index.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page"
+}
