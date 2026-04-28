@@ -180,7 +180,7 @@ export function createPreviewStatus(layout: PreviewLayout): string {
   }
 
   if (layout.unsupportedChars.length > 0) {
-    return "Preview contains unsupported characters. Use A-Z, 0-9, supported punctuation, and spaces.";
+    return "Preview contains unsupported characters. Use A-Z, a-z, 0-9, supported punctuation, common symbols, and spaces.";
   }
 
   if (layout.missingChars.length > 0) {

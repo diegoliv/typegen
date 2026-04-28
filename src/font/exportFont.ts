@@ -27,7 +27,7 @@ export function downloadFont(result: FontBuildResult): void {
 
 export function createSmokeTestHtml(
   result: FontBuildResult,
-  sampleText = "ABC 123!",
+  sampleText = "ABC box @2+2",
 ): string {
   const fontData = arrayBufferToBase64(result.arrayBuffer);
   const familyName = escapeHtml(result.familyName);

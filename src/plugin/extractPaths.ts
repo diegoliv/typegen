@@ -1,5 +1,11 @@
 import { GlyphCommand, GlyphModel, NormalizedPath, glyphNameForChar } from "./pluginTypes";
-import { defaultAdvanceForChar, type GlyphChar } from "../shared/types";
+import {
+  UPPERCASE_GUIDE_PROFILE,
+  defaultAdvanceForChar,
+  guideProfileForChar,
+  type GlyphChar,
+  type SlotGuideProfile,
+} from "../shared/types";
 
 type ExtractionIssue = {
   level: "warning" | "error";
@@ -20,12 +26,6 @@ const FONT_UNITS = 1000;
 const CAP_HEIGHT = 700;
 const SLOT_BOUNDS_TOLERANCE = 1;
 const TINY_GLYPH_SIZE = 8;
-const SLOT_WIDTH = 160;
-const SLOT_HEIGHT = 200;
-const SLOT_LEFT_BOUNDARY = 24;
-const SLOT_RIGHT_BOUNDARY = 136;
-const SLOT_CAP_HEIGHT_Y = 48;
-const SLOT_BASELINE_Y = 162;
 const FONT_LEFT_BEARING = 40;
 const FONT_DESIGN_WIDTH = 720;
 
@@ -75,8 +75,9 @@ export function extractGlyphFromNode(node: SceneNode, char: string): ExtractedGl
   const slotBounds = "children" in node ? boundsForNode(node) : null;
   issues.push(...validateRawGeometry(char, glyphName, rawBounds, slotBounds));
 
+  const guideProfile = guideProfileForChar(char as GlyphChar);
   const normalized = slotBounds
-    ? normalizePathsForSlotMetrics(rawPaths, slotBounds)
+    ? normalizePathsForSlotMetrics(rawPaths, slotBounds, guideProfile)
     : normalizePaths(rawPaths, rawBounds);
   const advanceWidth = resolveExtractedAdvanceWidth(char, normalized.bounds);
   const fitted = shouldFitGlyphToAdvance(char)
@@ -386,19 +387,20 @@ function normalizePaths(
 export function normalizePathsForSlotMetrics(
   paths: NormalizedPath[],
   slotBounds: Bounds,
+  guideProfile: SlotGuideProfile = UPPERCASE_GUIDE_PROFILE,
 ): { paths: NormalizedPath[]; bounds: GlyphModel["bounds"] } {
   const slotWidth = Math.max(1, slotBounds.xMax - slotBounds.xMin);
   const slotHeight = Math.max(1, slotBounds.yMax - slotBounds.yMin);
-  const designLeft = slotBounds.xMin + slotWidth * (SLOT_LEFT_BOUNDARY / SLOT_WIDTH);
-  const designWidth = slotWidth * ((SLOT_RIGHT_BOUNDARY - SLOT_LEFT_BOUNDARY) / SLOT_WIDTH);
-  const capY = slotBounds.yMin + slotHeight * (SLOT_CAP_HEIGHT_Y / SLOT_HEIGHT);
-  const baselineY = slotBounds.yMin + slotHeight * (SLOT_BASELINE_Y / SLOT_HEIGHT);
-  const designHeight = Math.max(1, baselineY - capY);
+  const designLeft = slotBounds.xMin + slotWidth * (guideProfile.leftBoundaryX / guideProfile.slotWidth);
+  const designWidth = slotWidth * ((guideProfile.rightBoundaryX - guideProfile.leftBoundaryX) / guideProfile.slotWidth);
+  const ascenderY = slotBounds.yMin + slotHeight * (guideProfile.ascenderY / guideProfile.slotHeight);
+  const baselineY = slotBounds.yMin + slotHeight * (guideProfile.baselineY / guideProfile.slotHeight);
+  const designHeight = Math.max(1, baselineY - ascenderY);
 
   const normalizedPaths = paths.map((path) => ({
     windingRule: path.windingRule,
     commands: path.commands.map((command) =>
-      normalizeCommandToSlotMetrics(command, designLeft, designWidth, baselineY, designHeight),
+      normalizeCommandToSlotMetrics(command, designLeft, designWidth, baselineY, designHeight, guideProfile.ascenderUnits),
     ),
   }));
 
@@ -480,10 +482,11 @@ function normalizeCommandToSlotMetrics(
   designWidth: number,
   baselineY: number,
   designHeight: number,
+  ascenderUnits: number,
 ): GlyphCommand {
   const mapPoint = (point: Point): Point => ({
     x: Math.round(((point.x - designLeft) / designWidth) * FONT_DESIGN_WIDTH + FONT_LEFT_BEARING),
-    y: Math.round(((baselineY - point.y) / designHeight) * CAP_HEIGHT),
+    y: Math.round(((baselineY - point.y) / designHeight) * ascenderUnits),
   });
 
   if (command.type === "M" || command.type === "L") {

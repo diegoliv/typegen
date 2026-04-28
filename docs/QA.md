@@ -1,22 +1,22 @@
-# Typegen V2 QA Checklist
+# Typegen V3 Alpha QA Checklist
 
 ## QA Goal
 
 Validate that the smallest working Typegen loop remains stable and becomes reliable enough for a repeatable demo:
 
-1. Create an A-Z, 0-9, and punctuation glyph board in Figma.
+1. Create an A-Z, a-z, 0-9, punctuation, and common-symbol glyph board in Figma.
 2. Draw a few supported vector glyphs.
 3. Scan the selected board or glyph slots.
 4. Preview available glyphs and missing glyphs.
 5. Generate and export one static font file.
 6. Smoke test the exported font in a browser or font viewer.
 
-V2 QA should first re-run the V1 happy path, then focus on reliability issues most likely to break real glyphs: counters, path winding, export usability, saved-state behavior, and clear supported-workflow instructions.
+V3 alpha QA should first re-run the V2 happy path, then focus on lowercase geometry: x-height, ascenders, descenders, and mixed-case preview/export.
 
 ## Supported Glyph Recipe
 
-- Uppercase A-Z, numbers 0-9, and basic punctuation only.
-- Glyph slots are named `glyph-A` through `glyph-Z`, `glyph-0` through `glyph-9`, `glyph-period`, `glyph-comma`, `glyph-exclamation`, `glyph-question`, `glyph-hyphen`, and `glyph-colon`.
+- Uppercase A-Z, lowercase a-z, numbers 0-9, basic punctuation, and common symbols.
+- Glyph slots are named `glyph-A` through `glyph-Z`, `glyph-a` through `glyph-z`, `glyph-0` through `glyph-9`, `glyph-period`, `glyph-comma`, `glyph-exclamation`, `glyph-question`, `glyph-hyphen`, `glyph-colon`, `glyph-apostrophe`, `glyph-quote`, `glyph-slash`, `glyph-paren-left`, `glyph-paren-right`, `glyph-ampersand`, `glyph-plus`, `glyph-equals`, and `glyph-at`.
 - Glyphs are simple filled vector shapes inside glyph slots.
 - Use vector outlines, not live text.
 - Strokes should be expanded before export.
@@ -29,7 +29,7 @@ V2 QA should first re-run the V1 happy path, then focus on reliability issues mo
 - Avoid mixed layer types inside a glyph slot during V2 testing unless intentionally testing validation.
 - Text, images, gradients, effects, masks, and complex unsupported layers should be rejected with clear messages.
 - Partial alphabets are allowed if at least one valid glyph exists.
-- Preview spaces are allowed; lowercase and extra symbols are unsupported.
+- Preview spaces are allowed; symbols outside the supported common set are unsupported.
 - One static font export format is expected.
 - Global letter spacing and space width controls should affect both preview and exported font output.
 
@@ -45,7 +45,7 @@ Record these before each QA pass:
 - Export format tested:
 - Browser/font viewer used for smoke test:
 
-## V2 Demo Flow
+## V3 Alpha Demo Flow
 
 1. Open a blank Figma file.
 2. Load the Typegen plugin from its local manifest.
@@ -53,28 +53,46 @@ Record these before each QA pass:
 4. Enter font name: `Typegen Demo`.
 5. Click `Create/update glyph board`.
 6. Confirm a parent frame named `Font Glyph Board` is created or updated.
-7. Confirm it contains 42 glyph slots named for A-Z, 0-9, and supported punctuation.
-8. Confirm slots show baseline, cap-height, width boundaries, and labels.
-9. Draw simple filled vector glyphs in `glyph-A`, `glyph-B`, `glyph-C`, `glyph-O`, `glyph-1`, `glyph-2`, `glyph-exclamation`, and `glyph-question`.
-10. Select the parent `Font Glyph Board`.
-11. Click `Scan selected glyphs`.
-12. Confirm A, B, C, and O are valid or ready.
-13. Confirm empty remaining slots are reported as empty or missing according to the implemented status model.
-14. Enter preview text: `ABC 123!`.
-15. Confirm the preview renders A, B, C, 1, 2, and ! using scanned outlines while 3 appears as a missing glyph placeholder if not drawn.
-16. Enter preview text: `CODE 2024`.
-17. Confirm C and O render, while D, E, 0, 2, and 4 appear as missing glyph placeholders when not drawn.
-18. Click `Generate font file`.
-19. Confirm generation succeeds and reports the generated glyph count.
-20. Click `Export OTF`.
-21. Confirm the downloaded font filename is based on `Typegen Demo`.
-22. Click `Export smoke test HTML`.
-23. Open the downloaded smoke-test HTML file in a browser.
-24. Confirm exported glyphs render in the smoke-test page.
-25. Add or revise `glyph-P` and `glyph-R` with visible counters.
-26. Re-scan, regenerate, and export.
-27. Smoke test `ABOPR PRO BAR`, `2024 A10`, and `ABC, 123! OK?` in the browser smoke page.
-28. Confirm counters remain open/transparent in preview and exported font rendering.
+7. Confirm it contains 77 glyph slots named for A-Z, a-z, 0-9, supported punctuation, and supported common symbols.
+8. Confirm uppercase/numeric/punctuation slots show baseline, cap-height, width boundaries, and labels.
+9. Confirm lowercase slots show ascender, x-height, baseline, descender, width boundaries, and labels.
+10. Draw simple filled vector glyphs in `glyph-A`, `glyph-B`, `glyph-C`, `glyph-O`, `glyph-1`, `glyph-2`, `glyph-exclamation`, `glyph-question`, `glyph-a`, `glyph-b`, `glyph-g`, `glyph-o`, and `glyph-x`.
+11. Select the parent `Font Glyph Board`.
+12. Click `Scan selected glyphs`.
+13. Confirm uppercase, lowercase, numeric, and punctuation glyphs scan as valid when drawn.
+14. Confirm empty remaining slots are reported as empty or missing according to the implemented status model.
+15. Enter preview text: `ABC box 012`.
+16. Confirm mixed-case preview renders A, B, C, b, o, x, 0, 1, and 2 using scanned outlines.
+17. Enter preview text: `bag go ox`.
+18. Confirm `g` descends below the baseline while `a`, `o`, and `x` align around x-height.
+19. Click `Generate font file`.
+20. Confirm generation succeeds and reports the generated glyph count.
+21. Click `Export OTF`.
+22. Confirm the downloaded font filename is based on `Typegen Demo`.
+23. Click `Export smoke test HTML`.
+24. Open the downloaded smoke-test HTML file in a browser.
+25. Smoke test `ABOPR PRO BAR`, `2024 A10`, `ABC, 123! OK?`, `box`, `go`, `bag`, `go ox`, `ABC box 012`, `type`, `glyph`, `font`, `quick`, `boxing glyph`, `a/b @2+2`, `A+B=C`, `font@example`, and `(quick)`.
+26. Confirm counters remain open/transparent in preview and exported font rendering.
+27. Confirm lowercase proportions match the board guides in preview and exported font rendering.
+
+## V3.1 Board Migration Checks
+
+- [ ] Fresh board creates slots in A-Z, a-z, 0-9, punctuation order.
+- [ ] Existing V3.0 pilot board reorders into A-Z, a-z, 0-9, punctuation order.
+- [ ] Existing V3.0 pilot artwork in `glyph-a`, `glyph-b`, `glyph-g`, `glyph-o`, and `glyph-x` moves with those slot frames.
+- [ ] Existing V2 artwork in uppercase, numeric, and punctuation slots is preserved after update.
+- [ ] Re-running `Create/update glyph board` twice does not duplicate supported slots.
+- [ ] Selecting the updated board and scanning returns 77 supported glyph rows.
+
+## V3.2 Common Symbol Checks
+
+- [ ] Fresh board includes `glyph-apostrophe`, `glyph-quote`, `glyph-slash`, `glyph-paren-left`, `glyph-paren-right`, `glyph-ampersand`, `glyph-plus`, `glyph-equals`, and `glyph-at`.
+- [ ] Existing boards update with common-symbol slots without clearing existing artwork.
+- [ ] Safe common-symbol slot names scan as supported glyphs.
+- [ ] Raw aliases such as `glyph-@`, `glyph-+`, and `glyph-/` scan as supported glyphs.
+- [ ] Preview renders `a/b @2+2` when the required glyphs are scanned.
+- [ ] Preview renders `A+B=C`, `font@example`, and `(quick)` when the required glyphs are scanned.
+- [ ] Exported OTF and smoke-test HTML preserve scanned common symbols.
 
 ## V2 Reliability Focus
 
@@ -112,12 +130,14 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Clicking `Create/update glyph board` creates one parent board when no board exists.
 - [ ] Clicking `Create/update glyph board` with an existing board selected preserves existing glyph artwork.
 - [ ] Clicking `Create/update glyph board` with an existing older board adds only missing supported slots.
+- [ ] Clicking `Create/update glyph board` repositions supported slots into A-Z, a-z, 0-9, punctuation order.
 - [ ] Parent board is named `Font Glyph Board`.
-- [ ] Board contains slots for A-Z, 0-9, and supported punctuation.
-- [ ] Each slot is named exactly `glyph-A`, `glyph-B`, etc.
+- [ ] Board contains slots for A-Z, a-z, 0-9, supported punctuation, and common symbols.
+- [ ] Each slot is named exactly `glyph-A`, `glyph-B`, `glyph-a`, etc.
 - [ ] Slots are arranged in a readable grid.
 - [ ] Each slot includes a visible baseline guide.
-- [ ] Each slot includes a visible cap-height guide.
+- [ ] Uppercase-style slots include a visible cap-height guide.
+- [ ] Lowercase slots include ascender, x-height, and descender guides.
 - [ ] Each slot includes left/right width boundary guides.
 - [ ] Each slot includes a readable character label.
 - [ ] Board creation failure shows an actionable error.
@@ -127,10 +147,10 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Scanning with no selection shows a clear no-selection or no-glyph message.
 - [ ] Selecting the parent board scans nested glyph slots.
 - [ ] Selecting individual glyph slots scans those slots.
-- [ ] Valid names `glyph-A` through `glyph-Z`, `glyph-0` through `glyph-9`, and supported punctuation slot names map to supported characters.
-- [ ] Invalid names such as `Glyph-A`, `glyph-a`, `A`, and `glyph-AA` are ignored or reported clearly.
+- [ ] Valid names `glyph-A` through `glyph-Z`, `glyph-a` through `glyph-z`, `glyph-0` through `glyph-9`, supported punctuation slot names, and common-symbol slot names map to supported characters.
+- [ ] Invalid names such as `Glyph-A`, `A`, `glyph-AA`, and `glyph-#` are ignored or reported clearly.
 - [ ] Duplicate glyph slots are handled deterministically.
-- [ ] Scan result returns one visible row/status for every A-Z, 0-9, and supported punctuation character.
+- [ ] Scan result returns one visible row/status for every A-Z, a-z, 0-9, supported punctuation, and common-symbol character.
 - [ ] Empty generated slots are distinguishable from unsupported glyphs.
 - [ ] Clicking a glyph row updates the glyph inspector.
 
@@ -179,7 +199,7 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Changing `Letter spacing` changes the preview spacing between exported glyphs.
 - [ ] Changing `Space width` changes the preview width of spaces.
 - [ ] Typing in preview text and spacing inputs does not lose focus or reset panel scroll.
-- [ ] Lowercase and extra symbols are visibly unsupported.
+- [ ] Symbols outside the supported common set are visibly unsupported.
 - [ ] Preview shows a concise missing-character summary when needed.
 - [ ] Preview warns when current preview text contains characters that will not be included in the export.
 
@@ -281,9 +301,13 @@ Run these after the main demo flow passes:
 | Select one valid slot | One valid glyph, rest missing/unscanned |
 | Select board with empty slots | Empty slots reported clearly |
 | Duplicate `glyph-A` slots | First valid glyph used or duplicate warning shown |
-| `glyph-a` | Rejected as unsupported lowercase name |
+| `glyph-a` | Maps to lowercase `a` and exports as U+0061 |
+| `glyph-z` | Maps to lowercase `z` and exports as U+007A |
 | `glyph-exclamation` | Maps to `!` and exports as U+0021 |
 | `glyph-!` | Accepted as a compatibility alias for `glyph-exclamation` |
+| `glyph-at` | Maps to `@` and exports as U+0040 |
+| `glyph-@` | Accepted as a compatibility alias for `glyph-at` |
+| `glyph-plus` | Maps to `+` and exports as U+002B |
 | Text layer inside `glyph-A` | Unsupported; convert to outlines message |
 | Image layer inside `glyph-A` | Unsupported image message |
 | Stroked path with no fill | Unsupported; expand stroke message |
@@ -360,10 +384,10 @@ If the generated smoke-test export is unavailable, use this local template after
 
 Expected result: supported custom glyphs visibly render with Typegen outlines; unsupported or missing letters fall back or show missing-glyph behavior without breaking the page.
 
-## Known V2 Limitations To Confirm In UI
+## Known V3 Alpha Limitations To Confirm In UI
 
-- Uppercase A-Z and numbers 0-9 are supported.
-- No lowercase, extra symbols, ligatures, kerning, or variable fonts.
+- Uppercase A-Z, lowercase a-z, numbers 0-9, six punctuation marks, and nine common symbols are supported.
+- No symbols beyond the supported common set, ligatures, kerning, or variable fonts.
 - Spacing controls are global except for per-glyph advance width overrides.
 - Per-glyph advance width overrides do not include side bearing or kerning editing.
 - Reset clears document-level saved settings; generated font binaries are still not persisted.
@@ -381,7 +405,7 @@ V2 is ready for demo when:
 - The demo flow passes from board creation through exported font smoke test.
 - At least A, B, C, and O can be drawn, scanned, previewed, exported, and rendered in a browser/font viewer.
 - At least one counter glyph, preferably O or P, renders correctly in both preview and exported font.
-- Browser smoke testing passes with `ABC, 123!`, `ABOPR PRO BAR`, `2024 A10`, and `A-B: 10`.
+- Browser smoke testing passes with `ABC, 123!`, `ABOPR PRO BAR`, `2024 A10`, `A-B: 10`, `box`, `go`, `bag`, `go ox`, `ABC box 012`, `type`, `glyph`, `font`, `quick`, `boxing glyph`, `a/b @2+2`, `A+B=C`, `font@example`, and `(quick)`.
 - Unsupported glyph structures show actionable messages instead of failing silently.
 - The supported glyph recipe is accurate based on the latest test results.
 - Any remaining defects are documented with reproduction steps and severity.
