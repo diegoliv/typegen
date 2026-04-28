@@ -20,20 +20,89 @@
   };
   var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
 
+  // src/shared/types.ts
+  var GLYPH_DEFINITIONS = [
+    { char: "A", name: "glyph-A", label: "A" },
+    { char: "B", name: "glyph-B", label: "B" },
+    { char: "C", name: "glyph-C", label: "C" },
+    { char: "D", name: "glyph-D", label: "D" },
+    { char: "E", name: "glyph-E", label: "E" },
+    { char: "F", name: "glyph-F", label: "F" },
+    { char: "G", name: "glyph-G", label: "G" },
+    { char: "H", name: "glyph-H", label: "H" },
+    { char: "I", name: "glyph-I", label: "I" },
+    { char: "J", name: "glyph-J", label: "J" },
+    { char: "K", name: "glyph-K", label: "K" },
+    { char: "L", name: "glyph-L", label: "L" },
+    { char: "M", name: "glyph-M", label: "M" },
+    { char: "N", name: "glyph-N", label: "N" },
+    { char: "O", name: "glyph-O", label: "O" },
+    { char: "P", name: "glyph-P", label: "P" },
+    { char: "Q", name: "glyph-Q", label: "Q" },
+    { char: "R", name: "glyph-R", label: "R" },
+    { char: "S", name: "glyph-S", label: "S" },
+    { char: "T", name: "glyph-T", label: "T" },
+    { char: "U", name: "glyph-U", label: "U" },
+    { char: "V", name: "glyph-V", label: "V" },
+    { char: "W", name: "glyph-W", label: "W" },
+    { char: "X", name: "glyph-X", label: "X" },
+    { char: "Y", name: "glyph-Y", label: "Y" },
+    { char: "Z", name: "glyph-Z", label: "Z" },
+    { char: "0", name: "glyph-0", label: "0" },
+    { char: "1", name: "glyph-1", label: "1" },
+    { char: "2", name: "glyph-2", label: "2" },
+    { char: "3", name: "glyph-3", label: "3" },
+    { char: "4", name: "glyph-4", label: "4" },
+    { char: "5", name: "glyph-5", label: "5" },
+    { char: "6", name: "glyph-6", label: "6" },
+    { char: "7", name: "glyph-7", label: "7" },
+    { char: "8", name: "glyph-8", label: "8" },
+    { char: "9", name: "glyph-9", label: "9" },
+    { char: ".", name: "glyph-period", label: ".", defaultAdvanceWidth: 260 },
+    { char: ",", name: "glyph-comma", label: ",", defaultAdvanceWidth: 260 },
+    { char: "!", name: "glyph-exclamation", label: "!", defaultAdvanceWidth: 320 },
+    { char: "?", name: "glyph-question", label: "?", defaultAdvanceWidth: 560 },
+    { char: "-", name: "glyph-hyphen", label: "-", defaultAdvanceWidth: 420 },
+    { char: ":", name: "glyph-colon", label: ":", defaultAdvanceWidth: 280 }
+  ];
+  var GLYPH_CHARS = GLYPH_DEFINITIONS.map((definition) => definition.char);
+  function glyphNameForChar(char) {
+    var _a, _b;
+    return (_b = (_a = GLYPH_DEFINITIONS.find((definition) => definition.char === char)) == null ? void 0 : _a.name) != null ? _b : `glyph-${char}`;
+  }
+  function glyphLabelForChar(char) {
+    var _a, _b;
+    return (_b = (_a = GLYPH_DEFINITIONS.find((definition) => definition.char === char)) == null ? void 0 : _a.label) != null ? _b : char;
+  }
+  function defaultAdvanceForChar(char) {
+    const definition = GLYPH_DEFINITIONS.find((item) => item.char === char);
+    return definition && "defaultAdvanceWidth" in definition ? definition.defaultAdvanceWidth : 700;
+  }
+
   // src/plugin/pluginTypes.ts
-  var SUPPORTED_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  var SUPPORTED_CHARS = [...GLYPH_CHARS];
   var TYPEGEN_ROLE_KEY = "typegen-role";
   var TYPEGEN_ROLE_BOARD = "board";
   var TYPEGEN_ROLE_SLOT = "glyph-slot";
   var TYPEGEN_ROLE_HELPER = "helper";
-  function isSupportedGlyphName(name) {
-    return /^glyph-[A-Z]$/.test(name);
-  }
+  var GLYPH_NAME_ALIASES = {
+    "glyph-.": ".",
+    "glyph-,": ",",
+    "glyph-!": "!",
+    "glyph-?": "?",
+    "glyph--": "-",
+    "glyph-:": ":"
+  };
   function glyphCharFromName(name) {
-    return isSupportedGlyphName(name) ? name.slice("glyph-".length) : null;
+    var _a, _b, _c;
+    return (_c = (_b = (_a = GLYPH_DEFINITIONS.find((definition) => definition.name === name)) == null ? void 0 : _a.char) != null ? _b : GLYPH_NAME_ALIASES[name]) != null ? _c : null;
   }
   function unicodeForChar(char) {
-    return char.charCodeAt(0);
+    var _a;
+    return (_a = char.codePointAt(0)) != null ? _a : 0;
+  }
+  function glyphNameForChar2(char) {
+    return glyphNameForChar(char);
   }
 
   // src/plugin/glyphBoard.ts
@@ -52,32 +121,65 @@
       labelsEnabled = false;
       warnings.push("Could not load Inter Regular for board labels. Slots were still created.");
     }
-    const board = figma.createFrame();
-    board.name = "Font Glyph Board";
-    board.resize(PADDING * 2 + COLUMNS * SLOT_WIDTH + (COLUMNS - 1) * GAP, PADDING * 2 + 5 * SLOT_HEIGHT + 4 * GAP);
-    board.fills = [solid(0.98, 0.98, 0.98)];
-    board.strokes = [solid(0.82, 0.84, 0.88)];
-    board.strokeWeight = 1;
-    board.cornerRadius = 8;
-    board.clipsContent = false;
-    board.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_BOARD);
+    const existingBoard = findExistingBoard();
+    const board = existingBoard != null ? existingBoard : createBoardFrame();
+    const existingSlotChars = new Set(
+      board.children.map((child) => glyphCharFromName(child.name)).filter((char) => Boolean(char))
+    );
+    let addedSlots = 0;
     for (let index = 0; index < SUPPORTED_CHARS.length; index++) {
       const char = SUPPORTED_CHARS[index];
+      if (existingSlotChars.has(char)) {
+        continue;
+      }
       const column = index % COLUMNS;
       const row = Math.floor(index / COLUMNS);
       const slot = createSlot(char, labelsEnabled);
       slot.x = PADDING + column * (SLOT_WIDTH + GAP);
       slot.y = PADDING + row * (SLOT_HEIGHT + GAP);
       board.appendChild(slot);
+      addedSlots++;
     }
-    figma.currentPage.appendChild(board);
+    resizeBoardToFitSupportedSlots(board);
+    if (!existingBoard) {
+      figma.currentPage.appendChild(board);
+    }
     figma.currentPage.selection = [board];
     figma.viewport.scrollAndZoomIntoView([board]);
-    return { board, warnings };
+    return { board, warnings, created: !existingBoard, addedSlots };
+  }
+  function findExistingBoard() {
+    const selectedBoard = figma.currentPage.selection.find(isGlyphBoardFrame);
+    if (selectedBoard) {
+      return selectedBoard;
+    }
+    return figma.currentPage.findOne((node) => isGlyphBoardFrame(node));
+  }
+  function isGlyphBoardFrame(node) {
+    return node.type === "FRAME" && (node.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_BOARD || node.name === "Font Glyph Board");
+  }
+  function createBoardFrame() {
+    const board = figma.createFrame();
+    board.name = "Font Glyph Board";
+    board.fills = [solid(0.98, 0.98, 0.98)];
+    board.strokes = [solid(0.82, 0.84, 0.88)];
+    board.strokeWeight = 1;
+    board.cornerRadius = 8;
+    board.clipsContent = false;
+    board.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_BOARD);
+    resizeBoardToFitSupportedSlots(board);
+    return board;
+  }
+  function resizeBoardToFitSupportedSlots(board) {
+    const rows = Math.ceil(SUPPORTED_CHARS.length / COLUMNS);
+    board.resize(
+      PADDING * 2 + COLUMNS * SLOT_WIDTH + (COLUMNS - 1) * GAP,
+      PADDING * 2 + rows * SLOT_HEIGHT + (rows - 1) * GAP
+    );
   }
   function createSlot(char, labelsEnabled) {
     const slot = figma.createFrame();
-    slot.name = `glyph-${char}`;
+    slot.name = glyphNameForChar2(char);
     slot.resize(SLOT_WIDTH, SLOT_HEIGHT);
     slot.fills = [solid(1, 1, 1)];
     slot.strokes = [solid(0.75, 0.78, 0.84)];
@@ -90,7 +192,7 @@
     addGuide(slot, "tg-cap-height", 24, 48, SLOT_WIDTH - 48, 1, 0.62);
     addGuide(slot, "tg-baseline", 24, 162, SLOT_WIDTH - 48, 1, 0.36);
     if (labelsEnabled) {
-      addLabel(slot, char);
+      addLabel(slot, glyphLabelForChar(char));
     }
     return slot;
   }
@@ -126,12 +228,21 @@
   var COMMAND_RE = /[MmLlHhVvCcQqZz]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi;
   var FONT_UNITS = 1e3;
   var CAP_HEIGHT = 700;
-  var DEFAULT_ADVANCE_WIDTH = 700;
   var SLOT_BOUNDS_TOLERANCE = 1;
   var TINY_GLYPH_SIZE = 8;
+  var SLOT_WIDTH2 = 160;
+  var SLOT_HEIGHT2 = 200;
+  var SLOT_LEFT_BOUNDARY = 24;
+  var SLOT_RIGHT_BOUNDARY = 136;
+  var SLOT_CAP_HEIGHT_Y = 48;
+  var SLOT_BASELINE_Y = 162;
+  var FONT_LEFT_BEARING = 40;
+  var FONT_DESIGN_WIDTH = 720;
   function extractGlyphFromNode(node, char) {
+    var _a;
     const issues = [];
     const vectors = [];
+    const glyphName = glyphNameForChar2(char);
     collectSupportedVectors(node, vectors, issues);
     if (issues.some((issue) => issue.level === "error")) {
       return { issues, vectorCount: vectors.length };
@@ -161,21 +272,34 @@
         vectorCount: vectors.length
       };
     }
-    issues.push(...validateRawGeometry(node, char, rawBounds));
-    const normalized = normalizePaths(rawPaths, rawBounds);
+    const slotBounds = "children" in node ? boundsForNode(node) : null;
+    issues.push(...validateRawGeometry(char, glyphName, rawBounds, slotBounds));
+    const normalized = slotBounds ? normalizePathsForSlotMetrics(rawPaths, slotBounds) : normalizePaths(rawPaths, rawBounds);
+    const advanceWidth = resolveExtractedAdvanceWidth(char, normalized.bounds);
+    const fitted = shouldFitGlyphToAdvance(char) ? fitPathsToAdvance(normalized, advanceWidth) : normalized;
     return {
       issues,
       vectorCount: vectors.length,
       glyph: {
         char,
-        unicode: char.charCodeAt(0),
-        name: `glyph-${char}`,
-        advanceWidth: Math.max(DEFAULT_ADVANCE_WIDTH, normalized.bounds.xMax + 80),
-        bounds: normalized.bounds,
-        paths: normalized.paths,
+        unicode: (_a = char.codePointAt(0)) != null ? _a : 0,
+        name: glyphName,
+        advanceWidth,
+        bounds: fitted.bounds,
+        paths: fitted.paths,
         warnings: issues.filter((issue) => issue.level === "warning").map((issue) => issue.message)
       }
     };
+  }
+  function resolveExtractedAdvanceWidth(char, bounds) {
+    const defaultAdvance = defaultAdvanceForChar(char);
+    if (defaultAdvance < 700) {
+      return defaultAdvance;
+    }
+    return Math.max(defaultAdvance, bounds.xMax + 80);
+  }
+  function shouldFitGlyphToAdvance(char) {
+    return defaultAdvanceForChar(char) < 700;
   }
   function collectSupportedVectors(node, vectors, issues) {
     if (!node.visible) {
@@ -341,7 +465,7 @@
       y: transform[1][0] * point.x + transform[1][1] * point.y + transform[1][2]
     };
   }
-  function validateRawGeometry(node, char, rawBounds) {
+  function validateRawGeometry(char, glyphName, rawBounds, slotBounds) {
     const issues = [];
     const rawWidth = rawBounds.xMax - rawBounds.xMin;
     const rawHeight = rawBounds.yMax - rawBounds.yMin;
@@ -351,11 +475,10 @@
         message: `Glyph ${char} vector bounds are very small (${Math.round(rawWidth)}x${Math.round(rawHeight)} px). Scale the outline inside the slot for better output.`
       });
     }
-    const slotBounds = boundsForNode(node);
     if (slotBounds && extendsOutside(rawBounds, slotBounds, SLOT_BOUNDS_TOLERANCE)) {
       issues.push({
         level: "warning",
-        message: `Glyph ${char} artwork extends outside glyph-${char} slot bounds. Move or resize it inside the slot before exporting.`
+        message: `Glyph ${char} artwork extends outside ${glyphName} slot bounds. Move or resize it inside the slot before exporting.`
       });
     }
     return issues;
@@ -405,6 +528,52 @@
       bounds: normalizedBounds != null ? normalizedBounds : { xMin: 0, yMin: 0, xMax: 0, yMax: 0 }
     };
   }
+  function normalizePathsForSlotMetrics(paths, slotBounds) {
+    const slotWidth = Math.max(1, slotBounds.xMax - slotBounds.xMin);
+    const slotHeight = Math.max(1, slotBounds.yMax - slotBounds.yMin);
+    const designLeft = slotBounds.xMin + slotWidth * (SLOT_LEFT_BOUNDARY / SLOT_WIDTH2);
+    const designWidth = slotWidth * ((SLOT_RIGHT_BOUNDARY - SLOT_LEFT_BOUNDARY) / SLOT_WIDTH2);
+    const capY = slotBounds.yMin + slotHeight * (SLOT_CAP_HEIGHT_Y / SLOT_HEIGHT2);
+    const baselineY = slotBounds.yMin + slotHeight * (SLOT_BASELINE_Y / SLOT_HEIGHT2);
+    const designHeight = Math.max(1, baselineY - capY);
+    const normalizedPaths = paths.map((path) => ({
+      windingRule: path.windingRule,
+      commands: path.commands.map(
+        (command) => normalizeCommandToSlotMetrics(command, designLeft, designWidth, baselineY, designHeight)
+      )
+    }));
+    const normalizedBounds = normalizedPaths.reduce((acc, path) => {
+      const pathBounds = boundsForCommands(path.commands);
+      return mergeBounds(acc, pathBounds);
+    }, null);
+    return {
+      paths: normalizedPaths,
+      bounds: normalizedBounds != null ? normalizedBounds : { xMin: 0, yMin: 0, xMax: 0, yMax: 0 }
+    };
+  }
+  function fitPathsToAdvance(normalized, advanceWidth) {
+    const glyphWidth = normalized.bounds.xMax - normalized.bounds.xMin;
+    if (!Number.isFinite(glyphWidth) || glyphWidth <= 0 || !Number.isFinite(advanceWidth) || advanceWidth <= 0) {
+      return normalized;
+    }
+    const targetLeft = Math.max(0, Math.round((advanceWidth - glyphWidth) / 2));
+    const dx = targetLeft - normalized.bounds.xMin;
+    if (dx === 0) {
+      return normalized;
+    }
+    return {
+      paths: normalized.paths.map((path) => ({
+        windingRule: path.windingRule,
+        commands: path.commands.map((command) => shiftCommandX(command, dx))
+      })),
+      bounds: {
+        xMin: normalized.bounds.xMin + dx,
+        yMin: normalized.bounds.yMin,
+        xMax: normalized.bounds.xMax + dx,
+        yMax: normalized.bounds.yMax
+      }
+    };
+  }
   function normalizeCommand(command, bounds, scale, leftBearing) {
     const mapPoint = (point) => ({
       x: Math.round((point.x - bounds.xMin) * scale + leftBearing),
@@ -423,6 +592,46 @@
       const p1 = mapPoint({ x: command.x1, y: command.y1 });
       const p = mapPoint({ x: command.x, y: command.y });
       return { type: "Q", x1: p1.x, y1: p1.y, x: p.x, y: p.y };
+    }
+    return command;
+  }
+  function normalizeCommandToSlotMetrics(command, designLeft, designWidth, baselineY, designHeight) {
+    const mapPoint = (point) => ({
+      x: Math.round((point.x - designLeft) / designWidth * FONT_DESIGN_WIDTH + FONT_LEFT_BEARING),
+      y: Math.round((baselineY - point.y) / designHeight * CAP_HEIGHT)
+    });
+    if (command.type === "M" || command.type === "L") {
+      return __spreadValues({ type: command.type }, mapPoint(command));
+    }
+    if (command.type === "C") {
+      const p1 = mapPoint({ x: command.x1, y: command.y1 });
+      const p2 = mapPoint({ x: command.x2, y: command.y2 });
+      const p = mapPoint({ x: command.x, y: command.y });
+      return { type: "C", x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, x: p.x, y: p.y };
+    }
+    if (command.type === "Q") {
+      const p1 = mapPoint({ x: command.x1, y: command.y1 });
+      const p = mapPoint({ x: command.x, y: command.y });
+      return { type: "Q", x1: p1.x, y1: p1.y, x: p.x, y: p.y };
+    }
+    return command;
+  }
+  function shiftCommandX(command, dx) {
+    if (command.type === "M" || command.type === "L") {
+      return __spreadProps(__spreadValues({}, command), { x: command.x + dx });
+    }
+    if (command.type === "C") {
+      return __spreadProps(__spreadValues({}, command), {
+        x1: command.x1 + dx,
+        x2: command.x2 + dx,
+        x: command.x + dx
+      });
+    }
+    if (command.type === "Q") {
+      return __spreadProps(__spreadValues({}, command), {
+        x1: command.x1 + dx,
+        x: command.x + dx
+      });
     }
     return command;
   }
@@ -464,23 +673,24 @@
     const glyphs = SUPPORTED_CHARS.map((char) => {
       var _a2;
       const node = firstByChar.get(char);
+      const glyphName = glyphNameForChar2(char);
       const base = {
         char,
         unicode: unicodeForChar(char),
-        name: `glyph-${char}`,
+        name: glyphName,
         warnings: []
       };
       if (!node) {
         return __spreadProps(__spreadValues({}, base), {
           status: "missing",
-          message: `Glyph ${char} is missing. Select a board or node named glyph-${char}.`
+          message: `Glyph ${char} is missing. Select a board or node named ${glyphName}.`
         });
       }
       const extraction = extractGlyphFromNode(node, char);
       const duplicateTotal = (_a2 = duplicateTotals.get(char)) != null ? _a2 : 0;
       const warnings = extraction.issues.filter((issue) => issue.level === "warning").map((issue) => issue.message);
       if (duplicateTotal > 0) {
-        warnings.push(`${duplicateTotal} glyph-${char} nodes were found. The first one was used; remove or rename duplicates.`);
+        warnings.push(`${duplicateTotal} ${glyphName} nodes were found. The first one was used; remove or rename duplicates.`);
       }
       const errors = extraction.issues.filter((issue) => issue.level === "error");
       if (errors.length > 0) {
@@ -495,7 +705,7 @@
         return __spreadProps(__spreadValues({}, base), {
           status: "empty",
           nodeId: node.id,
-          message: `Glyph ${char} is empty. Add a simple filled vector path inside glyph-${char}.`,
+          message: `Glyph ${char} is empty. Add a simple filled vector path inside ${glyphName}.`,
           warnings
         });
       }
@@ -567,19 +777,20 @@
       }
       if (message.type === "CREATE_GLYPH_BOARD") {
         const result = await createGlyphBoard();
+        const action = result.created ? `Created ${result.board.name}.` : result.addedSlots > 0 ? `Updated ${result.board.name}: added ${result.addedSlots} missing slots.` : `${result.board.name} is already up to date.`;
         postToUi({
           type: "GLYPH_BOARD_CREATED",
-          message: `Created ${result.board.name}.`,
+          message: action,
           warnings: result.warnings
         });
-        figma.notify("Typegen glyph board created.");
+        figma.notify(action);
         return;
       }
       if (message.type === "SCAN_SELECTED_GLYPHS") {
         if (figma.currentPage.selection.length === 0) {
           postToUi({
             type: "VALIDATION_ERROR",
-            message: "No glyph nodes found. Select the Font Glyph Board or frames named glyph-A through glyph-Z."
+            message: "No glyph nodes found. Select the Font Glyph Board or supported glyph slot frames."
           });
           return;
         }

@@ -1,5 +1,7 @@
 declare module "opentype.js" {
   export class Path {
+    commands: unknown[];
+
     moveTo(x: number, y: number): void;
     lineTo(x: number, y: number): void;
     curveTo(
@@ -15,6 +17,10 @@ declare module "opentype.js" {
   }
 
   export class Glyph {
+    unicode?: number;
+    advanceWidth: number;
+    path: Path;
+
     constructor(options: {
       name: string;
       unicode?: number;
@@ -25,6 +31,10 @@ declare module "opentype.js" {
   }
 
   export class Font {
+    glyphs: {
+      length: number;
+    };
+
     constructor(options: {
       familyName: string;
       styleName: string;
@@ -37,5 +47,8 @@ declare module "opentype.js" {
     });
 
     toArrayBuffer(): ArrayBuffer;
+    charToGlyph(char: string): Glyph;
   }
+
+  export function parse(buffer: ArrayBuffer): Font;
 }

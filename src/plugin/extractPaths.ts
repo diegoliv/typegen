@@ -1,4 +1,5 @@
-import { GlyphCommand, GlyphModel, NormalizedPath } from "./pluginTypes";
+import { GlyphCommand, GlyphModel, NormalizedPath, glyphNameForChar } from "./pluginTypes";
+import { defaultAdvanceForChar, type GlyphChar } from "../shared/types";
 
 type ExtractionIssue = {
   level: "warning" | "error";
@@ -12,18 +13,26 @@ export type ExtractedGlyph = {
 };
 
 type Point = { x: number; y: number };
-type Bounds = { xMin: number; yMin: number; xMax: number; yMax: number };
+export type Bounds = { xMin: number; yMin: number; xMax: number; yMax: number };
 
 const COMMAND_RE = /[MmLlHhVvCcQqZz]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi;
 const FONT_UNITS = 1000;
 const CAP_HEIGHT = 700;
-const DEFAULT_ADVANCE_WIDTH = 700;
 const SLOT_BOUNDS_TOLERANCE = 1;
 const TINY_GLYPH_SIZE = 8;
+const SLOT_WIDTH = 160;
+const SLOT_HEIGHT = 200;
+const SLOT_LEFT_BOUNDARY = 24;
+const SLOT_RIGHT_BOUNDARY = 136;
+const SLOT_CAP_HEIGHT_Y = 48;
+const SLOT_BASELINE_Y = 162;
+const FONT_LEFT_BEARING = 40;
+const FONT_DESIGN_WIDTH = 720;
 
 export function extractGlyphFromNode(node: SceneNode, char: string): ExtractedGlyph {
   const issues: ExtractionIssue[] = [];
   const vectors: VectorNode[] = [];
+  const glyphName = glyphNameForChar(char);
 
   collectSupportedVectors(node, vectors, issues);
 
@@ -63,23 +72,43 @@ export function extractGlyphFromNode(node: SceneNode, char: string): ExtractedGl
     };
   }
 
-  issues.push(...validateRawGeometry(node, char, rawBounds));
+  const slotBounds = "children" in node ? boundsForNode(node) : null;
+  issues.push(...validateRawGeometry(char, glyphName, rawBounds, slotBounds));
 
-  const normalized = normalizePaths(rawPaths, rawBounds);
+  const normalized = slotBounds
+    ? normalizePathsForSlotMetrics(rawPaths, slotBounds)
+    : normalizePaths(rawPaths, rawBounds);
+  const advanceWidth = resolveExtractedAdvanceWidth(char, normalized.bounds);
+  const fitted = shouldFitGlyphToAdvance(char)
+    ? fitPathsToAdvance(normalized, advanceWidth)
+    : normalized;
 
   return {
     issues,
     vectorCount: vectors.length,
     glyph: {
       char,
-      unicode: char.charCodeAt(0),
-      name: `glyph-${char}`,
-      advanceWidth: Math.max(DEFAULT_ADVANCE_WIDTH, normalized.bounds.xMax + 80),
-      bounds: normalized.bounds,
-      paths: normalized.paths,
+      unicode: char.codePointAt(0) ?? 0,
+      name: glyphName,
+      advanceWidth,
+      bounds: fitted.bounds,
+      paths: fitted.paths,
       warnings: issues.filter((issue) => issue.level === "warning").map((issue) => issue.message),
     },
   };
+}
+
+function resolveExtractedAdvanceWidth(char: string, bounds: GlyphModel["bounds"]): number {
+  const defaultAdvance = defaultAdvanceForChar(char as GlyphChar);
+  if (defaultAdvance < 700) {
+    return defaultAdvance;
+  }
+
+  return Math.max(defaultAdvance, bounds.xMax + 80);
+}
+
+function shouldFitGlyphToAdvance(char: string): boolean {
+  return defaultAdvanceForChar(char as GlyphChar) < 700;
 }
 
 function collectSupportedVectors(node: SceneNode, vectors: VectorNode[], issues: ExtractionIssue[]): void {
@@ -269,7 +298,12 @@ function applyTransform(point: Point, transform: Transform): Point {
   };
 }
 
-function validateRawGeometry(node: SceneNode, char: string, rawBounds: Bounds): ExtractionIssue[] {
+function validateRawGeometry(
+  char: string,
+  glyphName: string,
+  rawBounds: Bounds,
+  slotBounds: Bounds | null,
+): ExtractionIssue[] {
   const issues: ExtractionIssue[] = [];
   const rawWidth = rawBounds.xMax - rawBounds.xMin;
   const rawHeight = rawBounds.yMax - rawBounds.yMin;
@@ -281,11 +315,10 @@ function validateRawGeometry(node: SceneNode, char: string, rawBounds: Bounds): 
     });
   }
 
-  const slotBounds = boundsForNode(node);
   if (slotBounds && extendsOutside(rawBounds, slotBounds, SLOT_BOUNDS_TOLERANCE)) {
     issues.push({
       level: "warning",
-      message: `Glyph ${char} artwork extends outside glyph-${char} slot bounds. Move or resize it inside the slot before exporting.`,
+      message: `Glyph ${char} artwork extends outside ${glyphName} slot bounds. Move or resize it inside the slot before exporting.`,
     });
   }
 
@@ -350,6 +383,66 @@ function normalizePaths(
   };
 }
 
+export function normalizePathsForSlotMetrics(
+  paths: NormalizedPath[],
+  slotBounds: Bounds,
+): { paths: NormalizedPath[]; bounds: GlyphModel["bounds"] } {
+  const slotWidth = Math.max(1, slotBounds.xMax - slotBounds.xMin);
+  const slotHeight = Math.max(1, slotBounds.yMax - slotBounds.yMin);
+  const designLeft = slotBounds.xMin + slotWidth * (SLOT_LEFT_BOUNDARY / SLOT_WIDTH);
+  const designWidth = slotWidth * ((SLOT_RIGHT_BOUNDARY - SLOT_LEFT_BOUNDARY) / SLOT_WIDTH);
+  const capY = slotBounds.yMin + slotHeight * (SLOT_CAP_HEIGHT_Y / SLOT_HEIGHT);
+  const baselineY = slotBounds.yMin + slotHeight * (SLOT_BASELINE_Y / SLOT_HEIGHT);
+  const designHeight = Math.max(1, baselineY - capY);
+
+  const normalizedPaths = paths.map((path) => ({
+    windingRule: path.windingRule,
+    commands: path.commands.map((command) =>
+      normalizeCommandToSlotMetrics(command, designLeft, designWidth, baselineY, designHeight),
+    ),
+  }));
+
+  const normalizedBounds = normalizedPaths.reduce<GlyphModel["bounds"] | null>((acc, path) => {
+    const pathBounds = boundsForCommands(path.commands);
+    return mergeBounds(acc, pathBounds);
+  }, null);
+
+  return {
+    paths: normalizedPaths,
+    bounds: normalizedBounds ?? { xMin: 0, yMin: 0, xMax: 0, yMax: 0 },
+  };
+}
+
+export function fitPathsToAdvance(
+  normalized: { paths: NormalizedPath[]; bounds: GlyphModel["bounds"] },
+  advanceWidth: number,
+): { paths: NormalizedPath[]; bounds: GlyphModel["bounds"] } {
+  const glyphWidth = normalized.bounds.xMax - normalized.bounds.xMin;
+  if (!Number.isFinite(glyphWidth) || glyphWidth <= 0 || !Number.isFinite(advanceWidth) || advanceWidth <= 0) {
+    return normalized;
+  }
+
+  const targetLeft = Math.max(0, Math.round((advanceWidth - glyphWidth) / 2));
+  const dx = targetLeft - normalized.bounds.xMin;
+
+  if (dx === 0) {
+    return normalized;
+  }
+
+  return {
+    paths: normalized.paths.map((path) => ({
+      windingRule: path.windingRule,
+      commands: path.commands.map((command) => shiftCommandX(command, dx)),
+    })),
+    bounds: {
+      xMin: normalized.bounds.xMin + dx,
+      yMin: normalized.bounds.yMin,
+      xMax: normalized.bounds.xMax + dx,
+      yMax: normalized.bounds.yMax,
+    },
+  };
+}
+
 function normalizeCommand(
   command: GlyphCommand,
   bounds: Bounds,
@@ -376,6 +469,63 @@ function normalizeCommand(
     const p1 = mapPoint({ x: command.x1, y: command.y1 });
     const p = mapPoint({ x: command.x, y: command.y });
     return { type: "Q", x1: p1.x, y1: p1.y, x: p.x, y: p.y };
+  }
+
+  return command;
+}
+
+function normalizeCommandToSlotMetrics(
+  command: GlyphCommand,
+  designLeft: number,
+  designWidth: number,
+  baselineY: number,
+  designHeight: number,
+): GlyphCommand {
+  const mapPoint = (point: Point): Point => ({
+    x: Math.round(((point.x - designLeft) / designWidth) * FONT_DESIGN_WIDTH + FONT_LEFT_BEARING),
+    y: Math.round(((baselineY - point.y) / designHeight) * CAP_HEIGHT),
+  });
+
+  if (command.type === "M" || command.type === "L") {
+    return { type: command.type, ...mapPoint(command) };
+  }
+
+  if (command.type === "C") {
+    const p1 = mapPoint({ x: command.x1, y: command.y1 });
+    const p2 = mapPoint({ x: command.x2, y: command.y2 });
+    const p = mapPoint({ x: command.x, y: command.y });
+    return { type: "C", x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, x: p.x, y: p.y };
+  }
+
+  if (command.type === "Q") {
+    const p1 = mapPoint({ x: command.x1, y: command.y1 });
+    const p = mapPoint({ x: command.x, y: command.y });
+    return { type: "Q", x1: p1.x, y1: p1.y, x: p.x, y: p.y };
+  }
+
+  return command;
+}
+
+function shiftCommandX(command: GlyphCommand, dx: number): GlyphCommand {
+  if (command.type === "M" || command.type === "L") {
+    return { ...command, x: command.x + dx };
+  }
+
+  if (command.type === "C") {
+    return {
+      ...command,
+      x1: command.x1 + dx,
+      x2: command.x2 + dx,
+      x: command.x + dx,
+    };
+  }
+
+  if (command.type === "Q") {
+    return {
+      ...command,
+      x1: command.x1 + dx,
+      x: command.x + dx,
+    };
   }
 
   return command;

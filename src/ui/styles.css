@@ -177,6 +177,78 @@ input:focus {
   padding: 4px 8px;
 }
 
+.diagnostics-panel.ready {
+  border-color: #b9d8bd;
+}
+
+.diagnostics-panel.blocked,
+.diagnostics-panel.needs-scan {
+  border-color: #e5c98c;
+}
+
+.diagnostic-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.diagnostic-grid div {
+  display: grid;
+  gap: 3px;
+  border: 1px solid #e4e8df;
+  border-radius: 6px;
+  background: #fbfcf7;
+  padding: 8px;
+  min-width: 0;
+}
+
+.diagnostic-grid span {
+  color: #68726b;
+  font-size: 11px;
+}
+
+.diagnostic-grid strong {
+  color: #202622;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.verification-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr minmax(0, 2fr);
+  gap: 8px;
+}
+
+.verification-box div {
+  display: grid;
+  gap: 3px;
+  border: 1px solid #e4e8df;
+  border-radius: 6px;
+  background: #fbfcf7;
+  padding: 8px;
+  min-width: 0;
+}
+
+.verification-box.ready div {
+  border-color: #cfe3c9;
+}
+
+.verification-box.blocked div {
+  border-color: #e5c98c;
+}
+
+.verification-box span {
+  color: #68726b;
+  font-size: 11px;
+}
+
+.verification-box strong {
+  overflow-wrap: anywhere;
+  color: #202622;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 button {
   min-height: 32px;
   border: 1px solid #202622;

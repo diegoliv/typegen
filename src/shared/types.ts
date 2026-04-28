@@ -1,32 +1,64 @@
-export const GLYPH_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('') as GlyphChar[];
+export const GLYPH_DEFINITIONS = [
+  { char: 'A', name: 'glyph-A', label: 'A' },
+  { char: 'B', name: 'glyph-B', label: 'B' },
+  { char: 'C', name: 'glyph-C', label: 'C' },
+  { char: 'D', name: 'glyph-D', label: 'D' },
+  { char: 'E', name: 'glyph-E', label: 'E' },
+  { char: 'F', name: 'glyph-F', label: 'F' },
+  { char: 'G', name: 'glyph-G', label: 'G' },
+  { char: 'H', name: 'glyph-H', label: 'H' },
+  { char: 'I', name: 'glyph-I', label: 'I' },
+  { char: 'J', name: 'glyph-J', label: 'J' },
+  { char: 'K', name: 'glyph-K', label: 'K' },
+  { char: 'L', name: 'glyph-L', label: 'L' },
+  { char: 'M', name: 'glyph-M', label: 'M' },
+  { char: 'N', name: 'glyph-N', label: 'N' },
+  { char: 'O', name: 'glyph-O', label: 'O' },
+  { char: 'P', name: 'glyph-P', label: 'P' },
+  { char: 'Q', name: 'glyph-Q', label: 'Q' },
+  { char: 'R', name: 'glyph-R', label: 'R' },
+  { char: 'S', name: 'glyph-S', label: 'S' },
+  { char: 'T', name: 'glyph-T', label: 'T' },
+  { char: 'U', name: 'glyph-U', label: 'U' },
+  { char: 'V', name: 'glyph-V', label: 'V' },
+  { char: 'W', name: 'glyph-W', label: 'W' },
+  { char: 'X', name: 'glyph-X', label: 'X' },
+  { char: 'Y', name: 'glyph-Y', label: 'Y' },
+  { char: 'Z', name: 'glyph-Z', label: 'Z' },
+  { char: '0', name: 'glyph-0', label: '0' },
+  { char: '1', name: 'glyph-1', label: '1' },
+  { char: '2', name: 'glyph-2', label: '2' },
+  { char: '3', name: 'glyph-3', label: '3' },
+  { char: '4', name: 'glyph-4', label: '4' },
+  { char: '5', name: 'glyph-5', label: '5' },
+  { char: '6', name: 'glyph-6', label: '6' },
+  { char: '7', name: 'glyph-7', label: '7' },
+  { char: '8', name: 'glyph-8', label: '8' },
+  { char: '9', name: 'glyph-9', label: '9' },
+  { char: '.', name: 'glyph-period', label: '.', defaultAdvanceWidth: 260 },
+  { char: ',', name: 'glyph-comma', label: ',', defaultAdvanceWidth: 260 },
+  { char: '!', name: 'glyph-exclamation', label: '!', defaultAdvanceWidth: 320 },
+  { char: '?', name: 'glyph-question', label: '?', defaultAdvanceWidth: 560 },
+  { char: '-', name: 'glyph-hyphen', label: '-', defaultAdvanceWidth: 420 },
+  { char: ':', name: 'glyph-colon', label: ':', defaultAdvanceWidth: 280 },
+] as const;
 
-export type GlyphChar =
-  | 'A'
-  | 'B'
-  | 'C'
-  | 'D'
-  | 'E'
-  | 'F'
-  | 'G'
-  | 'H'
-  | 'I'
-  | 'J'
-  | 'K'
-  | 'L'
-  | 'M'
-  | 'N'
-  | 'O'
-  | 'P'
-  | 'Q'
-  | 'R'
-  | 'S'
-  | 'T'
-  | 'U'
-  | 'V'
-  | 'W'
-  | 'X'
-  | 'Y'
-  | 'Z';
+export type GlyphChar = (typeof GLYPH_DEFINITIONS)[number]['char'];
+
+export const GLYPH_CHARS = GLYPH_DEFINITIONS.map((definition) => definition.char) as GlyphChar[];
+
+export function glyphNameForChar(char: GlyphChar): string {
+  return GLYPH_DEFINITIONS.find((definition) => definition.char === char)?.name ?? `glyph-${char}`;
+}
+
+export function glyphLabelForChar(char: GlyphChar): string {
+  return GLYPH_DEFINITIONS.find((definition) => definition.char === char)?.label ?? char;
+}
+
+export function defaultAdvanceForChar(char: GlyphChar): number {
+  const definition = GLYPH_DEFINITIONS.find((item) => item.char === char);
+  return definition && 'defaultAdvanceWidth' in definition ? definition.defaultAdvanceWidth : 700;
+}
 
 export type GlyphStatus = 'missing' | 'empty' | 'valid' | 'unsupported' | 'warning';
 

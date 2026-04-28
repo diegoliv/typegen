@@ -1,4 +1,11 @@
-export const SUPPORTED_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+import {
+  GLYPH_CHARS,
+  GLYPH_DEFINITIONS,
+  glyphNameForChar as sharedGlyphNameForChar,
+  type GlyphChar,
+} from "../shared/types";
+
+export const SUPPORTED_CHARS = [...GLYPH_CHARS];
 
 export type GlyphStatus = "valid" | "empty" | "unsupported" | "missing";
 
@@ -98,14 +105,27 @@ export const TYPEGEN_ROLE_BOARD = "board";
 export const TYPEGEN_ROLE_SLOT = "glyph-slot";
 export const TYPEGEN_ROLE_HELPER = "helper";
 
+const GLYPH_NAME_ALIASES: Record<string, GlyphChar> = {
+  "glyph-.": ".",
+  "glyph-,": ",",
+  "glyph-!": "!",
+  "glyph-?": "?",
+  "glyph--": "-",
+  "glyph-:": ":",
+};
+
 export function isSupportedGlyphName(name: string): boolean {
-  return /^glyph-[A-Z]$/.test(name);
+  return Boolean(glyphCharFromName(name));
 }
 
 export function glyphCharFromName(name: string): string | null {
-  return isSupportedGlyphName(name) ? name.slice("glyph-".length) : null;
+  return GLYPH_DEFINITIONS.find((definition) => definition.name === name)?.char ?? GLYPH_NAME_ALIASES[name] ?? null;
 }
 
 export function unicodeForChar(char: string): number {
-  return char.charCodeAt(0);
+  return char.codePointAt(0) ?? 0;
+}
+
+export function glyphNameForChar(char: string): string {
+  return sharedGlyphNameForChar(char as GlyphChar);
 }

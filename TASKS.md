@@ -1,5 +1,426 @@
 # Typegen MVP Implementation Plan
 
+## 39. V3 Roadmap Kickoff
+
+Goal: start the 3.x roadmap after closing the V2 punctuation/static-font milestone.
+
+Completed:
+
+- Added `docs/V3_ROADMAP.md`.
+- Defined V3 as the lowercase/static-font expansion track.
+- Proposed a lowercase pilot subset: `a`, `b`, `g`, `o`, and `x`.
+- Captured the required lowercase guide model: x-height, ascender, descender, baseline, and side boundaries.
+- Listed V3.0 exit criteria and implementation risks.
+- Linked the V3 roadmap from `README.md` and `docs/ROADMAP.md`.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+
+Suggested next step:
+
+- Commit and push the V2.10.1 closeout plus V3 roadmap, then begin V3.0 lowercase guide geometry planning.
+
+## 38. V2.x Closeout / V3 Boundary
+
+Goal: finish the 2.x roadmap cleanly before starting the 3.x lowercase track.
+
+Completed:
+
+- Added `docs/ROADMAP.md`.
+- Defined V2.x as the hardening track for A-Z, 0-9, six punctuation marks, preview, spacing, verified OTF export, smoke-test HTML, persistence, and regression checks.
+- Defined V2.x closeout criteria.
+- Defined V3.x as the start of a fuller static font workflow, beginning with lowercase planning.
+- Documented why lowercase belongs in V3: x-height, ascenders, descenders, board guide changes, and new QA expectations.
+- Linked the roadmap from `README.md`.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+
+Manual QA target:
+
+- Complete the V2 closeout QA strings: `ABC, 012.!`, `A-B: 10?`, `ABOPR PRO BAR`, and `2024 A10`.
+
+Suggested next step:
+
+- Run final manual V2 QA. If it passes, start V3.0 planning for lowercase guide geometry and board layout.
+
+## 37. V2.10.1 Punctuation Side-Bearing Fix
+
+Goal: make punctuation spacing work on both sides of the glyph, not just after the glyph.
+
+Completed:
+
+- Updated package metadata to `2.10.1`.
+- Updated plugin UI label to `Typegen V2.10.1`.
+- Added punctuation outline fitting after slot-relative extraction.
+- Narrow punctuation is centered inside its advance width for balanced side bearings.
+- Added regression coverage for a period fitting inside its narrow advance.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Manual QA target:
+
+- Preview `012.,` and `A-B: 10?`; period/comma should sit inside their spacing instead of colliding with the following glyph.
+
+## 36. V2.10 Punctuation Metrics Polish
+
+Goal: make supported punctuation usable without requiring per-glyph advance overrides for every mark.
+
+Completed:
+
+- Updated package metadata to `2.10.0`.
+- Updated plugin UI label to `Typegen V2.10`.
+- Added punctuation-specific default advance widths.
+- Period and comma now default to narrow advances.
+- Punctuation defaults apply to preview and exported OTF output.
+- Added regression coverage for punctuation advance defaults, preview spacing, and generated font roundtrip parsing.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Manual QA target:
+
+- Scan punctuation glyphs and compare `ABC, 012.!` plus `A-B: 10?` in plugin preview and smoke-test HTML.
+
+Suggested next step:
+
+- If punctuation spacing feels good manually, move to a V2.10 release tidy pass or decide whether lowercase planning belongs in V2.11.
+
+## 35. V2.9.3 Slot-Relative Punctuation Sizing
+
+Goal: preserve the designed size and baseline position of small punctuation marks during preview and export.
+
+Completed:
+
+- Updated package metadata to `2.9.3`.
+- Updated plugin UI label to `Typegen V2.9.3`.
+- Changed glyph-slot extraction to normalize artwork relative to the slot guides instead of each glyph's own bounds.
+- Kept fallback own-bounds normalization for raw vector nodes named as glyphs.
+- Added regression coverage proving a small period near the baseline stays small after normalization.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Suggested next step:
+
+- Manual QA with `glyph-period` and `glyph-comma`; scan, preview `ABC 012.,`, and confirm punctuation keeps its board-designed size.
+
+## 34. V2.9.2 Punctuation Scan Compatibility
+
+Goal: make punctuation scanning robust for both generated safe slot names and hand-named raw punctuation slots.
+
+Completed:
+
+- Updated package metadata to `2.9.2`.
+- Updated plugin UI label to `Typegen V2.9.2`.
+- Added scanner aliases for `glyph-.`, `glyph-,`, `glyph-!`, `glyph-?`, `glyph--`, and `glyph-:`.
+- Board update now treats punctuation aliases as existing slots so it does not duplicate hand-named punctuation glyphs.
+- Updated regression checks and docs for punctuation aliases.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Suggested next step:
+
+- Manual QA by scanning both generated safe punctuation slots, such as `glyph-exclamation`, and hand-named aliases, such as `glyph-!`.
+
+## 33. V2.9 Board Update Safety
+
+Goal: prevent accidental workflow disruption when users already have glyph artwork on an existing board.
+
+Completed:
+
+- Changed the board action from create-only to create/update behavior.
+- Updated package metadata to `2.9.1`.
+- Updated plugin UI label to `Typegen V2.9.1`.
+- Existing `Font Glyph Board` frames are reused when selected or found on the current page.
+- Existing glyph slots and their artwork are preserved.
+- Missing V2.9 slots are appended without clearing existing content.
+- Updated the UI button copy to `Create/update glyph board`.
+- Updated QA/docs with board update safety checks.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Suggested next step:
+
+- Manual QA on a V2.8/V2.9 board with existing glyph artwork, then click `Create/update glyph board` and confirm old glyph contents remain in place while missing punctuation slots are added.
+
+## 32. V2.9 Basic Punctuation Support
+
+Goal: add the smallest useful punctuation set without changing the static OTF pipeline or opening broad symbol support.
+
+Completed:
+
+- Updated package metadata to `2.9.0`.
+- Updated plugin UI label to `Typegen V2.9`.
+- Added support for `.`, `,`, `!`, `?`, `-`, and `:`.
+- Added safe punctuation slot names: `glyph-period`, `glyph-comma`, `glyph-exclamation`, `glyph-question`, `glyph-hyphen`, and `glyph-colon`.
+- Starter glyph board now creates 42 slots: A-Z, 0-9, and the six punctuation glyphs.
+- Scan, preview, spacing overrides, generated-font verification, OTF export, and smoke-test HTML now support the punctuation set.
+- Regression checks cover punctuation glyph naming, preview, font generation, verification metadata, and OTF roundtrip parsing.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Suggested next step:
+
+- Manual QA `glyph-period`, `glyph-comma`, `glyph-exclamation`, `glyph-question`, `glyph-hyphen`, and `glyph-colon` with preview text like `ABC, 123! OK?` and `A-B: 10`.
+
+## 31. V2.8 Metrics Sanity Warnings
+
+Goal: make extreme spacing and advance settings visible before export without blocking the verified export pipeline.
+
+Completed:
+
+- Updated package metadata to `2.8.0`.
+- Updated plugin UI label to `Typegen V2.8`.
+- Added shared metrics sanity warnings for very tight/loose letter spacing, very narrow/wide space width, and very narrow/wide glyph export advances.
+- Added metrics warnings to the `Ready to export` diagnostics panel.
+- Kept metrics warnings non-blocking; generated-font verification remains the export gate.
+- Added regression checks for tight and loose metrics warning thresholds.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Suggested next step:
+
+- Manual QA with extreme spacing and advance overrides, then decide whether V2.9 should add a compact metrics legend/help note or move to basic punctuation planning.
+
+## 30. V2.7 Numeric Workflow Polish
+
+Goal: make numeric support more visible in the default workflow and lock in the input focus/scroll regression checks.
+
+Completed:
+
+- Updated package metadata to `2.7.0`.
+- Updated plugin UI label to `Typegen V2.7`.
+- Updated default preview text from `ABC CAB` to `ABC 123`.
+- Updated smoke-test fallback text to `ABC 123 2024`.
+- Updated QA flow and smoke-test copy to exercise mixed letter/number text.
+- Added QA checks for focus/scroll stability while typing in preview, spacing, and advance override inputs.
+
+Verification pending:
+
+- `npm.cmd run check`
+
+Suggested next step:
+
+- Manual QA the default mixed preview and smoke-test export with A, B, C, 1, 2, and 3.
+
+## 29. V2.6 Input Focus / Scroll Stability
+
+Goal: fix the annoying UI behavior where live input changes caused focus loss and reset the panel scroll to the top.
+
+Completed:
+
+- Updated package metadata to `2.6.0`.
+- Updated plugin UI label to `Typegen V2.6`.
+- Added render interaction capture for focused input id, selection/caret range, document scroll, and app scroll.
+- Restored focus, caret/selection, and scroll after UI re-render and event rebinding.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+
+Manual QA target:
+
+- Type continuously in preview text, letter spacing, space width, and advance override inputs while scrolled down in the plugin panel; focus and scroll should remain stable.
+
+## 28. V2.5 Numeric Glyph Support
+
+Goal: add the first narrow scope expansion by supporting numeric glyphs `0-9` while keeping the same constrained glyph recipe and static OTF pipeline.
+
+Completed:
+
+- Updated package metadata to `2.5.0`.
+- Updated plugin UI label to `Typegen V2.5`.
+- Expanded shared supported glyphs from A-Z to A-Z plus 0-9.
+- Added scan/name support for `glyph-0` through `glyph-9`.
+- Starter glyph board now creates 36 slots: A-Z and 0-9.
+- Preview, spacing overrides, generated-font verification, OTF export, and smoke-test HTML now support numeric glyphs.
+- Regression checks now cover numeric glyph parsing, preview, font generation, verification metadata, and OTF roundtrip parsing.
+- Updated README, release notes, QA docs, and smoke-test docs for numeric glyph support.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+
+Known V2.5 limitations:
+
+- Lowercase and punctuation remain unsupported.
+- Numeric glyphs use the same global spacing and per-glyph advance override model as uppercase glyphs.
+- Existing saved settings with selected A-Z glyphs continue to work; saved selected glyphs outside A-Z/0-9 are sanitized.
+
+Suggested next step:
+
+- Run a manual Figma QA pass with `glyph-0`, `glyph-1`, `glyph-2`, and a mixed preview such as `2024 A10`.
+
+## 27. V2.4 Verified Export Gate
+
+Goal: prevent users from exporting a generated font if the generated OTF does not parse back with matching glyph metadata.
+
+Completed:
+
+- Updated package metadata to `2.4.0`.
+- Updated plugin UI label to `Typegen V2.4`.
+- Export OTF and smoke-test HTML buttons now require generated-font verification to pass.
+- Export click handlers also guard against unverified generated fonts.
+- Ready-to-export diagnostics now reports verified export enabled vs verification-blocked state.
+- Regression checks assert verification metadata for single-glyph and counter-style generated fonts.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+
+Known V2.4 limitations:
+
+- Verification failures are expected to be rare; there is no manually triggered failure fixture yet.
+- Verified export confirms font data integrity, not visual browser rendering.
+
+Suggested next step:
+
+- Decide whether to begin the first small scope expansion with numeric glyph slots `0-9`, or add one more reliability pass with a deliberately invalid verification fixture.
+
+## 26. V2.3 Generated-Font Verification Panel
+
+Goal: expose the V2.2 font roundtrip confidence directly in the plugin UI after generation.
+
+Completed:
+
+- Updated package metadata to `2.3.0`.
+- Updated plugin UI label to `Typegen V2.3`.
+- Added parsed-font verification metadata to `FontBuildResult`.
+- Font generation now parses the generated OTF and verifies exported glyph unicode, advance width, and outline command presence.
+- Added generated-font verification display in the UI with parsed glyph count, verified glyph count, and sample glyph metrics.
+- Expanded local `opentype.js` type declarations for parse/roundtrip metadata.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+
+Known V2.3 limitations:
+
+- Verification confirms generated font data, not browser rasterization.
+- Visual counter behavior still needs smoke-test HTML and manual inspection.
+
+Suggested next step:
+
+- Start the first small scope expansion discussion: whether V2.4 should add numeric glyph slots `0-9` or stay in reliability mode for one more pass.
+
+## 25. V2.2 Export Roundtrip Reliability
+
+Goal: verify generated OTF buffers contain the expected glyph data after parsing, not just that font generation returns a non-empty file.
+
+Completed:
+
+- Updated package metadata to `2.2.0`.
+- Updated plugin UI label to `Typegen V2.2`.
+- Added `opentype.parse` roundtrip checks to the V2 regression script.
+- Roundtrip checks now verify glyph unicode, advance width, and outline command presence for `A`, synthetic counter `O`, and synthetic counter `P`.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+
+Known V2.2 limitations:
+
+- Roundtrip checks validate font table/glyph data, not visual browser rasterization.
+- Real Figma extraction and counter rendering still require manual Figma QA.
+
+Suggested next step:
+
+- Consider adding a small optional generated-font metadata panel after generation, showing parsed glyph count and verified sample glyphs, if designers need more confidence before export.
+
+## 24. V2.1 Counter / Path Reliability
+
+Goal: make counter-style uppercase glyphs easier to test and less surprising without expanding beyond A-Z static OTF export.
+
+Completed:
+
+- Added synthetic counter-style `O` and `P` glyphs to the V2 regression checks.
+- Updated package metadata to `2.1.0`.
+- Updated plugin UI label to `Typegen V2.1`.
+- Confirmed synthetic counter glyphs generate a non-empty OTF buffer.
+- Added inspector warnings for multi-contour glyphs, including mixed winding-rule warnings.
+- Added ready-to-export diagnostics warnings for multi-contour and mixed-winding glyphs.
+- Updated release notes and QA docs with V2.1 counter/path guidance.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+
+Known V2.1 limitations:
+
+- Synthetic counter checks verify generation and HTML embedding, not visual counter rendering.
+- Real Figma counter behavior still requires manual preview/export/smoke-test QA.
+- Boolean live layers remain unsupported; users should flatten or convert counter glyphs to vector outlines before scanning.
+
+Suggested next step:
+
+- Run manual Figma QA using `O`, `P`, `B`, and `R` built from flattened vector counters, then document any construction method that causes filled counters.
+
+## 23. V2.0 Reliability Baseline
+
+Goal: keep V1 scope intact while making the project easier to verify, maintain, and safely extend.
+
+Completed:
+
+- Updated package metadata to `2.0.0`.
+- Updated plugin UI label to `Typegen V2.0`.
+- Added `npm run test:regression`.
+- Added regression coverage for supported glyph name parsing, uppercase-only scope, spacing normalization, per-glyph advance overrides, preview missing/unsupported character reporting, safe download filenames, smoke-test HTML generation, and synthetic OTF generation.
+- Updated `npm run check` so it runs typecheck, regression checks, and build.
+- Made smoke-test HTML generation usable in Node-based regression checks by switching from `window.btoa` to `globalThis.btoa`.
+- Added a `Ready to export` diagnostics panel that summarizes valid glyph count, empty/missing/unsupported glyphs, preview gaps, active overrides, generated font state, and saved scan state.
+- Updated README, release notes, QA docs, and smoke-test docs for the V2 reliability baseline.
+
+Verification completed:
+
+- `npm.cmd run test:regression` passed.
+
+Known V2.0 limitations:
+
+- Figma runtime behavior still requires manual QA through the development plugin manifest.
+- Regression checks do not replace real Figma extraction tests.
+- Build may require unsandboxed execution in this Codex environment because Vite/esbuild spawning can hit `EPERM` under sandboxing.
+
+Suggested next step:
+
+- Run a manual Figma QA pass with real `A`, `O`, `B`, `P`, and `R` glyphs to verify counter behavior in preview, OTF export, and smoke-test HTML.
+
 ## 1. Product Goal
 
 Typegen should prove one narrow workflow: a designer can draw uppercase glyphs in Figma, scan those glyphs with a plugin, preview available characters, and export one usable static font file.
@@ -669,7 +1090,3 @@ Publishing plan:
 - Commit V1.0 candidate.
 - Create a new public GitHub repository.
 - Push the local repository to GitHub.
-
-Suggested next step:
-
-- V0.9 can improve demo readiness by adding an explicit in-plugin “Supported glyph recipe” / help panel and clearer onboarding copy for first-time users.

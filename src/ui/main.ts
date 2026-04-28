@@ -3,11 +3,14 @@ import { downloadFont, downloadSmokeTestHtml } from '../font/exportFont';
 import {
   DEFAULT_SPACING,
   GLYPH_CHARS,
+  collectMetricsWarnings,
+  glyphNameForChar,
   isGlyphChar,
   resolveGlyphAdvance,
   type FontBuildResult,
   type FontSpacingSettings,
   type GlyphChar,
+  type GlyphModel,
 } from '../font/glyphModel';
 import { postToPlugin, isPluginMessage, type PluginToUiMessage } from '../shared/messages';
 import type { GlyphScanResult, PersistedTypegenSettings } from '../shared/types';
@@ -29,13 +32,27 @@ type UiState = {
   isGenerating: boolean;
 };
 
+type ExportDiagnostics = {
+  status: 'ready' | 'blocked' | 'needs-scan';
+  headline: string;
+  details: string[];
+  validCount: number;
+  emptyCount: number;
+  missingCount: number;
+  unsupportedCount: number;
+  warningCount: number;
+  previewMissing: GlyphChar[];
+  previewUnsupported: string[];
+  overrideCount: number;
+};
+
 const state: UiState = {
   fontName: 'Typegen Demo',
-  previewText: 'ABC CAB',
+  previewText: 'ABC 123!',
   glyphs: [],
   selectedGlyph: 'A',
   lastScanNodeIds: [],
-  statusMessage: 'Create a board or select glyph slots named glyph-A through glyph-Z.',
+  statusMessage: 'Create a board or select glyph slots named glyph-A through glyph-Z, glyph-0 through glyph-9, or supported punctuation slots.',
   savedStatus: 'No saved settings loaded yet.',
   generatedFont: null,
   spacing: { ...DEFAULT_SPACING, glyphAdvanceOverrides: {} },
@@ -57,16 +74,19 @@ function invalidGlyphs() {
 function render() {
   if (!app) return;
 
+  const interaction = captureRenderInteraction();
   const validCount = validGlyphs().length;
   const canGenerate = validCount > 0 && !state.isGenerating;
   const scanWarning = createScanExportWarning();
   const previewWarning = createPreviewExportWarning();
   const generatedWarnings = state.generatedFont?.warnings ?? [];
+  const diagnostics = createExportDiagnostics();
+  const canExport = isGeneratedFontVerified();
   const rows: GlyphScanResult[] = state.glyphs.length
     ? state.glyphs
     : GLYPH_CHARS.map((char) => ({
         char,
-        name: `glyph-${char}`,
+        name: glyphNameForChar(char),
         status: 'missing' as const,
         message: 'Not scanned yet.',
         warnings: [],
@@ -77,10 +97,10 @@ function render() {
     <section class="shell">
       <header class="header">
         <div>
-          <p class="eyebrow">Typegen V1.0</p>
+          <p class="eyebrow">Typegen V2.10.1</p>
           <h1>Figma glyphs to font file</h1>
         </div>
-        <span class="count">${validCount}/26 ready</span>
+        <span class="count">${validCount}/${GLYPH_CHARS.length} ready</span>
       </header>
 
       <section class="panel">
@@ -92,7 +112,7 @@ function render() {
           Create a board, draw filled vector outlines in glyph slots, scan, preview, then export an OTF.
         </p>
         <div class="actions">
-          <button id="create-board">Create glyph board</button>
+          <button id="create-board">Create/update glyph board</button>
           <button id="scan-glyphs">${state.isScanning ? 'Scanning...' : 'Scan selected glyphs'}</button>
           <button id="toggle-recipe">${state.showRecipe ? 'Hide recipe' : 'Show recipe'}</button>
         </div>
@@ -104,16 +124,16 @@ function render() {
           ? `<section class="panel recipe-panel">
               <div class="section-head">
                 <h2>Supported glyph recipe</h2>
-                <span>A-Z only</span>
+                <span>A-Z + 0-9 + punctuation</span>
               </div>
               <ol class="recipe-list">
-                <li>Name slots exactly <strong>glyph-A</strong> through <strong>glyph-Z</strong>.</li>
+                <li>Name slots exactly <strong>glyph-A</strong> through <strong>glyph-Z</strong>, <strong>glyph-0</strong> through <strong>glyph-9</strong>, plus <strong>glyph-period</strong>, <strong>glyph-comma</strong>, <strong>glyph-exclamation</strong>, <strong>glyph-question</strong>, <strong>glyph-hyphen</strong>, and <strong>glyph-colon</strong>.</li>
                 <li>Draw with simple filled vector paths inside each slot.</li>
                 <li>Convert text and strokes to outlines before scanning.</li>
                 <li>Avoid images, effects, gradients, masks, booleans, and live shape layers.</li>
                 <li>Use preview, spacing, and the inspector before exporting.</li>
               </ol>
-              <p class="status">Lowercase, numbers, punctuation, kerning, variable fonts, and AI generation are intentionally outside this MVP.</p>
+              <p class="status">Lowercase, extra symbols, kerning, variable fonts, and AI generation are intentionally outside this MVP.</p>
             </section>`
           : ''
       }
@@ -131,6 +151,45 @@ function render() {
         <div class="actions">
           <button id="reset-settings" ${hasSavedState() ? '' : 'disabled'}>Reset saved settings</button>
         </div>
+      </section>
+
+      <section class="panel diagnostics-panel ${diagnostics.status}">
+        <div class="section-head">
+          <h2>Ready to export</h2>
+          <span>${diagnostics.status === 'ready' ? 'Ready' : diagnostics.status === 'needs-scan' ? 'Scan needed' : 'Blocked'}</span>
+        </div>
+        <p class="${diagnostics.status === 'ready' ? 'status' : 'warning'}">${escapeHtml(diagnostics.headline)}</p>
+        <div class="diagnostic-grid">
+          <div>
+            <span>Valid</span>
+            <strong>${diagnostics.validCount}</strong>
+          </div>
+          <div>
+            <span>Empty</span>
+            <strong>${diagnostics.emptyCount}</strong>
+          </div>
+          <div>
+            <span>Missing</span>
+            <strong>${diagnostics.missingCount}</strong>
+          </div>
+          <div>
+            <span>Unsupported</span>
+            <strong>${diagnostics.unsupportedCount}</strong>
+          </div>
+          <div>
+            <span>Preview gaps</span>
+            <strong>${diagnostics.previewMissing.length + diagnostics.previewUnsupported.length}</strong>
+          </div>
+          <div>
+            <span>Overrides</span>
+            <strong>${diagnostics.overrideCount}</strong>
+          </div>
+        </div>
+        ${
+          diagnostics.details.length
+            ? `<ul class="message-list">${diagnostics.details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join('')}</ul>`
+            : ''
+        }
       </section>
 
       <section class="panel">
@@ -182,14 +241,15 @@ function render() {
         ${previewWarning ? `<p class="warning">${escapeHtml(previewWarning)}</p>` : ''}
         <div class="actions">
           <button id="generate-font" ${canGenerate ? '' : 'disabled'}>${state.isGenerating ? 'Generating...' : 'Generate font file'}</button>
-          <button id="export-font" ${state.generatedFont ? '' : 'disabled'}>Export OTF</button>
-          <button id="export-smoke-test" ${state.generatedFont ? '' : 'disabled'}>Export smoke test HTML</button>
+          <button id="export-font" ${canExport ? '' : 'disabled'}>Export OTF</button>
+          <button id="export-smoke-test" ${canExport ? '' : 'disabled'}>Export smoke test HTML</button>
         </div>
         ${
           state.generatedFont
-            ? `<p class="status">Font generated with ${state.generatedFont.glyphCount}/26 glyphs. Export includes: ${escapeHtml(exportedChars().join(', ') || 'none')}. Letter spacing: ${state.spacing.letterSpacing}, space width: ${state.spacing.spaceWidth}, overrides: ${countAdvanceOverrides()}.</p>`
+            ? `<p class="status">Font generated with ${state.generatedFont.glyphCount}/${GLYPH_CHARS.length} glyphs. Export includes: ${escapeHtml(exportedChars().join(', ') || 'none')}. Letter spacing: ${state.spacing.letterSpacing}, space width: ${state.spacing.spaceWidth}, overrides: ${countAdvanceOverrides()}.</p>`
             : ''
         }
+        ${state.generatedFont ? renderFontVerification(state.generatedFont) : ''}
         ${
           generatedWarnings.length
             ? `<ul class="message-list">${generatedWarnings
@@ -202,6 +262,46 @@ function render() {
   `;
 
   bindEvents();
+  restoreRenderInteraction(interaction);
+}
+
+type RenderInteraction = {
+  activeElementId: string;
+  selectionStart: number | null;
+  selectionEnd: number | null;
+  scrollTop: number;
+  appScrollTop: number;
+};
+
+function captureRenderInteraction(): RenderInteraction {
+  const active = document.activeElement instanceof HTMLInputElement ? document.activeElement : null;
+  return {
+    activeElementId: active?.id ?? '',
+    selectionStart: active?.selectionStart ?? null,
+    selectionEnd: active?.selectionEnd ?? null,
+    scrollTop: document.scrollingElement?.scrollTop ?? 0,
+    appScrollTop: app?.scrollTop ?? 0,
+  };
+}
+
+function restoreRenderInteraction(interaction: RenderInteraction): void {
+  if (interaction.activeElementId) {
+    const nextActive = document.getElementById(interaction.activeElementId);
+    if (nextActive instanceof HTMLInputElement && !nextActive.disabled) {
+      nextActive.focus({ preventScroll: true });
+      if (interaction.selectionStart !== null && interaction.selectionEnd !== null) {
+        nextActive.setSelectionRange(interaction.selectionStart, interaction.selectionEnd);
+      }
+    }
+  }
+
+  if (document.scrollingElement) {
+    document.scrollingElement.scrollTop = interaction.scrollTop;
+  }
+
+  if (app) {
+    app.scrollTop = interaction.appScrollTop;
+  }
 }
 
 function bindEvents() {
@@ -305,13 +405,13 @@ function bindEvents() {
   });
 
   document.querySelector<HTMLButtonElement>('#export-font')?.addEventListener('click', () => {
-    if (state.generatedFont) {
+    if (state.generatedFont && isGeneratedFontVerified()) {
       downloadFont(state.generatedFont);
     }
   });
 
   document.querySelector<HTMLButtonElement>('#export-smoke-test')?.addEventListener('click', () => {
-    if (state.generatedFont) {
+    if (state.generatedFont && isGeneratedFontVerified()) {
       downloadSmokeTestHtml(state.generatedFont, createSmokeTestSampleText());
     }
   });
@@ -429,7 +529,7 @@ function createPreviewExportWarning(): string {
   }
 
   if (unsupported.size > 0) {
-    return 'Preview includes unsupported characters. Exported fonts only include uppercase A-Z glyphs that scanned as valid.';
+    return 'Preview includes unsupported characters. Exported fonts only include A-Z, 0-9, and supported punctuation glyphs that scanned as valid.';
   }
 
   if (missing.size > 0) {
@@ -437,6 +537,192 @@ function createPreviewExportWarning(): string {
   }
 
   return '';
+}
+
+function createExportDiagnostics(): ExportDiagnostics {
+  const validCount = validGlyphs().length;
+  const emptyCount = state.glyphs.filter((glyph) => glyph.status === 'empty').length;
+  const missingCount = state.glyphs.filter((glyph) => glyph.status === 'missing').length;
+  const unsupportedCount = state.glyphs.filter((glyph) => glyph.status === 'unsupported').length;
+  const windingWarnings = collectWindingWarnings();
+  const metricsWarnings = collectMetricsWarnings(
+    validGlyphs().map((row) => row.glyph!),
+    state.spacing,
+  );
+  const warningCount =
+    state.glyphs.filter((glyph) => glyph.status === 'warning').length +
+    state.glyphs.reduce((total, glyph) => total + glyph.warnings.length + (glyph.glyph?.warnings.length ?? 0), 0) +
+    windingWarnings.length +
+    metricsWarnings.length;
+  const { previewMissing, previewUnsupported } = collectPreviewIssues();
+  const details: string[] = [];
+  const overrideCount = countAdvanceOverrides();
+
+  if (state.glyphs.length === 0) {
+    return {
+      status: 'needs-scan',
+      headline: 'Scan a selected glyph board before generating a font.',
+      details: [
+        state.lastScanNodeIds.length > 0
+          ? `${state.lastScanNodeIds.length} saved scan nodes are available for restore.`
+          : 'No scan results are loaded yet.',
+      ],
+      validCount,
+      emptyCount,
+      missingCount,
+      unsupportedCount,
+      warningCount,
+      previewMissing,
+      previewUnsupported,
+      overrideCount,
+    };
+  }
+
+  if (emptyCount > 0) {
+    details.push(`${emptyCount} empty glyphs will not export.`);
+  }
+
+  if (missingCount > 0) {
+    details.push(`${missingCount} missing glyphs are outside this export.`);
+  }
+
+  if (unsupportedCount > 0) {
+    details.push(`${unsupportedCount} unsupported glyphs need vector-outline fixes.`);
+  }
+
+  if (warningCount > 0) {
+    details.push(`${warningCount} glyph warnings should be reviewed in the inspector.`);
+  }
+
+  for (const warning of metricsWarnings.slice(0, 4)) {
+    details.push(warning);
+  }
+
+  if (metricsWarnings.length > 4) {
+    details.push(`${metricsWarnings.length - 4} more metrics warnings are available after spacing changes.`);
+  }
+
+  for (const warning of windingWarnings.slice(0, 3)) {
+    details.push(warning);
+  }
+
+  if (windingWarnings.length > 3) {
+    details.push(`${windingWarnings.length - 3} more winding warnings are available in the glyph inspector.`);
+  }
+
+  if (previewMissing.length > 0) {
+    details.push(`Preview uses glyphs not in this export: ${previewMissing.join(', ')}.`);
+  }
+
+  if (previewUnsupported.length > 0) {
+    details.push('Preview contains unsupported characters; export only includes A-Z, 0-9, supported punctuation, and space.');
+  }
+
+  if (overrideCount > 0) {
+    details.push(`${overrideCount} advance width overrides are active.`);
+  }
+
+  details.push(
+    state.lastScanNodeIds.length > 0
+      ? `Saved scan references ${state.lastScanNodeIds.length} Figma nodes.`
+      : 'No saved scan nodes are currently stored.',
+  );
+
+  if (state.generatedFont) {
+    if (isGeneratedFontVerified()) {
+      details.push('Generated font verified and export actions are enabled.');
+    } else {
+      details.push('Generated font did not verify cleanly; export actions are blocked.');
+    }
+  } else if (validCount > 0) {
+    details.push('Generate the font before exporting OTF or smoke-test HTML.');
+  }
+
+  if (validCount === 0) {
+    return {
+      status: 'blocked',
+      headline: 'Export is blocked because no valid glyphs are ready.',
+      details,
+      validCount,
+      emptyCount,
+      missingCount,
+      unsupportedCount,
+      warningCount,
+      previewMissing,
+      previewUnsupported,
+      overrideCount,
+    };
+  }
+
+  const hasPreviewIssues = previewMissing.length > 0 || previewUnsupported.length > 0;
+  const hasVerificationFailure = Boolean(state.generatedFont && !isGeneratedFontVerified());
+  return {
+    status: hasPreviewIssues || hasVerificationFailure ? 'blocked' : 'ready',
+    headline: hasVerificationFailure
+      ? 'Generated font failed verification. Fix glyphs or regenerate before export.'
+      : hasPreviewIssues
+      ? 'Font generation is possible, but the current preview includes characters that will not export.'
+      : state.generatedFont
+        ? 'Generated font is ready to export.'
+        : 'Glyphs are ready; generate the font to enable export.',
+    details,
+    validCount,
+    emptyCount,
+    missingCount,
+    unsupportedCount,
+    warningCount,
+    previewMissing,
+    previewUnsupported,
+    overrideCount,
+  };
+}
+
+function collectPreviewIssues(): { previewMissing: GlyphChar[]; previewUnsupported: string[] } {
+  const exportable = new Set(exportedChars());
+  const previewMissing = new Set<GlyphChar>();
+  const previewUnsupported = new Set<string>();
+
+  for (const char of Array.from(state.previewText)) {
+    if (char === ' ') {
+      continue;
+    }
+
+    if (!isGlyphChar(char)) {
+      previewUnsupported.add(char);
+      continue;
+    }
+
+    if (state.glyphs.length > 0 && !exportable.has(char)) {
+      previewMissing.add(char);
+    }
+  }
+
+  return {
+    previewMissing: [...previewMissing],
+    previewUnsupported: [...previewUnsupported],
+  };
+}
+
+function collectWindingWarnings(): string[] {
+  return state.glyphs
+    .map((row) => createWindingWarning(row.glyph))
+    .filter((warning): warning is string => Boolean(warning));
+}
+
+function createWindingWarning(glyph: GlyphModel | undefined): string {
+  if (!glyph || glyph.paths.length <= 1) {
+    return '';
+  }
+
+  const windingRules = glyph.paths
+    .map((path) => path.windingRule ?? 'NONZERO')
+    .filter(uniqueString);
+
+  if (windingRules.length > 1) {
+    return `${glyph.char}: mixed winding rules (${windingRules.join(', ')}) may make counters differ between preview and exported font.`;
+  }
+
+  return `${glyph.char}: multiple contours detected. If this glyph has counters, confirm the preview and exported font both keep holes open.`;
 }
 
 function createSmokeTestSampleText(): string {
@@ -448,7 +734,15 @@ function createSmokeTestSampleText(): string {
   }
 
   const firstGlyphs = GLYPH_CHARS.filter((char) => exportedChars().includes(char)).slice(0, 8);
-  return firstGlyphs.length > 0 ? firstGlyphs.join(' ') : 'ABC CAB CODE';
+  return firstGlyphs.length > 0 ? firstGlyphs.join(' ') : 'ABC 123!';
+}
+
+function isGeneratedFontVerified(): boolean {
+  return Boolean(
+    state.generatedFont &&
+      state.generatedFont.verification.failedGlyphs.length === 0 &&
+      state.generatedFont.verification.verifiedGlyphs.length === state.generatedFont.glyphCount,
+  );
 }
 
 function getSelectedGlyph(rows: GlyphScanResult[]): GlyphScanResult {
@@ -469,7 +763,8 @@ function chooseSelectedGlyph(glyphs: GlyphScanResult[], current: GlyphChar): Gly
 
 function renderGlyphInspector(row: GlyphScanResult): string {
   const glyph = row.glyph;
-  const warnings = [...row.warnings, ...(glyph?.warnings ?? [])].filter(uniqueString);
+  const windingWarning = createWindingWarning(glyph);
+  const warnings = [...row.warnings, ...(glyph?.warnings ?? []), windingWarning].filter(Boolean).filter(uniqueString);
   const bounds = glyph?.bounds;
   const commandCount = glyph?.paths.reduce((total, path) => total + path.commands.length, 0) ?? 0;
   const windingRules = glyph?.paths
@@ -504,7 +799,7 @@ function renderGlyphInspector(row: GlyphScanResult): string {
       </div>
       <div>
         <span>Winding</span>
-        <strong>${escapeHtml(windingRules || 'none')}</strong>
+        <strong>${escapeHtml(windingRules || 'none')}${glyph && glyph.paths.length > 1 ? ` (${glyph.paths.length} contours)` : ''}</strong>
       </div>
       <div>
         <span>Base advance</span>
@@ -535,6 +830,37 @@ function renderGlyphInspector(row: GlyphScanResult): string {
       warnings.length
         ? `<ul class="message-list">${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul>`
         : '<p class="status">No glyph-specific warnings.</p>'
+    }
+  `;
+}
+
+function renderFontVerification(result: FontBuildResult): string {
+  const verifiedChars = result.verification.verifiedGlyphs.map((glyph) => glyph.char);
+  const failedChars = result.verification.failedGlyphs;
+  const sample = result.verification.verifiedGlyphs
+    .slice(0, 6)
+    .map((glyph) => `${glyph.char} ${glyph.advanceWidth}/${glyph.commandCount}`)
+    .join(', ');
+
+  return `
+    <div class="verification-box ${failedChars.length ? 'blocked' : 'ready'}">
+      <div>
+        <span>Parsed glyphs</span>
+        <strong>${result.verification.parsedGlyphCount}</strong>
+      </div>
+      <div>
+        <span>Verified</span>
+        <strong>${verifiedChars.length}/${result.glyphCount}</strong>
+      </div>
+      <div>
+        <span>Sample</span>
+        <strong>${escapeHtml(sample || 'none')}</strong>
+      </div>
+    </div>
+    ${
+      failedChars.length
+        ? `<p class="warning">Generated font parsed, but these glyphs did not verify cleanly: ${escapeHtml(failedChars.join(', '))}.</p>`
+        : '<p class="status">Generated font parsed back successfully with matching unicode, advance width, and outline data.</p>'
     }
   `;
 }
@@ -628,7 +954,7 @@ function clampNumber(value: number | undefined, min: number, max: number, fallba
 function hasSavedState(): boolean {
   return (
     state.fontName !== 'Typegen Demo' ||
-    state.previewText !== 'ABC CAB' ||
+    state.previewText !== 'ABC 123!' ||
     state.selectedGlyph !== 'A' ||
     state.lastScanNodeIds.length > 0 ||
     state.spacing.letterSpacing !== DEFAULT_SPACING.letterSpacing ||
@@ -639,7 +965,7 @@ function hasSavedState(): boolean {
 
 function resetLocalSettings(): void {
   state.fontName = 'Typegen Demo';
-  state.previewText = 'ABC CAB';
+  state.previewText = 'ABC 123!';
   state.glyphs = [];
   state.selectedGlyph = 'A';
   state.lastScanNodeIds = [];

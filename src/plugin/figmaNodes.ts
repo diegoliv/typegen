@@ -5,6 +5,7 @@ import {
   GlyphScanSummary,
   SUPPORTED_CHARS,
   TYPEGEN_ROLE_KEY,
+  glyphNameForChar,
   unicodeForChar,
 } from "./pluginTypes";
 
@@ -32,10 +33,11 @@ export function scanSelectedGlyphs(selection: readonly SceneNode[]): {
 
   const glyphs = SUPPORTED_CHARS.map((char): GlyphScanResult => {
     const node = firstByChar.get(char);
+    const glyphName = glyphNameForChar(char);
     const base = {
       char,
       unicode: unicodeForChar(char),
-      name: `glyph-${char}`,
+      name: glyphName,
       warnings: [] as string[],
     };
 
@@ -43,7 +45,7 @@ export function scanSelectedGlyphs(selection: readonly SceneNode[]): {
       return {
         ...base,
         status: "missing",
-        message: `Glyph ${char} is missing. Select a board or node named glyph-${char}.`,
+        message: `Glyph ${char} is missing. Select a board or node named ${glyphName}.`,
       };
     }
 
@@ -52,7 +54,7 @@ export function scanSelectedGlyphs(selection: readonly SceneNode[]): {
     const warnings = extraction.issues.filter((issue) => issue.level === "warning").map((issue) => issue.message);
 
     if (duplicateTotal > 0) {
-      warnings.push(`${duplicateTotal} glyph-${char} nodes were found. The first one was used; remove or rename duplicates.`);
+      warnings.push(`${duplicateTotal} ${glyphName} nodes were found. The first one was used; remove or rename duplicates.`);
     }
 
     const errors = extraction.issues.filter((issue) => issue.level === "error");
@@ -71,7 +73,7 @@ export function scanSelectedGlyphs(selection: readonly SceneNode[]): {
         ...base,
         status: "empty",
         nodeId: node.id,
-        message: `Glyph ${char} is empty. Add a simple filled vector path inside glyph-${char}.`,
+        message: `Glyph ${char} is empty. Add a simple filled vector path inside ${glyphName}.`,
         warnings,
       };
     }

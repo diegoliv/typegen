@@ -6,7 +6,7 @@ export type {
   NormalizedPath,
 } from '../shared/types';
 
-export { GLYPH_CHARS } from '../shared/types';
+export { GLYPH_CHARS, GLYPH_DEFINITIONS, defaultAdvanceForChar, glyphLabelForChar, glyphNameForChar } from '../shared/types';
 
 import { GLYPH_CHARS, type GlyphChar, type GlyphModel } from '../shared/types';
 
@@ -30,6 +30,20 @@ export type FontBuildResult = {
   familyName: string;
   glyphCount: number;
   warnings: string[];
+  verification: FontVerificationResult;
+};
+
+export type FontVerificationResult = {
+  parsedGlyphCount: number;
+  verifiedGlyphs: FontVerifiedGlyph[];
+  failedGlyphs: GlyphChar[];
+};
+
+export type FontVerifiedGlyph = {
+  char: GlyphChar;
+  unicode: number;
+  advanceWidth: number;
+  commandCount: number;
 };
 
 export type FontSpacingSettings = {
@@ -58,8 +72,39 @@ export function resolveGlyphAdvance(glyph: GlyphModel, spacing?: Partial<FontSpa
   return clampMetric((override ?? glyph.advanceWidth) + normalized.letterSpacing, 120, 1400);
 }
 
+export function collectMetricsWarnings(
+  glyphs: GlyphModel[],
+  spacing?: Partial<FontSpacingSettings>,
+): string[] {
+  const normalized = normalizeSpacingSettings(spacing);
+  const warnings: string[] = [];
+
+  if (normalized.letterSpacing <= -80) {
+    warnings.push(`Letter spacing ${normalized.letterSpacing} may make glyphs collide.`);
+  } else if (normalized.letterSpacing >= 220) {
+    warnings.push(`Letter spacing ${normalized.letterSpacing} is very loose.`);
+  }
+
+  if (normalized.spaceWidth <= 160) {
+    warnings.push(`Space width ${normalized.spaceWidth} is very narrow.`);
+  } else if (normalized.spaceWidth >= 700) {
+    warnings.push(`Space width ${normalized.spaceWidth} is very wide.`);
+  }
+
+  for (const glyph of sortGlyphsByAlphabet(getUsableGlyphs(glyphs))) {
+    const advance = resolveGlyphAdvance(glyph, normalized);
+    if (advance <= 180) {
+      warnings.push(`${glyph.char} export advance ${advance} is very narrow.`);
+    } else if (advance >= 1200) {
+      warnings.push(`${glyph.char} export advance ${advance} is very wide.`);
+    }
+  }
+
+  return warnings;
+}
+
 export function isGlyphChar(value: string): value is GlyphChar {
-  return (GLYPH_CHARS as string[]).includes(value);
+  return (GLYPH_CHARS as readonly string[]).includes(value);
 }
 
 export function getUsableGlyphs(glyphs: GlyphModel[]): GlyphModel[] {

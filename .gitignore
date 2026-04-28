@@ -4,3 +4,4 @@ Thumbs.db
 *.log
 Typegen-Demo.otf
 Typegen-Demo-smoke-test.html
+dist/v2-regression-checks.cjs

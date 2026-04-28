@@ -30,12 +30,17 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
 
     if (message.type === "CREATE_GLYPH_BOARD") {
       const result = await createGlyphBoard();
+      const action = result.created
+        ? `Created ${result.board.name}.`
+        : result.addedSlots > 0
+          ? `Updated ${result.board.name}: added ${result.addedSlots} missing slots.`
+          : `${result.board.name} is already up to date.`;
       postToUi({
         type: "GLYPH_BOARD_CREATED",
-        message: `Created ${result.board.name}.`,
+        message: action,
         warnings: result.warnings,
       });
-      figma.notify("Typegen glyph board created.");
+      figma.notify(action);
       return;
     }
 
@@ -43,7 +48,7 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
       if (figma.currentPage.selection.length === 0) {
         postToUi({
           type: "VALIDATION_ERROR",
-          message: "No glyph nodes found. Select the Font Glyph Board or frames named glyph-A through glyph-Z.",
+          message: "No glyph nodes found. Select the Font Glyph Board or supported glyph slot frames.",
         });
         return;
       }
