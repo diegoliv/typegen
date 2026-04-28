@@ -126,3 +126,41 @@ Out of scope:
 - Font-size, line-height, and theme controls.
 - Kerning or OpenType feature previews.
 - Any export behavior changes.
+
+## V4.2 Starter Style Controls
+
+V4.2 should add a small amount of control to starter generation without changing scan, preview, or export.
+
+Scope:
+
+- Add a starter style selector for Inter Regular and Inter Bold.
+- Pass the selected style to board creation and starter generation.
+- Keep Regular and Bold starter boards separate.
+- Prefer the selected board or selected slot's parent board over the UI style when running board, starter, and scan actions.
+- Preserve existing artwork and fill empty slots only.
+- Fall back from Bold to Regular if the selected style cannot load.
+
+Out of scope:
+
+- Importing arbitrary user font files.
+- Multiple font families.
+- Replacing existing starter artwork automatically.
+- Weight interpolation, variable fonts, or generated style axes.
+
+## V4.3 Board / Weight Clarity
+
+V4.3 should reduce confusion once multiple boards can coexist.
+
+Scope:
+
+- Show the active board and weight in the plugin UI.
+- Return active board metadata from board creation, starter generation, and scanning.
+- Keep the starter style selector synced to the active board weight after context-aware actions.
+- Make action messages clearer about the board being used.
+
+Out of scope:
+
+- Multi-board comparison UI.
+- Bulk generation across all weights.
+- Board-specific persisted settings.
+- Exporting multiple font files at once.

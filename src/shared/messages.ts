@@ -1,8 +1,14 @@
 import type { GlyphScanResult, PersistedTypegenSettings, ScanSummary } from './types';
 
+export type ActiveBoardInfo = {
+  id: string;
+  name: string;
+  style: 'Regular' | 'Bold';
+};
+
 export type UiToPluginMessage =
-  | { type: 'CREATE_GLYPH_BOARD' }
-  | { type: 'GENERATE_STARTER_GLYPHS' }
+  | { type: 'CREATE_GLYPH_BOARD'; style?: 'Regular' | 'Bold' }
+  | { type: 'GENERATE_STARTER_GLYPHS'; style?: 'Regular' | 'Bold' }
   | { type: 'SCAN_SELECTED_GLYPHS' }
   | { type: 'RESTORE_SAVED_SCAN'; nodeIds: string[] }
   | { type: 'SAVE_SETTINGS'; settings: PersistedTypegenSettings }
@@ -23,16 +29,19 @@ export type PluginToUiMessage =
       type: 'GLYPH_BOARD_CREATED';
       message: string;
       warnings: string[];
+      activeBoard: ActiveBoardInfo;
     }
   | {
       type: 'STARTER_GLYPHS_GENERATED';
       message: string;
       warnings: string[];
+      activeBoard: ActiveBoardInfo;
     }
   | {
       type: 'GLYPHS_SCANNED';
       glyphs: GlyphScanResult[];
       summary: ScanSummary;
+      activeBoard?: ActiveBoardInfo;
     }
   | {
       type: 'VALIDATION_ERROR';

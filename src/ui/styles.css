@@ -15,7 +15,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -117,9 +118,19 @@ input {
   color: #202622;
 }
 
-input:focus {
+input:focus,
+select:focus {
   outline: 2px solid #7aa98e;
   outline-offset: 1px;
+}
+
+select {
+  min-height: 32px;
+  border: 1px solid #cbd3c5;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #202622;
+  padding: 7px 8px;
 }
 
 .instructions,
@@ -168,6 +179,15 @@ input:focus {
   gap: 8px;
 }
 
+.starter-style-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #5f6761;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .saved-stats {
   display: flex;
   flex-wrap: wrap;
@@ -181,6 +201,35 @@ input:focus {
   border-radius: 999px;
   background: #fbfcf7;
   padding: 4px 8px;
+}
+
+.active-board {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #cfe3c9;
+  border-radius: 6px;
+  background: #f4f8ef;
+  padding: 8px;
+}
+
+.active-board.empty {
+  border-color: #e4e8df;
+  background: #fbfcf7;
+}
+
+.active-board span,
+.active-board em {
+  color: #68726b;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.active-board strong {
+  overflow-wrap: anywhere;
+  color: #202622;
+  font-size: 12px;
 }
 
 .diagnostics-panel.ready {

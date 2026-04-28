@@ -12,7 +12,11 @@ The current V4 alpha keeps the reliable V3 loop and adds editable Inter-based st
 6. Tune spacing.
 7. Export an OTF font and smoke-test HTML.
 
-The board action is safe to re-run: it updates an existing `Font Glyph Board`, preserves existing glyph artwork, and repositions supported slots into the canonical A-Z, a-z, 0-9, punctuation order.
+The board action is safe to re-run: it updates the selected board when one is active on the canvas, preserves existing glyph artwork, and repositions supported slots into the canonical A-Z, a-z, 0-9, punctuation order. Regular and Bold starter styles use separate boards, so creating a Bold board will not reuse an existing Regular board.
+
+Board-aware actions prefer the selected board or a selected slot's parent board. If no board is selected, Typegen falls back to the starter style control.
+
+The plugin also shows the active board and weight in the UI after board creation, starter generation, or scanning, so multi-weight work stays visible.
 
 The starter glyph action is also artwork-safe: it fills empty supported slots only and skips any slot that already contains user or generated artwork. Starter outlines are seeded from Figma's Inter Regular font when available, then flattened into editable vectors.
 
@@ -27,7 +31,8 @@ Supported:
 - Common symbols: `'`, `"`, `/`, `(`, `)`, `&`, `+`, `=`, `@`
 - Simple filled vector paths
 - Starter glyph board generation
-- Inter-based starter glyph outline generation for empty slots
+- Inter-based starter glyph outline generation for empty slots, with Regular and Bold starter styles
+- Active board/weight indicator for multi-board workflows
 - Glyph scan and validation
 - SVG preview from extracted outlines
 - Preview presets for mixed, headline, word-list, paragraph-style, and number/symbol samples
@@ -72,7 +77,7 @@ The committed `dist/` files are included so the manifest can load immediately af
 - Use slots named exactly `glyph-A` through `glyph-Z`, `glyph-a` through `glyph-z`, `glyph-0` through `glyph-9`, `glyph-period`, `glyph-comma`, `glyph-exclamation`, `glyph-question`, `glyph-hyphen`, `glyph-colon`, `glyph-apostrophe`, `glyph-quote`, `glyph-slash`, `glyph-paren-left`, `glyph-paren-right`, `glyph-ampersand`, `glyph-plus`, `glyph-equals`, and `glyph-at`.
 - Raw punctuation aliases such as `glyph-!`, `glyph-.`, and `glyph-?` are also accepted during scanning, but the generated board uses the safer names above.
 - Draw simple filled vector paths inside each slot.
-- Use `Generate starter glyphs` to fill empty slots with editable Inter-based starter outlines, then refine them as needed.
+- Choose Inter Regular or Inter Bold, then use `Generate starter glyphs` to fill empty slots with editable Inter-based starter outlines.
 - Convert text to outlines before scanning.
 - Expand strokes before scanning.
 - Avoid images, effects, gradients, masks, booleans, and live shape layers.
@@ -99,4 +104,4 @@ See [docs/QA.md](docs/QA.md) for the manual QA checklist, [docs/SMOKE_TEST.md](d
 
 ## Status
 
-V4.1 alpha preview presets on top of Inter-based starter glyph generation. This is intentionally still an MVP, built to prove and harden the Figma vectors -> glyph model -> preview -> font export workflow before broader character support.
+V4.3 alpha active board clarity on top of Inter-based starter glyph generation, style controls, and preview presets. This is intentionally still an MVP, built to prove and harden the Figma vectors -> glyph model -> preview -> font export workflow before broader character support.

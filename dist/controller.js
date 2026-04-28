@@ -185,7 +185,10 @@
   var COLUMNS = 6;
   var PADDING = 32;
   var LABEL_FONT = { family: "Inter", style: "Regular" };
-  async function createGlyphBoard() {
+  var BOARD_STYLE_KEY = "typegen-board-style";
+  async function createGlyphBoard(style = "Regular") {
+    const selectedBoard = findSelectedGlyphBoard();
+    const boardStyle = selectedBoard ? getGlyphBoardStyle(selectedBoard) : sanitizeBoardStyle(style);
     const warnings = [];
     let labelsEnabled = true;
     try {
@@ -194,8 +197,9 @@
       labelsEnabled = false;
       warnings.push("Could not load Inter Regular for board labels. Slots were still created.");
     }
-    const existingBoard = findExistingBoard();
-    const board = existingBoard != null ? existingBoard : createBoardFrame();
+    const existingBoard = selectedBoard != null ? selectedBoard : findExistingBoard(boardStyle);
+    const board = existingBoard != null ? existingBoard : createBoardFrame(boardStyle);
+    setBoardStyle(board, boardStyle);
     const existingSlotsByChar = collectExistingSlots(board);
     let addedSlots = 0;
     for (let index = 0; index < SUPPORTED_CHARS.length; index++) {
@@ -210,11 +214,15 @@
     }
     resizeBoardToFitSupportedSlots(board);
     if (!existingBoard) {
+      positionNewBoard(board);
       figma.currentPage.appendChild(board);
     }
     figma.currentPage.selection = [board];
     figma.viewport.scrollAndZoomIntoView([board]);
-    return { board, warnings, created: !existingBoard, addedSlots };
+    return { board, style: boardStyle, warnings, created: !existingBoard, addedSlots };
+  }
+  function sanitizeBoardStyle(style) {
+    return style === "Bold" ? "Bold" : "Regular";
   }
   function collectExistingSlots(board) {
     const slots = /* @__PURE__ */ new Map();
@@ -237,19 +245,60 @@
       }
     }
   }
-  function findExistingBoard() {
-    const selectedBoard = figma.currentPage.selection.find(isGlyphBoardFrame);
-    if (selectedBoard) {
-      return selectedBoard;
+  function findExistingBoard(style) {
+    return figma.currentPage.findOne((node) => isGlyphBoardFrameForStyle(node, style));
+  }
+  function findSelectedGlyphBoard() {
+    for (const node of figma.currentPage.selection) {
+      const board = findGlyphBoardAncestor(node);
+      if (board) {
+        return board;
+      }
     }
-    return figma.currentPage.findOne((node) => isGlyphBoardFrame(node));
+    return null;
+  }
+  function findGlyphBoardAncestor(node) {
+    let current = node;
+    while (current) {
+      if (isGlyphBoardFrame(current)) {
+        return current;
+      }
+      current = current.parent;
+    }
+    return null;
+  }
+  function isGlyphBoardFrameForStyle(node, style) {
+    if (!isGlyphBoardFrame(node)) {
+      return false;
+    }
+    return getGlyphBoardStyle(node) === style;
   }
   function isGlyphBoardFrame(node) {
-    return node.type === "FRAME" && (node.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_BOARD || node.name === "Font Glyph Board");
+    return node.type === "FRAME" && (node.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_BOARD || node.name === "Font Glyph Board" || node.name.startsWith("Font Glyph Board - Inter "));
   }
-  function createBoardFrame() {
+  function getGlyphBoardStyle(board) {
+    const style = board.getPluginData(BOARD_STYLE_KEY);
+    if (style === "Bold") {
+      return "Bold";
+    }
+    if (style === "Regular") {
+      return "Regular";
+    }
+    return board.name.includes("Bold") ? "Bold" : "Regular";
+  }
+  function setBoardStyle(board, style) {
+    board.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_BOARD);
+    board.setPluginData(BOARD_STYLE_KEY, style);
+    if (board.name !== "Font Glyph Board" || style === "Bold") {
+      board.name = boardNameForStyle(style);
+    }
+  }
+  function boardNameForStyle(style) {
+    return `Font Glyph Board - Inter ${style}`;
+  }
+  function createBoardFrame(style) {
     const board = figma.createFrame();
-    board.name = "Font Glyph Board";
+    board.name = boardNameForStyle(style);
     board.fills = [solid(0.98, 0.98, 0.98)];
     board.strokes = [solid(0.82, 0.84, 0.88)];
     board.strokeWeight = 1;
@@ -258,6 +307,18 @@
     board.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_BOARD);
     resizeBoardToFitSupportedSlots(board);
     return board;
+  }
+  function positionNewBoard(board) {
+    const existingBoards = figma.currentPage.findAll((node) => isGlyphBoardFrame(node)).filter(
+      (existingBoard) => existingBoard.id !== board.id
+    );
+    if (existingBoards.length === 0) {
+      return;
+    }
+    const rightEdge = Math.max(...existingBoards.map((existingBoard) => existingBoard.x + existingBoard.width));
+    const top = Math.min(...existingBoards.map((existingBoard) => existingBoard.y));
+    board.x = rightEdge + GAP;
+    board.y = top;
   }
   function resizeBoardToFitSupportedSlots(board) {
     const rows = Math.ceil(SUPPORTED_CHARS.length / COLUMNS);
@@ -885,12 +946,11 @@
 
   // src/plugin/starterGlyphs.ts
   var FILL = { type: "SOLID", color: { r: 0.05, g: 0.06, b: 0.08 } };
-  var INTER_STARTER_FONT = { family: "Inter", style: "Regular" };
-  async function generateStarterGlyphs() {
-    const boardResult = await createGlyphBoard();
+  async function generateStarterGlyphs(style = "Regular") {
+    const boardResult = await createGlyphBoard(style);
     const slotsByChar = collectSlotsByChar(boardResult.board);
     const warnings = [...boardResult.warnings];
-    const interAvailable = await loadInterStarterFont(warnings);
+    const starterFont = await loadInterStarterFont(boardResult.style, warnings);
     let filledSlots = 0;
     let skippedSlots = 0;
     for (const char of SUPPORTED_CHARS) {
@@ -907,7 +967,7 @@
         skippedSlots++;
         continue;
       }
-      addStarterGlyphToSlot(slot, char, interAvailable, warnings);
+      addStarterGlyphToSlot(slot, char, starterFont, warnings);
       filledSlots++;
     }
     figma.currentPage.selection = [boardResult.board];
@@ -919,13 +979,25 @@
       warnings
     };
   }
-  async function loadInterStarterFont(warnings) {
+  async function loadInterStarterFont(style, warnings) {
+    const requestedFont = { family: "Inter", style };
     try {
-      await figma.loadFontAsync(INTER_STARTER_FONT);
-      return true;
+      await figma.loadFontAsync(requestedFont);
+      return requestedFont;
     } catch (e) {
+      if (style === "Bold") {
+        const regularFont = { family: "Inter", style: "Regular" };
+        try {
+          await figma.loadFontAsync(regularFont);
+          warnings.push("Could not load Inter Bold for starter outlines. Used Inter Regular instead.");
+          return regularFont;
+        } catch (e2) {
+          warnings.push("Could not load Inter Bold or Regular for starter outlines. Used geometric fallback glyphs instead.");
+          return null;
+        }
+      }
       warnings.push("Could not load Inter Regular for starter outlines. Used geometric fallback glyphs instead.");
-      return false;
+      return null;
     }
   }
   function collectSlotsByChar(board) {
@@ -941,10 +1013,10 @@
   function hasUserArtwork(slot) {
     return slot.children.some((child) => child.getPluginData(TYPEGEN_ROLE_KEY) !== TYPEGEN_ROLE_HELPER);
   }
-  function addStarterGlyphToSlot(slot, char, interAvailable, warnings) {
-    if (interAvailable) {
+  function addStarterGlyphToSlot(slot, char, starterFont, warnings) {
+    if (starterFont) {
       try {
-        createInterStarterOutline(slot, char);
+        createInterStarterOutline(slot, char, starterFont);
         return;
       } catch (e) {
         warnings.push(`${glyphNameForChar2(char)} could not be generated from Inter. Used geometric fallback for that slot.`);
@@ -953,11 +1025,11 @@
     const vector = createStarterVector(char);
     slot.appendChild(vector);
   }
-  function createInterStarterOutline(slot, char) {
+  function createInterStarterOutline(slot, char, starterFont) {
     const text = figma.createText();
     try {
       text.name = `tg-inter-source-${safeNodeName(glyphLabelForChar(char))}`;
-      text.fontName = INTER_STARTER_FONT;
+      text.fontName = starterFont;
       text.fontSize = 128;
       text.textAutoResize = "WIDTH_AND_HEIGHT";
       text.characters = char;
@@ -967,7 +1039,7 @@
       text.y = 0;
       slot.appendChild(text);
       const vector = figma.flatten([text], slot);
-      vector.name = `tg-starter-inter-${safeNodeName(glyphLabelForChar(char))}`;
+      vector.name = `tg-starter-inter-${starterFont.style.toLowerCase()}-${safeNodeName(glyphLabelForChar(char))}`;
       vector.fills = [FILL];
       vector.strokes = [];
       fitStarterVectorToSlot(vector, char);
@@ -1322,6 +1394,7 @@
 
   // src/plugin/controller.ts
   var SETTINGS_KEY = "typegen-settings-v1";
+  var activeBoardId = "";
   figma.showUI(__html__, { width: 420, height: 640, themeColors: true });
   postToUi({ type: "PLUGIN_READY" });
   postToUi({ type: "SETTINGS_LOADED", settings: loadSettings() });
@@ -1341,42 +1414,52 @@
         return;
       }
       if (message.type === "CREATE_GLYPH_BOARD") {
-        const result = await createGlyphBoard();
+        const result = await createGlyphBoard(message.style);
+        activeBoardId = result.board.id;
         const action = result.created ? `Created ${result.board.name}.` : result.addedSlots > 0 ? `Updated ${result.board.name}: added ${result.addedSlots} missing slots.` : `${result.board.name} is already up to date.`;
         postToUi({
           type: "GLYPH_BOARD_CREATED",
           message: action,
-          warnings: result.warnings
+          warnings: result.warnings,
+          activeBoard: createActiveBoardInfo(result.board)
         });
         figma.notify(action);
         return;
       }
       if (message.type === "GENERATE_STARTER_GLYPHS") {
-        const result = await generateStarterGlyphs();
+        const result = await generateStarterGlyphs(message.style);
+        activeBoardId = result.board.id;
         const action = result.filledSlots > 0 ? `Generated starter outlines in ${result.filledSlots} empty slots. Preserved ${result.skippedSlots} slots with existing artwork.` : `No empty slots needed starter outlines. Preserved ${result.skippedSlots} slots with existing artwork.`;
         postToUi({
           type: "STARTER_GLYPHS_GENERATED",
-          message: action,
-          warnings: result.warnings
+          message: `${action} Active board: ${result.board.name}.`,
+          warnings: result.warnings,
+          activeBoard: createActiveBoardInfo(result.board)
         });
         figma.notify(action);
         return;
       }
       if (message.type === "SCAN_SELECTED_GLYPHS") {
-        if (figma.currentPage.selection.length === 0) {
+        const scanSelection = await resolveScanSelection();
+        if (scanSelection.length === 0) {
           postToUi({
             type: "VALIDATION_ERROR",
-            message: "No glyph nodes found. Select the Font Glyph Board or supported glyph slot frames."
+            message: "No glyph nodes found. Select the active Font Glyph Board or supported glyph slot frames."
           });
           return;
         }
-        const result = scanSelectedGlyphs(figma.currentPage.selection);
+        const result = scanSelectedGlyphs(scanSelection);
+        const activeBoard = resolveActiveBoardForSelection(scanSelection);
+        if (activeBoard) {
+          activeBoardId = activeBoard.id;
+        }
         postToUi({
           type: "GLYPHS_SCANNED",
           glyphs: result.glyphs,
-          summary: result.summary
+          summary: result.summary,
+          activeBoard: activeBoard ? createActiveBoardInfo(activeBoard) : void 0
         });
-        figma.notify(`Scanned glyphs: ${result.summary.valid} valid, ${result.summary.empty} empty.`);
+        figma.notify(`Scanned glyphs: ${result.summary.valid} valid, ${result.summary.empty} empty${activeBoard ? ` from ${activeBoard.name}` : ""}.`);
         return;
       }
       postToUi({ type: "VALIDATION_ERROR", message: "Unknown Typegen action." });
@@ -1386,6 +1469,35 @@
       figma.notify(messageText, { error: true });
     }
   };
+  async function resolveScanSelection() {
+    if (figma.currentPage.selection.length > 0) {
+      return [...figma.currentPage.selection];
+    }
+    if (!activeBoardId) {
+      return [];
+    }
+    const node = await figma.getNodeByIdAsync(activeBoardId);
+    return isSceneNode(node) ? [node] : [];
+  }
+  function resolveActiveBoardForSelection(selection) {
+    const selectedBoard = findSelectedGlyphBoard();
+    if (selectedBoard) {
+      return selectedBoard;
+    }
+    for (const node of selection) {
+      if (node.type === "FRAME" && node.id === activeBoardId) {
+        return node;
+      }
+    }
+    return null;
+  }
+  function createActiveBoardInfo(board) {
+    return {
+      id: board.id,
+      name: board.name,
+      style: getGlyphBoardStyle(board)
+    };
+  }
   function postToUi(message) {
     figma.ui.postMessage(message);
   }

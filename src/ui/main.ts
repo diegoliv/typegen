@@ -12,7 +12,7 @@ import {
   type GlyphChar,
   type GlyphModel,
 } from '../font/glyphModel';
-import { postToPlugin, isPluginMessage, type PluginToUiMessage } from '../shared/messages';
+import { postToPlugin, isPluginMessage, type ActiveBoardInfo, type PluginToUiMessage } from '../shared/messages';
 import type { GlyphScanResult, PersistedTypegenSettings } from '../shared/types';
 import { renderPreviewMarkup } from './preview/renderGlyphPreview';
 import './styles.css';
@@ -20,8 +20,10 @@ import './styles.css';
 type UiState = {
   fontName: string;
   previewText: string;
+  starterStyle: 'Regular' | 'Bold';
   glyphs: GlyphScanResult[];
   selectedGlyph: GlyphChar;
+  activeBoard: ActiveBoardInfo | null;
   lastScanNodeIds: string[];
   statusMessage: string;
   savedStatus: string;
@@ -63,8 +65,10 @@ const PREVIEW_PRESETS: PreviewPreset[] = [
 const state: UiState = {
   fontName: 'Typegen Demo',
   previewText: "ABC box @2+2",
+  starterStyle: 'Regular',
   glyphs: [],
   selectedGlyph: 'A',
+  activeBoard: null,
   lastScanNodeIds: [],
   statusMessage: 'Create a board or select glyph slots named glyph-A through glyph-Z, glyph-a through glyph-z, glyph-0 through glyph-9, punctuation, or common symbol slots.',
   savedStatus: 'No saved settings loaded yet.',
@@ -111,7 +115,7 @@ function render() {
     <section class="shell">
       <header class="header">
         <div>
-          <p class="eyebrow">Typegen V4.1 alpha</p>
+          <p class="eyebrow">Typegen V4.3 alpha</p>
           <h1>Figma glyphs to font file</h1>
         </div>
         <span class="count">${validCount}/${GLYPH_CHARS.length} ready</span>
@@ -126,10 +130,22 @@ function render() {
           Create a board, draw filled vector outlines in glyph slots, scan, preview, then export an OTF.
         </p>
         <div class="actions">
+          <label class="starter-style-field">
+            <span>Starter</span>
+            <select id="starter-style">
+              <option value="Regular" ${state.starterStyle === 'Regular' ? 'selected' : ''}>Inter Regular</option>
+              <option value="Bold" ${state.starterStyle === 'Bold' ? 'selected' : ''}>Inter Bold</option>
+            </select>
+          </label>
           <button id="create-board">Create/update glyph board</button>
           <button id="generate-starters">Generate starter glyphs</button>
           <button id="scan-glyphs">${state.isScanning ? 'Scanning...' : 'Scan selected glyphs'}</button>
           <button id="toggle-recipe">${state.showRecipe ? 'Hide recipe' : 'Show recipe'}</button>
+        </div>
+        <div class="active-board ${state.activeBoard ? '' : 'empty'}">
+          <span>Active board</span>
+          <strong>${state.activeBoard ? escapeHtml(state.activeBoard.name) : 'None selected'}</strong>
+          <em>${state.activeBoard ? `Inter ${escapeHtml(state.activeBoard.style)}` : 'Select or create a board'}</em>
         </div>
         <p class="status">${escapeHtml(state.statusMessage)}</p>
       </section>
@@ -348,6 +364,13 @@ function bindEvents() {
     render();
   });
 
+  document.querySelector<HTMLSelectElement>('#starter-style')?.addEventListener('change', (event) => {
+    const value = (event.target as HTMLSelectElement).value;
+    state.starterStyle = value === 'Bold' ? 'Bold' : 'Regular';
+    state.statusMessage = `Starter style set to Inter ${state.starterStyle}.`;
+    render();
+  });
+
   document.querySelector<HTMLInputElement>('#preview-text')?.addEventListener('input', (event) => {
     state.previewText = (event.target as HTMLInputElement).value;
     persistSettings();
@@ -409,15 +432,15 @@ function bindEvents() {
   });
 
   document.querySelector<HTMLButtonElement>('#create-board')?.addEventListener('click', () => {
-    state.statusMessage = 'Creating glyph board...';
-    postToPlugin({ type: 'CREATE_GLYPH_BOARD' });
+    state.statusMessage = `Creating/updating Inter ${state.starterStyle} glyph board...`;
+    postToPlugin({ type: 'CREATE_GLYPH_BOARD', style: state.starterStyle });
     render();
   });
 
   document.querySelector<HTMLButtonElement>('#generate-starters')?.addEventListener('click', () => {
-    state.statusMessage = 'Generating starter glyphs in empty slots...';
+    state.statusMessage = `Generating Inter ${state.starterStyle} starter glyphs in empty slots...`;
     state.generatedFont = null;
-    postToPlugin({ type: 'GENERATE_STARTER_GLYPHS' });
+    postToPlugin({ type: 'GENERATE_STARTER_GLYPHS', style: state.starterStyle });
     render();
   });
 
@@ -481,15 +504,23 @@ window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginToUiMessage }>) 
   }
 
   if (message.type === 'GLYPH_BOARD_CREATED') {
+    state.activeBoard = message.activeBoard;
+    state.starterStyle = message.activeBoard.style;
     state.statusMessage = message.message;
   }
 
   if (message.type === 'STARTER_GLYPHS_GENERATED') {
+    state.activeBoard = message.activeBoard;
+    state.starterStyle = message.activeBoard.style;
     state.generatedFont = null;
     state.statusMessage = [message.message, ...message.warnings].join(' ');
   }
 
   if (message.type === 'GLYPHS_SCANNED') {
+    if (message.activeBoard) {
+      state.activeBoard = message.activeBoard;
+      state.starterStyle = message.activeBoard.style;
+    }
     state.glyphs = message.glyphs;
     state.lastScanNodeIds = collectScanNodeIds(message.glyphs);
     state.selectedGlyph = chooseSelectedGlyph(message.glyphs, state.selectedGlyph);
@@ -1016,6 +1047,7 @@ function resetLocalSettings(): void {
   state.previewText = "ABC box @2+2";
   state.glyphs = [];
   state.selectedGlyph = 'A';
+  state.activeBoard = null;
   state.lastScanNodeIds = [];
   state.statusMessage = 'Saved settings reset. Create a board or scan selected glyphs.';
   state.savedStatus = 'Reset requested.';
