@@ -97,7 +97,7 @@ function render() {
     <section class="shell">
       <header class="header">
         <div>
-          <p class="eyebrow">Typegen V3.2 alpha</p>
+          <p class="eyebrow">Typegen V4.0 alpha</p>
           <h1>Figma glyphs to font file</h1>
         </div>
         <span class="count">${validCount}/${GLYPH_CHARS.length} ready</span>
@@ -113,6 +113,7 @@ function render() {
         </p>
         <div class="actions">
           <button id="create-board">Create/update glyph board</button>
+          <button id="generate-starters">Generate starter glyphs</button>
           <button id="scan-glyphs">${state.isScanning ? 'Scanning...' : 'Scan selected glyphs'}</button>
           <button id="toggle-recipe">${state.showRecipe ? 'Hide recipe' : 'Show recipe'}</button>
         </div>
@@ -128,7 +129,7 @@ function render() {
               </div>
               <ol class="recipe-list">
                 <li>Name slots exactly <strong>glyph-A</strong> through <strong>glyph-Z</strong>, <strong>glyph-a</strong> through <strong>glyph-z</strong>, <strong>glyph-0</strong> through <strong>glyph-9</strong>, punctuation slots, and common symbol slots such as <strong>glyph-apostrophe</strong>, <strong>glyph-slash</strong>, and <strong>glyph-at</strong>.</li>
-                <li>Draw with simple filled vector paths inside each slot.</li>
+                <li>Draw with simple filled vector paths inside each slot, or generate starter glyphs and refine the editable vector outlines.</li>
                 <li>Convert text and strokes to outlines before scanning.</li>
                 <li>Avoid images, effects, gradients, masks, booleans, and live shape layers.</li>
                 <li>Use preview, spacing, and the inspector before exporting.</li>
@@ -378,6 +379,13 @@ function bindEvents() {
     render();
   });
 
+  document.querySelector<HTMLButtonElement>('#generate-starters')?.addEventListener('click', () => {
+    state.statusMessage = 'Generating starter glyphs in empty slots...';
+    state.generatedFont = null;
+    postToPlugin({ type: 'GENERATE_STARTER_GLYPHS' });
+    render();
+  });
+
   document.querySelector<HTMLButtonElement>('#scan-glyphs')?.addEventListener('click', () => {
     state.isScanning = true;
     state.statusMessage = 'Scanning current selection...';
@@ -439,6 +447,11 @@ window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginToUiMessage }>) 
 
   if (message.type === 'GLYPH_BOARD_CREATED') {
     state.statusMessage = message.message;
+  }
+
+  if (message.type === 'STARTER_GLYPHS_GENERATED') {
+    state.generatedFont = null;
+    state.statusMessage = [message.message, ...message.warnings].join(' ');
   }
 
   if (message.type === 'GLYPHS_SCANNED') {

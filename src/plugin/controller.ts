@@ -1,5 +1,6 @@
 import { createGlyphBoard } from "./glyphBoard";
 import { scanSelectedGlyphs } from "./figmaNodes";
+import { generateStarterGlyphs } from "./starterGlyphs";
 import { PersistedTypegenSettings, PluginToUiMessage, UiToPluginMessage } from "./pluginTypes";
 
 declare const __html__: string;
@@ -37,6 +38,21 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
           : `${result.board.name} is already up to date.`;
       postToUi({
         type: "GLYPH_BOARD_CREATED",
+        message: action,
+        warnings: result.warnings,
+      });
+      figma.notify(action);
+      return;
+    }
+
+    if (message.type === "GENERATE_STARTER_GLYPHS") {
+      const result = await generateStarterGlyphs();
+      const action =
+        result.filledSlots > 0
+          ? `Generated starter outlines in ${result.filledSlots} empty slots. Preserved ${result.skippedSlots} slots with existing artwork.`
+          : `No empty slots needed starter outlines. Preserved ${result.skippedSlots} slots with existing artwork.`;
+      postToUi({
+        type: "STARTER_GLYPHS_GENERATED",
         message: action,
         warnings: result.warnings,
       });

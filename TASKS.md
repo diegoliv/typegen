@@ -1,5 +1,34 @@
 # Typegen MVP Implementation Plan
 
+## 48. V4.0 Starter Glyph Generation
+
+Goal: let users create a full editable Inter-based starting alphabet/symbol set inside Figma, then refine it using the existing Typegen scan, preview, spacing, and export workflow.
+
+Completed:
+
+- Added `Generate starter glyphs` to the plugin UI.
+- Added a plugin controller action that creates/updates the board, then fills empty supported slots.
+- Added Inter-based starter generation by creating Inter Regular text, flattening it into vectors, and fitting it into glyph slots.
+- Kept simple geometric filled-vector recipes as a fallback if Inter cannot load or an individual glyph cannot flatten.
+- Kept starter generation artwork-safe: slots with existing non-helper artwork are skipped.
+- Reused existing guide profiles so lowercase starter glyphs respect ascender, x-height, baseline, and descender zones.
+- Kept preview/export unchanged; generated starters are regular Figma vectors that scan like user-drawn glyphs.
+- Updated README, release notes, roadmap, and QA docs for V4.0 alpha.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run build` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Manual QA target:
+
+- In Figma, click `Generate starter glyphs` from a blank file, scan the board, preview `ABC box @2+2`, export OTF and smoke-test HTML, then re-run starter generation and confirm no duplicate artwork is added.
+
+Suggested next step:
+
+- Manually QA starter generation in Figma before deciding whether to polish starter shapes or return to preview/specimen presets.
+
 ## 47. V3 Alpha Closeout Planning
 
 Goal: close the V3 alpha character-set expansion cleanly before starting a new feature track.
