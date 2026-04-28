@@ -1,5 +1,54 @@
 # Typegen MVP Implementation Plan
 
+## 51. V4.3 Board / Weight Clarity
+
+Goal: make multi-board Regular/Bold workflows visible and less confusing.
+
+Completed:
+
+- Added active board metadata to board creation, starter generation, and scan responses.
+- Added an active board indicator in the UI showing board name and Inter weight.
+- Synced the starter style selector to the active board weight after board, generate, or scan actions.
+- Updated scan notifications to mention the active board when available.
+- Updated README, release notes, roadmap, QA docs, package metadata, and rebuilt `dist/`.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Manual QA target:
+
+- Create Regular and Bold boards, select each board or one of its slots, run generate and scan, and confirm the active board indicator and starter style selector follow the selected board.
+
+## 50. V4.2 Starter Style Controls
+
+Goal: add a small starter-generation control without changing the scan, preview, or export pipeline.
+
+Completed:
+
+- Added a starter style selector for Inter Regular and Inter Bold.
+- Passed the selected starter style from the UI to board creation and starter generation.
+- Made glyph board lookup style-aware so Regular and Bold use separate boards.
+- Made board actions context-aware: selected boards and selected slots determine the active board/weight before the UI style fallback is used.
+- Added active-board scan fallback after board creation or starter generation.
+- Updated Inter starter generation to load and flatten the selected Inter style.
+- Added fallback from Inter Bold to Inter Regular if Bold cannot load.
+- Preserved the existing geometric fallback for cases where Inter cannot load or flatten a specific glyph.
+- Kept starter generation artwork-safe: only empty supported slots are filled.
+- Updated README, release notes, roadmap, QA docs, package metadata, and rebuilt `dist/`.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Manual QA target:
+
+- Generate a fresh board with Inter Regular, switch to Inter Bold, click `Create/update glyph board`, and confirm a separate Bold board is created. Select the Bold board or one of its slots, generate Bold starters, scan and preview it, and confirm the actions stay scoped to the Bold board.
+
 ## 49. V4.1 Preview Presets
 
 Goal: make generated full-font starter sets easier to inspect without adding a new preview engine.

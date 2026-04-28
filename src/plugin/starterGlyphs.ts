@@ -1,4 +1,4 @@
-import { createGlyphBoard } from "./glyphBoard";
+import { createGlyphBoard, type GlyphBoardStyle } from "./glyphBoard";
 import {
   SUPPORTED_CHARS,
   TYPEGEN_ROLE_HELPER,
@@ -14,6 +14,8 @@ type StarterGlyphResult = {
   skippedSlots: number;
   warnings: string[];
 };
+
+type StarterGlyphStyle = GlyphBoardStyle;
 
 type Point = { x: number; y: number };
 type Shape = Point[];
@@ -32,13 +34,12 @@ type GlyphMetrics = {
 };
 
 const FILL: SolidPaint = { type: "SOLID", color: { r: 0.05, g: 0.06, b: 0.08 } };
-const INTER_STARTER_FONT: FontName = { family: "Inter", style: "Regular" };
 
-export async function generateStarterGlyphs(): Promise<StarterGlyphResult> {
-  const boardResult = await createGlyphBoard();
+export async function generateStarterGlyphs(style: StarterGlyphStyle = "Regular"): Promise<StarterGlyphResult> {
+  const boardResult = await createGlyphBoard(style);
   const slotsByChar = collectSlotsByChar(boardResult.board);
   const warnings = [...boardResult.warnings];
-  const interAvailable = await loadInterStarterFont(warnings);
+  const starterFont = await loadInterStarterFont(boardResult.style, warnings);
   let filledSlots = 0;
   let skippedSlots = 0;
 
@@ -59,7 +60,7 @@ export async function generateStarterGlyphs(): Promise<StarterGlyphResult> {
       continue;
     }
 
-    addStarterGlyphToSlot(slot, char as GlyphChar, interAvailable, warnings);
+    addStarterGlyphToSlot(slot, char as GlyphChar, starterFont, warnings);
     filledSlots++;
   }
 
@@ -74,13 +75,26 @@ export async function generateStarterGlyphs(): Promise<StarterGlyphResult> {
   };
 }
 
-async function loadInterStarterFont(warnings: string[]): Promise<boolean> {
+async function loadInterStarterFont(style: StarterGlyphStyle, warnings: string[]): Promise<FontName | null> {
+  const requestedFont: FontName = { family: "Inter", style };
   try {
-    await figma.loadFontAsync(INTER_STARTER_FONT);
-    return true;
+    await figma.loadFontAsync(requestedFont);
+    return requestedFont;
   } catch {
+    if (style === "Bold") {
+      const regularFont: FontName = { family: "Inter", style: "Regular" };
+      try {
+        await figma.loadFontAsync(regularFont);
+        warnings.push("Could not load Inter Bold for starter outlines. Used Inter Regular instead.");
+        return regularFont;
+      } catch {
+        warnings.push("Could not load Inter Bold or Regular for starter outlines. Used geometric fallback glyphs instead.");
+        return null;
+      }
+    }
+
     warnings.push("Could not load Inter Regular for starter outlines. Used geometric fallback glyphs instead.");
-    return false;
+    return null;
   }
 }
 
@@ -101,10 +115,10 @@ function hasUserArtwork(slot: FrameNode): boolean {
   return slot.children.some((child) => child.getPluginData(TYPEGEN_ROLE_KEY) !== TYPEGEN_ROLE_HELPER);
 }
 
-function addStarterGlyphToSlot(slot: FrameNode, char: GlyphChar, interAvailable: boolean, warnings: string[]): void {
-  if (interAvailable) {
+function addStarterGlyphToSlot(slot: FrameNode, char: GlyphChar, starterFont: FontName | null, warnings: string[]): void {
+  if (starterFont) {
     try {
-      createInterStarterOutline(slot, char);
+      createInterStarterOutline(slot, char, starterFont);
       return;
     } catch {
       warnings.push(`${glyphNameForChar(char)} could not be generated from Inter. Used geometric fallback for that slot.`);
@@ -115,11 +129,11 @@ function addStarterGlyphToSlot(slot: FrameNode, char: GlyphChar, interAvailable:
   slot.appendChild(vector);
 }
 
-function createInterStarterOutline(slot: FrameNode, char: GlyphChar): void {
+function createInterStarterOutline(slot: FrameNode, char: GlyphChar, starterFont: FontName): void {
   const text = figma.createText();
   try {
     text.name = `tg-inter-source-${safeNodeName(glyphLabelForChar(char))}`;
-    text.fontName = INTER_STARTER_FONT;
+    text.fontName = starterFont;
     text.fontSize = 128;
     text.textAutoResize = "WIDTH_AND_HEIGHT";
     text.characters = char;
@@ -130,7 +144,7 @@ function createInterStarterOutline(slot: FrameNode, char: GlyphChar): void {
     slot.appendChild(text);
 
     const vector = figma.flatten([text], slot);
-    vector.name = `tg-starter-inter-${safeNodeName(glyphLabelForChar(char))}`;
+    vector.name = `tg-starter-inter-${starterFont.style.toLowerCase()}-${safeNodeName(glyphLabelForChar(char))}`;
     vector.fills = [FILL];
     vector.strokes = [];
     fitStarterVectorToSlot(vector, char);

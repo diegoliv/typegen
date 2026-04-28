@@ -13,15 +13,21 @@ const GAP = 24;
 const COLUMNS = 6;
 const PADDING = 32;
 const LABEL_FONT: FontName = { family: "Inter", style: "Regular" };
+const BOARD_STYLE_KEY = "typegen-board-style";
+
+export type GlyphBoardStyle = "Regular" | "Bold";
 
 export type GlyphBoardResult = {
   board: FrameNode;
+  style: GlyphBoardStyle;
   warnings: string[];
   created: boolean;
   addedSlots: number;
 };
 
-export async function createGlyphBoard(): Promise<GlyphBoardResult> {
+export async function createGlyphBoard(style: GlyphBoardStyle = "Regular"): Promise<GlyphBoardResult> {
+  const selectedBoard = findSelectedGlyphBoard();
+  const boardStyle = selectedBoard ? getGlyphBoardStyle(selectedBoard) : sanitizeBoardStyle(style);
   const warnings: string[] = [];
   let labelsEnabled = true;
 
@@ -32,8 +38,9 @@ export async function createGlyphBoard(): Promise<GlyphBoardResult> {
     warnings.push("Could not load Inter Regular for board labels. Slots were still created.");
   }
 
-  const existingBoard = findExistingBoard();
-  const board = existingBoard ?? createBoardFrame();
+  const existingBoard = selectedBoard ?? findExistingBoard(boardStyle);
+  const board = existingBoard ?? createBoardFrame(boardStyle);
+  setBoardStyle(board, boardStyle);
   const existingSlotsByChar = collectExistingSlots(board);
   let addedSlots = 0;
 
@@ -53,13 +60,18 @@ export async function createGlyphBoard(): Promise<GlyphBoardResult> {
   resizeBoardToFitSupportedSlots(board);
 
   if (!existingBoard) {
+    positionNewBoard(board);
     figma.currentPage.appendChild(board);
   }
 
   figma.currentPage.selection = [board];
   figma.viewport.scrollAndZoomIntoView([board]);
 
-  return { board, warnings, created: !existingBoard, addedSlots };
+  return { board, style: boardStyle, warnings, created: !existingBoard, addedSlots };
+}
+
+function sanitizeBoardStyle(style: GlyphBoardStyle): GlyphBoardStyle {
+  return style === "Bold" ? "Bold" : "Regular";
 }
 
 function collectExistingSlots(board: FrameNode): Map<string, SceneNode> {
@@ -88,25 +100,79 @@ function positionSlot(slot: SceneNode, char: string, index: number): void {
   }
 }
 
-function findExistingBoard(): FrameNode | null {
-  const selectedBoard = figma.currentPage.selection.find(isGlyphBoardFrame);
-  if (selectedBoard) {
-    return selectedBoard;
+function findExistingBoard(style: GlyphBoardStyle): FrameNode | null {
+  return figma.currentPage.findOne((node) => isGlyphBoardFrameForStyle(node, style)) as FrameNode | null;
+}
+
+export function findSelectedGlyphBoard(): FrameNode | null {
+  for (const node of figma.currentPage.selection) {
+    const board = findGlyphBoardAncestor(node);
+    if (board) {
+      return board;
+    }
   }
 
-  return figma.currentPage.findOne((node) => isGlyphBoardFrame(node)) as FrameNode | null;
+  return null;
+}
+
+function findGlyphBoardAncestor(node: BaseNode | null): FrameNode | null {
+  let current: BaseNode | null = node;
+
+  while (current) {
+    if (isGlyphBoardFrame(current)) {
+      return current;
+    }
+
+    current = current.parent;
+  }
+
+  return null;
+}
+
+function isGlyphBoardFrameForStyle(node: BaseNode, style: GlyphBoardStyle): node is FrameNode {
+  if (!isGlyphBoardFrame(node)) {
+    return false;
+  }
+
+  return getGlyphBoardStyle(node) === style;
 }
 
 function isGlyphBoardFrame(node: BaseNode): node is FrameNode {
   return (
     node.type === "FRAME" &&
-    (node.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_BOARD || node.name === "Font Glyph Board")
+    (node.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_BOARD || node.name === "Font Glyph Board" || node.name.startsWith("Font Glyph Board - Inter "))
   );
 }
 
-function createBoardFrame(): FrameNode {
+export function getGlyphBoardStyle(board: FrameNode): GlyphBoardStyle {
+  const style = board.getPluginData(BOARD_STYLE_KEY);
+  if (style === "Bold") {
+    return "Bold";
+  }
+
+  if (style === "Regular") {
+    return "Regular";
+  }
+
+  return board.name.includes("Bold") ? "Bold" : "Regular";
+}
+
+function setBoardStyle(board: FrameNode, style: GlyphBoardStyle): void {
+  board.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_BOARD);
+  board.setPluginData(BOARD_STYLE_KEY, style);
+
+  if (board.name !== "Font Glyph Board" || style === "Bold") {
+    board.name = boardNameForStyle(style);
+  }
+}
+
+function boardNameForStyle(style: GlyphBoardStyle): string {
+  return `Font Glyph Board - Inter ${style}`;
+}
+
+function createBoardFrame(style: GlyphBoardStyle): FrameNode {
   const board = figma.createFrame();
-  board.name = "Font Glyph Board";
+  board.name = boardNameForStyle(style);
   board.fills = [solid(0.98, 0.98, 0.98)];
   board.strokes = [solid(0.82, 0.84, 0.88)];
   board.strokeWeight = 1;
@@ -115,6 +181,20 @@ function createBoardFrame(): FrameNode {
   board.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_BOARD);
   resizeBoardToFitSupportedSlots(board);
   return board;
+}
+
+function positionNewBoard(board: FrameNode): void {
+  const existingBoards = (figma.currentPage.findAll((node) => isGlyphBoardFrame(node)) as FrameNode[]).filter(
+    (existingBoard) => existingBoard.id !== board.id,
+  );
+  if (existingBoards.length === 0) {
+    return;
+  }
+
+  const rightEdge = Math.max(...existingBoards.map((existingBoard) => existingBoard.x + existingBoard.width));
+  const top = Math.min(...existingBoards.map((existingBoard) => existingBoard.y));
+  board.x = rightEdge + GAP;
+  board.y = top;
 }
 
 function resizeBoardToFitSupportedSlots(board: FrameNode): void {

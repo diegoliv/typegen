@@ -99,6 +99,29 @@ Record these before each QA pass:
 - [ ] Preset text appears in smoke-test HTML when it contains at least one exportable glyph.
 - [ ] Presets do not change scanned glyphs, spacing controls, advance overrides, generated-font verification, or export behavior.
 
+## V4.2 Starter Style Checks
+
+- [ ] Starter style selector offers Inter Regular and Inter Bold.
+- [ ] `Create/update glyph board` creates or updates the board for the selected starter style.
+- [ ] If a Regular board exists, switching to Inter Bold and clicking `Create/update glyph board` creates a separate Bold board.
+- [ ] If a Bold board or one of its slots is selected, `Create/update glyph board` updates the Bold board even if the UI control still says Regular.
+- [ ] If a Bold board or one of its slots is selected, `Generate starter glyphs` fills the Bold board and uses the Bold starter style.
+- [ ] After creating or generating into a board, `Scan selected glyphs` scans that active board when no other canvas selection is present.
+- [ ] Generating on a fresh board with Inter Regular creates editable regular-weight outlines.
+- [ ] Generating on a fresh board with Inter Bold creates editable heavier outlines.
+- [ ] Re-running starter generation with a different style does not overwrite existing slot artwork.
+- [ ] If Inter Bold cannot load, the plugin reports the fallback and still generates starters.
+- [ ] Scanning, preview presets, font generation, and export behave the same for both starter styles.
+
+## V4.3 Active Board Checks
+
+- [ ] UI shows an active board indicator after creating a board.
+- [ ] UI shows the selected board name and Inter weight after generating starter glyphs.
+- [ ] UI updates the active board indicator after scanning a selected board.
+- [ ] Selecting a slot inside a Bold board and scanning updates the active board indicator to the Bold board.
+- [ ] Starter style selector syncs to the active board weight after board, generate, or scan actions.
+- [ ] Scan notification mentions the active board when available.
+
 ## V3.1 Board Migration Checks
 
 - [ ] Fresh board creates slots in A-Z, a-z, 0-9, punctuation order.
@@ -139,6 +162,8 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] UI includes glyph source instructions.
 - [ ] UI includes `Create/update glyph board`.
 - [ ] UI includes `Generate starter glyphs`.
+- [ ] UI includes starter style controls.
+- [ ] UI includes active board/weight status.
 - [ ] UI includes `Scan selected glyphs`.
 - [ ] UI includes glyph status list/table.
 - [ ] UI includes preview text input.

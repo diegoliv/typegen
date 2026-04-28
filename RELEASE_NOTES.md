@@ -1,5 +1,30 @@
 # Release Notes
 
+## 4.3.0-alpha.1
+
+Typegen V4.3 alpha active board clarity.
+
+### Added
+
+- Added an active board indicator in the UI showing the board name and Inter weight currently used by board/generate/scan actions.
+- Board creation, starter generation, and scanning responses now carry active board metadata.
+- Scan notifications mention the active board when available.
+- The starter style selector syncs to the active board weight after board, generate, or scan actions.
+
+## 4.2.0-alpha.1
+
+Typegen V4.2 alpha starter style controls.
+
+### Added
+
+- Added a starter style selector for Inter Regular and Inter Bold.
+- `Generate starter glyphs` now uses the selected Inter style when flattening starter outlines.
+- `Create/update glyph board` is now style-aware, so Regular and Bold use separate boards.
+- Board actions now prefer the selected board or selected slot's parent board before falling back to the style control.
+- `Scan selected glyphs` can fall back to the last board Typegen created or generated into when the canvas selection is empty.
+- If Inter Bold is unavailable, starter generation falls back to Inter Regular before using the geometric fallback.
+- Kept starter generation artwork-safe: existing non-helper artwork is still preserved.
+
 ## 4.1.0-alpha.1
 
 Typegen V4.1 alpha preview presets.

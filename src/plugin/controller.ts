@@ -1,11 +1,12 @@
-import { createGlyphBoard } from "./glyphBoard";
+import { createGlyphBoard, findSelectedGlyphBoard, getGlyphBoardStyle } from "./glyphBoard";
 import { scanSelectedGlyphs } from "./figmaNodes";
 import { generateStarterGlyphs } from "./starterGlyphs";
-import { PersistedTypegenSettings, PluginToUiMessage, UiToPluginMessage } from "./pluginTypes";
+import { ActiveBoardInfo, PersistedTypegenSettings, PluginToUiMessage, UiToPluginMessage } from "./pluginTypes";
 
 declare const __html__: string;
 
 const SETTINGS_KEY = "typegen-settings-v1";
+let activeBoardId = "";
 
 figma.showUI(__html__, { width: 420, height: 640, themeColors: true });
 postToUi({ type: "PLUGIN_READY" });
@@ -30,7 +31,8 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
     }
 
     if (message.type === "CREATE_GLYPH_BOARD") {
-      const result = await createGlyphBoard();
+      const result = await createGlyphBoard(message.style);
+      activeBoardId = result.board.id;
       const action = result.created
         ? `Created ${result.board.name}.`
         : result.addedSlots > 0
@@ -40,43 +42,52 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
         type: "GLYPH_BOARD_CREATED",
         message: action,
         warnings: result.warnings,
+        activeBoard: createActiveBoardInfo(result.board),
       });
       figma.notify(action);
       return;
     }
 
     if (message.type === "GENERATE_STARTER_GLYPHS") {
-      const result = await generateStarterGlyphs();
+      const result = await generateStarterGlyphs(message.style);
+      activeBoardId = result.board.id;
       const action =
         result.filledSlots > 0
           ? `Generated starter outlines in ${result.filledSlots} empty slots. Preserved ${result.skippedSlots} slots with existing artwork.`
           : `No empty slots needed starter outlines. Preserved ${result.skippedSlots} slots with existing artwork.`;
       postToUi({
         type: "STARTER_GLYPHS_GENERATED",
-        message: action,
+        message: `${action} Active board: ${result.board.name}.`,
         warnings: result.warnings,
+        activeBoard: createActiveBoardInfo(result.board),
       });
       figma.notify(action);
       return;
     }
 
     if (message.type === "SCAN_SELECTED_GLYPHS") {
-      if (figma.currentPage.selection.length === 0) {
+      const scanSelection = await resolveScanSelection();
+      if (scanSelection.length === 0) {
         postToUi({
           type: "VALIDATION_ERROR",
-          message: "No glyph nodes found. Select the Font Glyph Board or supported glyph slot frames.",
+          message: "No glyph nodes found. Select the active Font Glyph Board or supported glyph slot frames.",
         });
         return;
       }
 
-      const result = scanSelectedGlyphs(figma.currentPage.selection);
+      const result = scanSelectedGlyphs(scanSelection);
+      const activeBoard = resolveActiveBoardForSelection(scanSelection);
+      if (activeBoard) {
+        activeBoardId = activeBoard.id;
+      }
       postToUi({
         type: "GLYPHS_SCANNED",
         glyphs: result.glyphs,
         summary: result.summary,
+        activeBoard: activeBoard ? createActiveBoardInfo(activeBoard) : undefined,
       });
 
-      figma.notify(`Scanned glyphs: ${result.summary.valid} valid, ${result.summary.empty} empty.`);
+      figma.notify(`Scanned glyphs: ${result.summary.valid} valid, ${result.summary.empty} empty${activeBoard ? ` from ${activeBoard.name}` : ""}.`);
       return;
     }
 
@@ -87,6 +98,42 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
     figma.notify(messageText, { error: true });
   }
 };
+
+async function resolveScanSelection(): Promise<SceneNode[]> {
+  if (figma.currentPage.selection.length > 0) {
+    return [...figma.currentPage.selection];
+  }
+
+  if (!activeBoardId) {
+    return [];
+  }
+
+  const node = await figma.getNodeByIdAsync(activeBoardId);
+  return isSceneNode(node) ? [node] : [];
+}
+
+function resolveActiveBoardForSelection(selection: readonly SceneNode[]): FrameNode | null {
+  const selectedBoard = findSelectedGlyphBoard();
+  if (selectedBoard) {
+    return selectedBoard;
+  }
+
+  for (const node of selection) {
+    if (node.type === "FRAME" && node.id === activeBoardId) {
+      return node;
+    }
+  }
+
+  return null;
+}
+
+function createActiveBoardInfo(board: FrameNode): ActiveBoardInfo {
+  return {
+    id: board.id,
+    name: board.name,
+    style: getGlyphBoardStyle(board),
+  };
+}
 
 function postToUi(message: PluginToUiMessage): void {
   figma.ui.postMessage(message);
