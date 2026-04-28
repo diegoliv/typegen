@@ -41,7 +41,7 @@ Do not add to V2.x unless it directly stabilizes the current loop:
 
 ## V3.x Direction
 
-V3.x should begin only after V2.x is stable. The key change is moving from a cap-height-only display workflow toward a fuller static font workflow.
+V3.x has begun after the V2.x closeout. The key change is moving from a cap-height-only display workflow toward a fuller static font workflow.
 
 Recommended first V3 theme:
 
@@ -54,15 +54,34 @@ Why lowercase belongs in V3:
 - It changes preview QA beyond cap-height glyphs.
 - It raises new metrics questions that should not be squeezed into the V2 punctuation track.
 
-Likely V3.0 planning outputs:
+V3.0 alpha started with a lowercase pilot:
+
+- `glyph-a`
+- `glyph-b`
+- `glyph-g`
+- `glyph-o`
+- `glyph-x`
+
+V3.1 alpha expands that pilot to full lowercase `glyph-a` through `glyph-z` while preserving old pilot board artwork and repositioning slots into canonical order.
+
+V3.2 adds a small common-symbol expansion, not a broad Unicode or OpenType feature push.
+
+V3.3 should focus on metrics/readability polish for the expanded character set before more glyph scope is added.
+
+V3 alpha should close after V3.3 verification before starting a new feature track.
+
+V3 planning and implementation outputs:
 
 - Lowercase slot naming convention, likely `glyph-a` through `glyph-z`.
 - Updated board layout with lowercase slots.
 - x-height, ascender, descender, baseline, and side-boundary guide model.
 - Lowercase validation and normalization rules.
 - Manual QA words that exercise ascenders, descenders, and x-height, such as `type`, `glyph`, `font`, and `quick`.
-- Decision on whether lowercase ships all at once or starts with a pilot subset.
+- Migration-safe board updates for existing V3 alpha boards.
+- A deliberately small common-symbol set after lowercase signoff: `'`, `"`, `/`, `(`, `)`, `&`, `+`, `=`, and `@`.
+- A metrics/readability review once lowercase and common symbols are both working.
+- A clean V3 alpha closeout before preview, export, validation, or additional glyph work resumes.
 
-See `docs/V3_ROADMAP.md` for the starting V3 plan.
+See `docs/V3_ROADMAP.md` for the starting V3 plan and `docs/V3_LOWERCASE_GEOMETRY.md` for the first lowercase guide spec.
 
 V3.x should still avoid professional font-editor sprawl unless the current pipeline remains stable.

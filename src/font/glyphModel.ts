@@ -6,7 +6,14 @@ export type {
   NormalizedPath,
 } from '../shared/types';
 
-export { GLYPH_CHARS, GLYPH_DEFINITIONS, defaultAdvanceForChar, glyphLabelForChar, glyphNameForChar } from '../shared/types';
+export {
+  GLYPH_CHARS,
+  GLYPH_DEFINITIONS,
+  LOWERCASE_GUIDE_PROFILE,
+  defaultAdvanceForChar,
+  glyphLabelForChar,
+  glyphNameForChar,
+} from '../shared/types';
 
 import { GLYPH_CHARS, type GlyphChar, type GlyphModel } from '../shared/types';
 

@@ -48,11 +48,11 @@ type ExportDiagnostics = {
 
 const state: UiState = {
   fontName: 'Typegen Demo',
-  previewText: 'ABC 123!',
+  previewText: "ABC box @2+2",
   glyphs: [],
   selectedGlyph: 'A',
   lastScanNodeIds: [],
-  statusMessage: 'Create a board or select glyph slots named glyph-A through glyph-Z, glyph-0 through glyph-9, or supported punctuation slots.',
+  statusMessage: 'Create a board or select glyph slots named glyph-A through glyph-Z, glyph-a through glyph-z, glyph-0 through glyph-9, punctuation, or common symbol slots.',
   savedStatus: 'No saved settings loaded yet.',
   generatedFont: null,
   spacing: { ...DEFAULT_SPACING, glyphAdvanceOverrides: {} },
@@ -97,7 +97,7 @@ function render() {
     <section class="shell">
       <header class="header">
         <div>
-          <p class="eyebrow">Typegen V2.10.1</p>
+          <p class="eyebrow">Typegen V3.2 alpha</p>
           <h1>Figma glyphs to font file</h1>
         </div>
         <span class="count">${validCount}/${GLYPH_CHARS.length} ready</span>
@@ -124,16 +124,16 @@ function render() {
           ? `<section class="panel recipe-panel">
               <div class="section-head">
                 <h2>Supported glyph recipe</h2>
-                <span>A-Z + 0-9 + punctuation</span>
+                <span>A-Z + a-z + 0-9 + punctuation + symbols</span>
               </div>
               <ol class="recipe-list">
-                <li>Name slots exactly <strong>glyph-A</strong> through <strong>glyph-Z</strong>, <strong>glyph-0</strong> through <strong>glyph-9</strong>, plus <strong>glyph-period</strong>, <strong>glyph-comma</strong>, <strong>glyph-exclamation</strong>, <strong>glyph-question</strong>, <strong>glyph-hyphen</strong>, and <strong>glyph-colon</strong>.</li>
+                <li>Name slots exactly <strong>glyph-A</strong> through <strong>glyph-Z</strong>, <strong>glyph-a</strong> through <strong>glyph-z</strong>, <strong>glyph-0</strong> through <strong>glyph-9</strong>, punctuation slots, and common symbol slots such as <strong>glyph-apostrophe</strong>, <strong>glyph-slash</strong>, and <strong>glyph-at</strong>.</li>
                 <li>Draw with simple filled vector paths inside each slot.</li>
                 <li>Convert text and strokes to outlines before scanning.</li>
                 <li>Avoid images, effects, gradients, masks, booleans, and live shape layers.</li>
                 <li>Use preview, spacing, and the inspector before exporting.</li>
               </ol>
-              <p class="status">Lowercase, extra symbols, kerning, variable fonts, and AI generation are intentionally outside this MVP.</p>
+              <p class="status">Symbols beyond the supported common set, kerning, variable fonts, and AI generation are intentionally outside this MVP.</p>
             </section>`
           : ''
       }
@@ -202,9 +202,9 @@ function render() {
           ${rows
             .map(
               (row) => `
-                <button class="glyph-row ${row.status} ${row.char === state.selectedGlyph ? 'selected' : ''}" role="row" data-glyph="${row.char}">
-                  <strong>${row.char}</strong>
-                  <span>${row.name}</span>
+                <button class="glyph-row ${row.status} ${row.char === state.selectedGlyph ? 'selected' : ''}" role="row" data-glyph="${escapeAttr(row.char)}">
+                  <strong>${escapeHtml(row.char)}</strong>
+                  <span>${escapeHtml(row.name)}</span>
                   <em>${row.status}</em>
                   <small>${escapeHtml(row.message)}</small>
                 </button>
@@ -529,7 +529,7 @@ function createPreviewExportWarning(): string {
   }
 
   if (unsupported.size > 0) {
-    return 'Preview includes unsupported characters. Exported fonts only include A-Z, 0-9, and supported punctuation glyphs that scanned as valid.';
+    return 'Preview includes unsupported characters. Exported fonts only include A-Z, a-z, 0-9, supported punctuation, common symbols, and space when scanned as valid.';
   }
 
   if (missing.size > 0) {
@@ -615,7 +615,7 @@ function createExportDiagnostics(): ExportDiagnostics {
   }
 
   if (previewUnsupported.length > 0) {
-    details.push('Preview contains unsupported characters; export only includes A-Z, 0-9, supported punctuation, and space.');
+    details.push('Preview contains unsupported characters; export only includes A-Z, a-z, 0-9, supported punctuation, common symbols, and space.');
   }
 
   if (overrideCount > 0) {
@@ -734,7 +734,7 @@ function createSmokeTestSampleText(): string {
   }
 
   const firstGlyphs = GLYPH_CHARS.filter((char) => exportedChars().includes(char)).slice(0, 8);
-  return firstGlyphs.length > 0 ? firstGlyphs.join(' ') : 'ABC 123!';
+  return firstGlyphs.length > 0 ? firstGlyphs.join(' ') : "ABC box @2+2";
 }
 
 function isGeneratedFontVerified(): boolean {
@@ -954,7 +954,7 @@ function clampNumber(value: number | undefined, min: number, max: number, fallba
 function hasSavedState(): boolean {
   return (
     state.fontName !== 'Typegen Demo' ||
-    state.previewText !== 'ABC 123!' ||
+    state.previewText !== "ABC box @2+2" ||
     state.selectedGlyph !== 'A' ||
     state.lastScanNodeIds.length > 0 ||
     state.spacing.letterSpacing !== DEFAULT_SPACING.letterSpacing ||
@@ -965,7 +965,7 @@ function hasSavedState(): boolean {
 
 function resetLocalSettings(): void {
   state.fontName = 'Typegen Demo';
-  state.previewText = 'ABC 123!';
+  state.previewText = "ABC box @2+2";
   state.glyphs = [];
   state.selectedGlyph = 'A';
   state.lastScanNodeIds = [];

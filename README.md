@@ -1,17 +1,17 @@
 # Typegen
 
-Typegen is a focused Figma plugin MVP for turning uppercase, numeric, and basic punctuation glyphs drawn in Figma into a usable static OTF font.
+Typegen is a focused Figma plugin MVP for turning glyphs drawn in Figma into a usable static OTF font.
 
-The goal of V2 is to keep the smallest reliable loop from V1, then make it easier to verify and safer to extend:
+The current V3 alpha keeps the reliable V2 loop and adds lowercase a-z plus a small common-symbol set:
 
-1. Create a starter A-Z, 0-9, and punctuation glyph board.
-2. Draw filled vector glyphs inside slots named `glyph-A` through `glyph-Z`, `glyph-0` through `glyph-9`, and supported punctuation slots.
+1. Create a starter A-Z, a-z, 0-9, punctuation, and common-symbol glyph board.
+2. Draw filled vector glyphs inside supported slots.
 3. Scan the selected board.
 4. Preview available glyphs.
 5. Tune spacing.
 6. Export an OTF font and smoke-test HTML.
 
-The board action is safe to re-run: it updates an existing `Font Glyph Board` by adding missing supported slots and does not clear existing glyph artwork.
+The board action is safe to re-run: it updates an existing `Font Glyph Board`, preserves existing glyph artwork, and repositions supported slots into the canonical A-Z, a-z, 0-9, punctuation order.
 
 ## Current Scope
 
@@ -20,6 +20,8 @@ Supported:
 - Uppercase A-Z
 - Numbers 0-9
 - Basic punctuation: `.`, `,`, `!`, `?`, `-`, `:`
+- Lowercase a-z
+- Common symbols: `'`, `"`, `/`, `(`, `)`, `&`, `+`, `=`, `@`
 - Simple filled vector paths
 - Starter glyph board generation
 - Glyph scan and validation
@@ -32,7 +34,7 @@ Supported:
 
 Not supported in the MVP:
 
-- Lowercase and extra symbols
+- Symbols beyond the supported common set
 - Kerning
 - Variable fonts
 - AI glyph generation
@@ -61,7 +63,7 @@ The committed `dist/` files are included so the manifest can load immediately af
 
 ## Supported Glyph Recipe
 
-- Use slots named exactly `glyph-A` through `glyph-Z`, `glyph-0` through `glyph-9`, `glyph-period`, `glyph-comma`, `glyph-exclamation`, `glyph-question`, `glyph-hyphen`, and `glyph-colon`.
+- Use slots named exactly `glyph-A` through `glyph-Z`, `glyph-a` through `glyph-z`, `glyph-0` through `glyph-9`, `glyph-period`, `glyph-comma`, `glyph-exclamation`, `glyph-question`, `glyph-hyphen`, `glyph-colon`, `glyph-apostrophe`, `glyph-quote`, `glyph-slash`, `glyph-paren-left`, `glyph-paren-right`, `glyph-ampersand`, `glyph-plus`, `glyph-equals`, and `glyph-at`.
 - Raw punctuation aliases such as `glyph-!`, `glyph-.`, and `glyph-?` are also accepted during scanning, but the generated board uses the safer names above.
 - Draw simple filled vector paths inside each slot.
 - Convert text to outlines before scanning.
@@ -85,8 +87,8 @@ Build output:
 
 ## QA
 
-See [docs/QA.md](docs/QA.md) for the manual QA checklist, [docs/SMOKE_TEST.md](docs/SMOKE_TEST.md) for exported font smoke testing, [docs/ROADMAP.md](docs/ROADMAP.md) for the V2 closeout / V3 boundary, and [docs/V3_ROADMAP.md](docs/V3_ROADMAP.md) for the lowercase roadmap.
+See [docs/QA.md](docs/QA.md) for the manual QA checklist, [docs/SMOKE_TEST.md](docs/SMOKE_TEST.md) for exported font smoke testing, [docs/ROADMAP.md](docs/ROADMAP.md) for the V2 closeout / V3 boundary, [docs/V3_ROADMAP.md](docs/V3_ROADMAP.md) for the lowercase roadmap, and [docs/V3_LOWERCASE_GEOMETRY.md](docs/V3_LOWERCASE_GEOMETRY.md) for the V3 guide geometry spec.
 
 ## Status
 
-V2.10.1 punctuation milestone closeout. This is intentionally still an MVP, built to prove and harden the Figma vectors -> glyph model -> preview -> font export workflow with A-Z, 0-9, and a small punctuation set before broader character support.
+V3.2 alpha common-symbol expansion. This is intentionally still an MVP, built to prove and harden the Figma vectors -> glyph model -> preview -> font export workflow before broader character support.

@@ -112,6 +112,15 @@ const GLYPH_NAME_ALIASES: Record<string, GlyphChar> = {
   "glyph-?": "?",
   "glyph--": "-",
   "glyph-:": ":",
+  "glyph-'": "'",
+  'glyph-"': '"',
+  "glyph-/": "/",
+  "glyph-(": "(",
+  "glyph-)": ")",
+  "glyph-&": "&",
+  "glyph-+": "+",
+  "glyph-=": "=",
+  "glyph-@": "@",
 };
 
 export function isSupportedGlyphName(name: string): boolean {

@@ -48,6 +48,32 @@
     { char: "X", name: "glyph-X", label: "X" },
     { char: "Y", name: "glyph-Y", label: "Y" },
     { char: "Z", name: "glyph-Z", label: "Z" },
+    { char: "a", name: "glyph-a", label: "a", guideProfile: "lowercase" },
+    { char: "b", name: "glyph-b", label: "b", guideProfile: "lowercase" },
+    { char: "c", name: "glyph-c", label: "c", guideProfile: "lowercase" },
+    { char: "d", name: "glyph-d", label: "d", guideProfile: "lowercase" },
+    { char: "e", name: "glyph-e", label: "e", guideProfile: "lowercase" },
+    { char: "f", name: "glyph-f", label: "f", guideProfile: "lowercase" },
+    { char: "g", name: "glyph-g", label: "g", guideProfile: "lowercase" },
+    { char: "h", name: "glyph-h", label: "h", guideProfile: "lowercase" },
+    { char: "i", name: "glyph-i", label: "i", guideProfile: "lowercase" },
+    { char: "j", name: "glyph-j", label: "j", guideProfile: "lowercase" },
+    { char: "k", name: "glyph-k", label: "k", guideProfile: "lowercase" },
+    { char: "l", name: "glyph-l", label: "l", guideProfile: "lowercase" },
+    { char: "m", name: "glyph-m", label: "m", guideProfile: "lowercase" },
+    { char: "n", name: "glyph-n", label: "n", guideProfile: "lowercase" },
+    { char: "o", name: "glyph-o", label: "o", guideProfile: "lowercase" },
+    { char: "p", name: "glyph-p", label: "p", guideProfile: "lowercase" },
+    { char: "q", name: "glyph-q", label: "q", guideProfile: "lowercase" },
+    { char: "r", name: "glyph-r", label: "r", guideProfile: "lowercase" },
+    { char: "s", name: "glyph-s", label: "s", guideProfile: "lowercase" },
+    { char: "t", name: "glyph-t", label: "t", guideProfile: "lowercase" },
+    { char: "u", name: "glyph-u", label: "u", guideProfile: "lowercase" },
+    { char: "v", name: "glyph-v", label: "v", guideProfile: "lowercase" },
+    { char: "w", name: "glyph-w", label: "w", guideProfile: "lowercase" },
+    { char: "x", name: "glyph-x", label: "x", guideProfile: "lowercase" },
+    { char: "y", name: "glyph-y", label: "y", guideProfile: "lowercase" },
+    { char: "z", name: "glyph-z", label: "z", guideProfile: "lowercase" },
     { char: "0", name: "glyph-0", label: "0" },
     { char: "1", name: "glyph-1", label: "1" },
     { char: "2", name: "glyph-2", label: "2" },
@@ -63,8 +89,43 @@
     { char: "!", name: "glyph-exclamation", label: "!", defaultAdvanceWidth: 320 },
     { char: "?", name: "glyph-question", label: "?", defaultAdvanceWidth: 560 },
     { char: "-", name: "glyph-hyphen", label: "-", defaultAdvanceWidth: 420 },
-    { char: ":", name: "glyph-colon", label: ":", defaultAdvanceWidth: 280 }
+    { char: ":", name: "glyph-colon", label: ":", defaultAdvanceWidth: 280 },
+    { char: "'", name: "glyph-apostrophe", label: "'", defaultAdvanceWidth: 260 },
+    { char: '"', name: "glyph-quote", label: '"', defaultAdvanceWidth: 360 },
+    { char: "/", name: "glyph-slash", label: "/", defaultAdvanceWidth: 420 },
+    { char: "(", name: "glyph-paren-left", label: "(", defaultAdvanceWidth: 360 },
+    { char: ")", name: "glyph-paren-right", label: ")", defaultAdvanceWidth: 360 },
+    { char: "&", name: "glyph-ampersand", label: "&", defaultAdvanceWidth: 700 },
+    { char: "+", name: "glyph-plus", label: "+", defaultAdvanceWidth: 560 },
+    { char: "=", name: "glyph-equals", label: "=", defaultAdvanceWidth: 560 },
+    { char: "@", name: "glyph-at", label: "@", defaultAdvanceWidth: 760 }
   ];
+  var UPPERCASE_GUIDE_PROFILE = {
+    name: "uppercase",
+    slotWidth: 160,
+    slotHeight: 200,
+    leftBoundaryX: 24,
+    rightBoundaryX: 136,
+    ascenderY: 48,
+    baselineY: 162,
+    ascenderUnits: 700
+  };
+  var LOWERCASE_GUIDE_PROFILE = {
+    name: "lowercase",
+    slotWidth: 160,
+    slotHeight: 240,
+    leftBoundaryX: 24,
+    rightBoundaryX: 136,
+    ascenderY: 40,
+    xHeightY: 77,
+    baselineY: 170,
+    descenderY: 207,
+    ascenderUnits: 700
+  };
+  var GUIDE_PROFILES = {
+    uppercase: UPPERCASE_GUIDE_PROFILE,
+    lowercase: LOWERCASE_GUIDE_PROFILE
+  };
   var GLYPH_CHARS = GLYPH_DEFINITIONS.map((definition) => definition.char);
   function glyphNameForChar(char) {
     var _a, _b;
@@ -77,6 +138,11 @@
   function defaultAdvanceForChar(char) {
     const definition = GLYPH_DEFINITIONS.find((item) => item.char === char);
     return definition && "defaultAdvanceWidth" in definition ? definition.defaultAdvanceWidth : 700;
+  }
+  function guideProfileForChar(char) {
+    const definition = GLYPH_DEFINITIONS.find((item) => item.char === char);
+    const profileName = definition && "guideProfile" in definition ? definition.guideProfile : "uppercase";
+    return GUIDE_PROFILES[profileName];
   }
 
   // src/plugin/pluginTypes.ts
@@ -91,7 +157,16 @@
     "glyph-!": "!",
     "glyph-?": "?",
     "glyph--": "-",
-    "glyph-:": ":"
+    "glyph-:": ":",
+    "glyph-'": "'",
+    'glyph-"': '"',
+    "glyph-/": "/",
+    "glyph-(": "(",
+    "glyph-)": ")",
+    "glyph-&": "&",
+    "glyph-+": "+",
+    "glyph-=": "=",
+    "glyph-@": "@"
   };
   function glyphCharFromName(name) {
     var _a, _b, _c;
@@ -106,8 +181,6 @@
   }
 
   // src/plugin/glyphBoard.ts
-  var SLOT_WIDTH = 160;
-  var SLOT_HEIGHT = 200;
   var GAP = 24;
   var COLUMNS = 6;
   var PADDING = 32;
@@ -123,22 +196,17 @@
     }
     const existingBoard = findExistingBoard();
     const board = existingBoard != null ? existingBoard : createBoardFrame();
-    const existingSlotChars = new Set(
-      board.children.map((child) => glyphCharFromName(child.name)).filter((char) => Boolean(char))
-    );
+    const existingSlotsByChar = collectExistingSlots(board);
     let addedSlots = 0;
     for (let index = 0; index < SUPPORTED_CHARS.length; index++) {
       const char = SUPPORTED_CHARS[index];
-      if (existingSlotChars.has(char)) {
-        continue;
+      let slot = existingSlotsByChar.get(char);
+      if (!slot) {
+        slot = createSlot(char, labelsEnabled);
+        board.appendChild(slot);
+        addedSlots++;
       }
-      const column = index % COLUMNS;
-      const row = Math.floor(index / COLUMNS);
-      const slot = createSlot(char, labelsEnabled);
-      slot.x = PADDING + column * (SLOT_WIDTH + GAP);
-      slot.y = PADDING + row * (SLOT_HEIGHT + GAP);
-      board.appendChild(slot);
-      addedSlots++;
+      positionSlot(slot, char, index);
     }
     resizeBoardToFitSupportedSlots(board);
     if (!existingBoard) {
@@ -147,6 +215,27 @@
     figma.currentPage.selection = [board];
     figma.viewport.scrollAndZoomIntoView([board]);
     return { board, warnings, created: !existingBoard, addedSlots };
+  }
+  function collectExistingSlots(board) {
+    const slots = /* @__PURE__ */ new Map();
+    for (const child of board.children) {
+      const char = glyphCharFromName(child.name);
+      if (char && !slots.has(char)) {
+        slots.set(char, child);
+      }
+    }
+    return slots;
+  }
+  function positionSlot(slot, char, index) {
+    const layout = getSlotLayout(index);
+    slot.x = layout.x;
+    slot.y = layout.y;
+    if (slot.type === "FRAME") {
+      const profile = guideProfileForChar(char);
+      if (slot.width !== profile.slotWidth || slot.height !== profile.slotHeight) {
+        slot.resize(profile.slotWidth, profile.slotHeight);
+      }
+    }
   }
   function findExistingBoard() {
     const selectedBoard = figma.currentPage.selection.find(isGlyphBoardFrame);
@@ -172,29 +261,73 @@
   }
   function resizeBoardToFitSupportedSlots(board) {
     const rows = Math.ceil(SUPPORTED_CHARS.length / COLUMNS);
-    board.resize(
-      PADDING * 2 + COLUMNS * SLOT_WIDTH + (COLUMNS - 1) * GAP,
-      PADDING * 2 + rows * SLOT_HEIGHT + (rows - 1) * GAP
-    );
+    const boardWidth = PADDING * 2 + COLUMNS * UPPERCASE_SLOT_WIDTH + (COLUMNS - 1) * GAP;
+    const boardHeight = PADDING * 2 + getRowsHeight(rows) + Math.max(0, rows - 1) * GAP;
+    board.resize(boardWidth, boardHeight);
   }
+  function getSlotLayout(index) {
+    const column = index % COLUMNS;
+    const row = Math.floor(index / COLUMNS);
+    const rowTop = PADDING + getRowsHeight(row) + row * GAP;
+    return {
+      x: PADDING + column * (UPPERCASE_SLOT_WIDTH + GAP),
+      y: rowTop
+    };
+  }
+  function getRowsHeight(rowCount) {
+    let height = 0;
+    for (let row = 0; row < rowCount; row++) {
+      height += getRowHeight(row);
+    }
+    return height;
+  }
+  function getRowHeight(row) {
+    const rowChars = SUPPORTED_CHARS.slice(row * COLUMNS, row * COLUMNS + COLUMNS);
+    return Math.max(...rowChars.map((char) => guideProfileForChar(char).slotHeight), UPPERCASE_SLOT_HEIGHT);
+  }
+  var UPPERCASE_SLOT_WIDTH = guideProfileForChar("A").slotWidth;
+  var UPPERCASE_SLOT_HEIGHT = guideProfileForChar("A").slotHeight;
   function createSlot(char, labelsEnabled) {
+    const profile = guideProfileForChar(char);
     const slot = figma.createFrame();
     slot.name = glyphNameForChar2(char);
-    slot.resize(SLOT_WIDTH, SLOT_HEIGHT);
+    slot.resize(profile.slotWidth, profile.slotHeight);
     slot.fills = [solid(1, 1, 1)];
     slot.strokes = [solid(0.75, 0.78, 0.84)];
     slot.strokeWeight = 1;
     slot.cornerRadius = 4;
     slot.clipsContent = false;
     slot.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_SLOT);
-    addGuide(slot, "tg-left-boundary", 24, 34, 1, 128, 0.78);
-    addGuide(slot, "tg-right-boundary", SLOT_WIDTH - 24, 34, 1, 128, 0.78);
-    addGuide(slot, "tg-cap-height", 24, 48, SLOT_WIDTH - 48, 1, 0.62);
-    addGuide(slot, "tg-baseline", 24, 162, SLOT_WIDTH - 48, 1, 0.36);
+    addGuides(slot, profile);
     if (labelsEnabled) {
       addLabel(slot, glyphLabelForChar(char));
     }
     return slot;
+  }
+  function addGuides(slot, profile) {
+    var _a;
+    const guideTop = profile.ascenderY;
+    const guideBottom = (_a = profile.descenderY) != null ? _a : profile.baselineY;
+    const guideHeight = Math.max(1, guideBottom - guideTop);
+    const guideWidth = profile.rightBoundaryX - profile.leftBoundaryX;
+    addGuide(slot, "tg-left-boundary", profile.leftBoundaryX, guideTop, 1, guideHeight, 0.78);
+    addGuide(slot, "tg-right-boundary", profile.rightBoundaryX, guideTop, 1, guideHeight, 0.78);
+    addGuide(
+      slot,
+      profile.name === "lowercase" ? "tg-ascender" : "tg-cap-height",
+      profile.leftBoundaryX,
+      profile.ascenderY,
+      guideWidth,
+      1,
+      0.62
+    );
+    if (typeof profile.xHeightY === "number") {
+      addGuide(slot, "tg-x-height", profile.leftBoundaryX, profile.xHeightY, guideWidth, 1, 0.5);
+    }
+    addGuide(slot, "tg-baseline", profile.leftBoundaryX, profile.baselineY, guideWidth, 1, 0.36);
+    if (typeof profile.descenderY === "number") {
+      addGuide(slot, "tg-descender", profile.leftBoundaryX, profile.descenderY, guideWidth, 1, 0.28);
+    }
   }
   function addGuide(parent, name, x, y, width, height, alpha) {
     const guide = figma.createRectangle();
@@ -230,12 +363,6 @@
   var CAP_HEIGHT = 700;
   var SLOT_BOUNDS_TOLERANCE = 1;
   var TINY_GLYPH_SIZE = 8;
-  var SLOT_WIDTH2 = 160;
-  var SLOT_HEIGHT2 = 200;
-  var SLOT_LEFT_BOUNDARY = 24;
-  var SLOT_RIGHT_BOUNDARY = 136;
-  var SLOT_CAP_HEIGHT_Y = 48;
-  var SLOT_BASELINE_Y = 162;
   var FONT_LEFT_BEARING = 40;
   var FONT_DESIGN_WIDTH = 720;
   function extractGlyphFromNode(node, char) {
@@ -274,7 +401,8 @@
     }
     const slotBounds = "children" in node ? boundsForNode(node) : null;
     issues.push(...validateRawGeometry(char, glyphName, rawBounds, slotBounds));
-    const normalized = slotBounds ? normalizePathsForSlotMetrics(rawPaths, slotBounds) : normalizePaths(rawPaths, rawBounds);
+    const guideProfile = guideProfileForChar(char);
+    const normalized = slotBounds ? normalizePathsForSlotMetrics(rawPaths, slotBounds, guideProfile) : normalizePaths(rawPaths, rawBounds);
     const advanceWidth = resolveExtractedAdvanceWidth(char, normalized.bounds);
     const fitted = shouldFitGlyphToAdvance(char) ? fitPathsToAdvance(normalized, advanceWidth) : normalized;
     return {
@@ -528,18 +656,18 @@
       bounds: normalizedBounds != null ? normalizedBounds : { xMin: 0, yMin: 0, xMax: 0, yMax: 0 }
     };
   }
-  function normalizePathsForSlotMetrics(paths, slotBounds) {
+  function normalizePathsForSlotMetrics(paths, slotBounds, guideProfile = UPPERCASE_GUIDE_PROFILE) {
     const slotWidth = Math.max(1, slotBounds.xMax - slotBounds.xMin);
     const slotHeight = Math.max(1, slotBounds.yMax - slotBounds.yMin);
-    const designLeft = slotBounds.xMin + slotWidth * (SLOT_LEFT_BOUNDARY / SLOT_WIDTH2);
-    const designWidth = slotWidth * ((SLOT_RIGHT_BOUNDARY - SLOT_LEFT_BOUNDARY) / SLOT_WIDTH2);
-    const capY = slotBounds.yMin + slotHeight * (SLOT_CAP_HEIGHT_Y / SLOT_HEIGHT2);
-    const baselineY = slotBounds.yMin + slotHeight * (SLOT_BASELINE_Y / SLOT_HEIGHT2);
-    const designHeight = Math.max(1, baselineY - capY);
+    const designLeft = slotBounds.xMin + slotWidth * (guideProfile.leftBoundaryX / guideProfile.slotWidth);
+    const designWidth = slotWidth * ((guideProfile.rightBoundaryX - guideProfile.leftBoundaryX) / guideProfile.slotWidth);
+    const ascenderY = slotBounds.yMin + slotHeight * (guideProfile.ascenderY / guideProfile.slotHeight);
+    const baselineY = slotBounds.yMin + slotHeight * (guideProfile.baselineY / guideProfile.slotHeight);
+    const designHeight = Math.max(1, baselineY - ascenderY);
     const normalizedPaths = paths.map((path) => ({
       windingRule: path.windingRule,
       commands: path.commands.map(
-        (command) => normalizeCommandToSlotMetrics(command, designLeft, designWidth, baselineY, designHeight)
+        (command) => normalizeCommandToSlotMetrics(command, designLeft, designWidth, baselineY, designHeight, guideProfile.ascenderUnits)
       )
     }));
     const normalizedBounds = normalizedPaths.reduce((acc, path) => {
@@ -595,10 +723,10 @@
     }
     return command;
   }
-  function normalizeCommandToSlotMetrics(command, designLeft, designWidth, baselineY, designHeight) {
+  function normalizeCommandToSlotMetrics(command, designLeft, designWidth, baselineY, designHeight, ascenderUnits) {
     const mapPoint = (point) => ({
       x: Math.round((point.x - designLeft) / designWidth * FONT_DESIGN_WIDTH + FONT_LEFT_BEARING),
-      y: Math.round((baselineY - point.y) / designHeight * CAP_HEIGHT)
+      y: Math.round((baselineY - point.y) / designHeight * ascenderUnits)
     });
     if (command.type === "M" || command.type === "L") {
       return __spreadValues({ type: command.type }, mapPoint(command));

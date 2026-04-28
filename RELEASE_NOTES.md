@@ -1,5 +1,49 @@
 # Release Notes
 
+## V3 Alpha Closeout Notes
+
+V3 alpha now includes the V3.0 lowercase pilot, V3.1 full lowercase expansion, V3.2 common symbols, and V3.3 metrics/readability signoff.
+
+Manual V3.3 QA passed for lowercase plus symbols, and no metrics/readability code changes were needed.
+
+## 3.2.0-alpha.1
+
+Typegen V3.2 alpha common-symbol expansion.
+
+### Added
+
+- Added common-symbol support for `'`, `"`, `/`, `(`, `)`, `&`, `+`, `=`, and `@`.
+- Added safe symbol slot names: `glyph-apostrophe`, `glyph-quote`, `glyph-slash`, `glyph-paren-left`, `glyph-paren-right`, `glyph-ampersand`, `glyph-plus`, `glyph-equals`, and `glyph-at`.
+- Added raw symbol scan aliases where simple and unambiguous, such as `glyph-@`, `glyph-+`, and `glyph-/`.
+- Added symbol-specific default advances for narrow and wide common symbols.
+- Updated default preview and smoke-test fallback text to exercise symbol support.
+- Added regression checks for symbol naming, preview, verification, and OTF roundtrip parsing.
+- Manual V3.2 QA passed for common-symbol board slots, preview strings, OTF export, and smoke-test HTML.
+
+## 3.1.0-alpha.1
+
+Typegen V3.1 alpha full lowercase expansion.
+
+### Added
+
+- Added lowercase support for `glyph-a` through `glyph-z`.
+- Reused the verified V3 lowercase guide profile for full lowercase scanning, preview, and export.
+- Reordered starter board slots into canonical A-Z, a-z, 0-9, punctuation order.
+- Existing board updates now preserve glyph artwork while repositioning supported slots into the canonical order.
+- Added regression checks for full lowercase preview strings: `type`, `glyph`, `font`, `quick`, and `boxing glyph`.
+- Manual V3.1 QA passed for fresh boards, upgraded V3.0 pilot boards, sorted board order, lowercase preview, and smoke-test targets.
+
+## 3.0.0-alpha.1
+
+Typegen V3.0 alpha lowercase pilot foundations.
+
+### Added
+
+- Added lowercase pilot support for `a`, `b`, `g`, `o`, and `x`.
+- Added lowercase board slots with ascender, x-height, baseline, descender, and side-boundary guides.
+- Added profile-aware slot normalization so lowercase glyphs use lowercase geometry while V2 glyphs keep their existing metrics.
+- Regression checks cover pilot lowercase naming, preview, guide normalization, descenders, and OTF roundtrip parsing.
+
 ## 2.x Closeout Notes
 
 V2.x is considered the hardening track for the existing static-font MVP: A-Z, 0-9, six punctuation marks, preview, spacing, verified OTF export, smoke-test HTML, persistence, and regression checks.

@@ -7,10 +7,8 @@ import {
   glyphCharFromName,
   glyphNameForChar,
 } from "./pluginTypes";
-import { glyphLabelForChar, type GlyphChar } from "../shared/types";
+import { glyphLabelForChar, guideProfileForChar, type GlyphChar, type SlotGuideProfile } from "../shared/types";
 
-const SLOT_WIDTH = 160;
-const SLOT_HEIGHT = 200;
 const GAP = 24;
 const COLUMNS = 6;
 const PADDING = 32;
@@ -36,26 +34,20 @@ export async function createGlyphBoard(): Promise<GlyphBoardResult> {
 
   const existingBoard = findExistingBoard();
   const board = existingBoard ?? createBoardFrame();
-  const existingSlotChars = new Set(
-    board.children
-      .map((child) => glyphCharFromName(child.name))
-      .filter((char): char is string => Boolean(char)),
-  );
+  const existingSlotsByChar = collectExistingSlots(board);
   let addedSlots = 0;
 
   for (let index = 0; index < SUPPORTED_CHARS.length; index++) {
     const char = SUPPORTED_CHARS[index];
-    if (existingSlotChars.has(char)) {
-      continue;
+    let slot = existingSlotsByChar.get(char);
+
+    if (!slot) {
+      slot = createSlot(char, labelsEnabled);
+      board.appendChild(slot);
+      addedSlots++;
     }
 
-    const column = index % COLUMNS;
-    const row = Math.floor(index / COLUMNS);
-    const slot = createSlot(char, labelsEnabled);
-    slot.x = PADDING + column * (SLOT_WIDTH + GAP);
-    slot.y = PADDING + row * (SLOT_HEIGHT + GAP);
-    board.appendChild(slot);
-    addedSlots++;
+    positionSlot(slot, char, index);
   }
 
   resizeBoardToFitSupportedSlots(board);
@@ -68,6 +60,32 @@ export async function createGlyphBoard(): Promise<GlyphBoardResult> {
   figma.viewport.scrollAndZoomIntoView([board]);
 
   return { board, warnings, created: !existingBoard, addedSlots };
+}
+
+function collectExistingSlots(board: FrameNode): Map<string, SceneNode> {
+  const slots = new Map<string, SceneNode>();
+
+  for (const child of board.children) {
+    const char = glyphCharFromName(child.name);
+    if (char && !slots.has(char)) {
+      slots.set(char, child);
+    }
+  }
+
+  return slots;
+}
+
+function positionSlot(slot: SceneNode, char: string, index: number): void {
+  const layout = getSlotLayout(index);
+  slot.x = layout.x;
+  slot.y = layout.y;
+
+  if (slot.type === "FRAME") {
+    const profile = guideProfileForChar(char as GlyphChar);
+    if (slot.width !== profile.slotWidth || slot.height !== profile.slotHeight) {
+      slot.resize(profile.slotWidth, profile.slotHeight);
+    }
+  }
 }
 
 function findExistingBoard(): FrameNode | null {
@@ -101,16 +119,42 @@ function createBoardFrame(): FrameNode {
 
 function resizeBoardToFitSupportedSlots(board: FrameNode): void {
   const rows = Math.ceil(SUPPORTED_CHARS.length / COLUMNS);
-  board.resize(
-    PADDING * 2 + COLUMNS * SLOT_WIDTH + (COLUMNS - 1) * GAP,
-    PADDING * 2 + rows * SLOT_HEIGHT + (rows - 1) * GAP,
-  );
+  const boardWidth = PADDING * 2 + COLUMNS * UPPERCASE_SLOT_WIDTH + (COLUMNS - 1) * GAP;
+  const boardHeight = PADDING * 2 + getRowsHeight(rows) + Math.max(0, rows - 1) * GAP;
+  board.resize(boardWidth, boardHeight);
 }
 
+function getSlotLayout(index: number): { x: number; y: number } {
+  const column = index % COLUMNS;
+  const row = Math.floor(index / COLUMNS);
+  const rowTop = PADDING + getRowsHeight(row) + row * GAP;
+  return {
+    x: PADDING + column * (UPPERCASE_SLOT_WIDTH + GAP),
+    y: rowTop,
+  };
+}
+
+function getRowsHeight(rowCount: number): number {
+  let height = 0;
+  for (let row = 0; row < rowCount; row++) {
+    height += getRowHeight(row);
+  }
+  return height;
+}
+
+function getRowHeight(row: number): number {
+  const rowChars = SUPPORTED_CHARS.slice(row * COLUMNS, row * COLUMNS + COLUMNS);
+  return Math.max(...rowChars.map((char) => guideProfileForChar(char as GlyphChar).slotHeight), UPPERCASE_SLOT_HEIGHT);
+}
+
+const UPPERCASE_SLOT_WIDTH = guideProfileForChar("A").slotWidth;
+const UPPERCASE_SLOT_HEIGHT = guideProfileForChar("A").slotHeight;
+
 function createSlot(char: string, labelsEnabled: boolean): FrameNode {
+  const profile = guideProfileForChar(char as GlyphChar);
   const slot = figma.createFrame();
   slot.name = glyphNameForChar(char);
-  slot.resize(SLOT_WIDTH, SLOT_HEIGHT);
+  slot.resize(profile.slotWidth, profile.slotHeight);
   slot.fills = [solid(1, 1, 1)];
   slot.strokes = [solid(0.75, 0.78, 0.84)];
   slot.strokeWeight = 1;
@@ -118,15 +162,42 @@ function createSlot(char: string, labelsEnabled: boolean): FrameNode {
   slot.clipsContent = false;
   slot.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_SLOT);
 
-  addGuide(slot, "tg-left-boundary", 24, 34, 1, 128, 0.78);
-  addGuide(slot, "tg-right-boundary", SLOT_WIDTH - 24, 34, 1, 128, 0.78);
-  addGuide(slot, "tg-cap-height", 24, 48, SLOT_WIDTH - 48, 1, 0.62);
-  addGuide(slot, "tg-baseline", 24, 162, SLOT_WIDTH - 48, 1, 0.36);
+  addGuides(slot, profile);
+
   if (labelsEnabled) {
     addLabel(slot, glyphLabelForChar(char as GlyphChar));
   }
 
   return slot;
+}
+
+function addGuides(slot: FrameNode, profile: SlotGuideProfile): void {
+  const guideTop = profile.ascenderY;
+  const guideBottom = profile.descenderY ?? profile.baselineY;
+  const guideHeight = Math.max(1, guideBottom - guideTop);
+  const guideWidth = profile.rightBoundaryX - profile.leftBoundaryX;
+
+  addGuide(slot, "tg-left-boundary", profile.leftBoundaryX, guideTop, 1, guideHeight, 0.78);
+  addGuide(slot, "tg-right-boundary", profile.rightBoundaryX, guideTop, 1, guideHeight, 0.78);
+  addGuide(
+    slot,
+    profile.name === "lowercase" ? "tg-ascender" : "tg-cap-height",
+    profile.leftBoundaryX,
+    profile.ascenderY,
+    guideWidth,
+    1,
+    0.62,
+  );
+
+  if (typeof profile.xHeightY === "number") {
+    addGuide(slot, "tg-x-height", profile.leftBoundaryX, profile.xHeightY, guideWidth, 1, 0.5);
+  }
+
+  addGuide(slot, "tg-baseline", profile.leftBoundaryX, profile.baselineY, guideWidth, 1, 0.36);
+
+  if (typeof profile.descenderY === "number") {
+    addGuide(slot, "tg-descender", profile.leftBoundaryX, profile.descenderY, guideWidth, 1, 0.28);
+  }
 }
 
 function addGuide(parent: FrameNode, name: string, x: number, y: number, width: number, height: number, alpha: number): void {

@@ -25,6 +25,32 @@ export const GLYPH_DEFINITIONS = [
   { char: 'X', name: 'glyph-X', label: 'X' },
   { char: 'Y', name: 'glyph-Y', label: 'Y' },
   { char: 'Z', name: 'glyph-Z', label: 'Z' },
+  { char: 'a', name: 'glyph-a', label: 'a', guideProfile: 'lowercase' },
+  { char: 'b', name: 'glyph-b', label: 'b', guideProfile: 'lowercase' },
+  { char: 'c', name: 'glyph-c', label: 'c', guideProfile: 'lowercase' },
+  { char: 'd', name: 'glyph-d', label: 'd', guideProfile: 'lowercase' },
+  { char: 'e', name: 'glyph-e', label: 'e', guideProfile: 'lowercase' },
+  { char: 'f', name: 'glyph-f', label: 'f', guideProfile: 'lowercase' },
+  { char: 'g', name: 'glyph-g', label: 'g', guideProfile: 'lowercase' },
+  { char: 'h', name: 'glyph-h', label: 'h', guideProfile: 'lowercase' },
+  { char: 'i', name: 'glyph-i', label: 'i', guideProfile: 'lowercase' },
+  { char: 'j', name: 'glyph-j', label: 'j', guideProfile: 'lowercase' },
+  { char: 'k', name: 'glyph-k', label: 'k', guideProfile: 'lowercase' },
+  { char: 'l', name: 'glyph-l', label: 'l', guideProfile: 'lowercase' },
+  { char: 'm', name: 'glyph-m', label: 'm', guideProfile: 'lowercase' },
+  { char: 'n', name: 'glyph-n', label: 'n', guideProfile: 'lowercase' },
+  { char: 'o', name: 'glyph-o', label: 'o', guideProfile: 'lowercase' },
+  { char: 'p', name: 'glyph-p', label: 'p', guideProfile: 'lowercase' },
+  { char: 'q', name: 'glyph-q', label: 'q', guideProfile: 'lowercase' },
+  { char: 'r', name: 'glyph-r', label: 'r', guideProfile: 'lowercase' },
+  { char: 's', name: 'glyph-s', label: 's', guideProfile: 'lowercase' },
+  { char: 't', name: 'glyph-t', label: 't', guideProfile: 'lowercase' },
+  { char: 'u', name: 'glyph-u', label: 'u', guideProfile: 'lowercase' },
+  { char: 'v', name: 'glyph-v', label: 'v', guideProfile: 'lowercase' },
+  { char: 'w', name: 'glyph-w', label: 'w', guideProfile: 'lowercase' },
+  { char: 'x', name: 'glyph-x', label: 'x', guideProfile: 'lowercase' },
+  { char: 'y', name: 'glyph-y', label: 'y', guideProfile: 'lowercase' },
+  { char: 'z', name: 'glyph-z', label: 'z', guideProfile: 'lowercase' },
   { char: '0', name: 'glyph-0', label: '0' },
   { char: '1', name: 'glyph-1', label: '1' },
   { char: '2', name: 'glyph-2', label: '2' },
@@ -41,9 +67,62 @@ export const GLYPH_DEFINITIONS = [
   { char: '?', name: 'glyph-question', label: '?', defaultAdvanceWidth: 560 },
   { char: '-', name: 'glyph-hyphen', label: '-', defaultAdvanceWidth: 420 },
   { char: ':', name: 'glyph-colon', label: ':', defaultAdvanceWidth: 280 },
+  { char: "'", name: 'glyph-apostrophe', label: "'", defaultAdvanceWidth: 260 },
+  { char: '"', name: 'glyph-quote', label: '"', defaultAdvanceWidth: 360 },
+  { char: '/', name: 'glyph-slash', label: '/', defaultAdvanceWidth: 420 },
+  { char: '(', name: 'glyph-paren-left', label: '(', defaultAdvanceWidth: 360 },
+  { char: ')', name: 'glyph-paren-right', label: ')', defaultAdvanceWidth: 360 },
+  { char: '&', name: 'glyph-ampersand', label: '&', defaultAdvanceWidth: 700 },
+  { char: '+', name: 'glyph-plus', label: '+', defaultAdvanceWidth: 560 },
+  { char: '=', name: 'glyph-equals', label: '=', defaultAdvanceWidth: 560 },
+  { char: '@', name: 'glyph-at', label: '@', defaultAdvanceWidth: 760 },
 ] as const;
 
 export type GlyphChar = (typeof GLYPH_DEFINITIONS)[number]['char'];
+
+export type SlotGuideProfileName = 'uppercase' | 'lowercase';
+
+export type SlotGuideProfile = {
+  name: SlotGuideProfileName;
+  slotWidth: number;
+  slotHeight: number;
+  leftBoundaryX: number;
+  rightBoundaryX: number;
+  ascenderY: number;
+  xHeightY?: number;
+  baselineY: number;
+  descenderY?: number;
+  ascenderUnits: number;
+};
+
+export const UPPERCASE_GUIDE_PROFILE: SlotGuideProfile = {
+  name: 'uppercase',
+  slotWidth: 160,
+  slotHeight: 200,
+  leftBoundaryX: 24,
+  rightBoundaryX: 136,
+  ascenderY: 48,
+  baselineY: 162,
+  ascenderUnits: 700,
+};
+
+export const LOWERCASE_GUIDE_PROFILE: SlotGuideProfile = {
+  name: 'lowercase',
+  slotWidth: 160,
+  slotHeight: 240,
+  leftBoundaryX: 24,
+  rightBoundaryX: 136,
+  ascenderY: 40,
+  xHeightY: 77,
+  baselineY: 170,
+  descenderY: 207,
+  ascenderUnits: 700,
+};
+
+export const GUIDE_PROFILES: Record<SlotGuideProfileName, SlotGuideProfile> = {
+  uppercase: UPPERCASE_GUIDE_PROFILE,
+  lowercase: LOWERCASE_GUIDE_PROFILE,
+};
 
 export const GLYPH_CHARS = GLYPH_DEFINITIONS.map((definition) => definition.char) as GlyphChar[];
 
@@ -58,6 +137,16 @@ export function glyphLabelForChar(char: GlyphChar): string {
 export function defaultAdvanceForChar(char: GlyphChar): number {
   const definition = GLYPH_DEFINITIONS.find((item) => item.char === char);
   return definition && 'defaultAdvanceWidth' in definition ? definition.defaultAdvanceWidth : 700;
+}
+
+export function guideProfileForChar(char: GlyphChar): SlotGuideProfile {
+  const definition = GLYPH_DEFINITIONS.find((item) => item.char === char);
+  const profileName =
+    definition && 'guideProfile' in definition
+      ? definition.guideProfile
+      : 'uppercase';
+
+  return GUIDE_PROFILES[profileName];
 }
 
 export type GlyphStatus = 'missing' | 'empty' | 'valid' | 'unsupported' | 'warning';

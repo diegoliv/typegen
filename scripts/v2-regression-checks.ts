@@ -4,6 +4,7 @@ import { buildFont } from "../src/font/buildFont";
 import {
   DEFAULT_SPACING,
   GLYPH_CHARS,
+  LOWERCASE_GUIDE_PROFILE,
   collectMetricsWarnings,
   defaultAdvanceForChar,
   isGlyphChar,
@@ -204,34 +205,91 @@ const glyphPeriod: GlyphModel = {
   warnings: [],
 };
 
-assert.equal(GLYPH_CHARS.length, 42, "supported glyph list should contain A-Z, 0-9, and six punctuation glyphs");
+const glyphLowerA: GlyphModel = {
+  char: "a",
+  unicode: 97,
+  name: "glyph-a",
+  advanceWidth: 700,
+  bounds: {
+    xMin: 70,
+    yMin: 0,
+    xMax: 640,
+    yMax: 500,
+  },
+  paths: [
+    {
+      commands: [
+        { type: "M", x: 70, y: 0 },
+        { type: "L", x: 640, y: 0 },
+        { type: "L", x: 640, y: 500 },
+        { type: "L", x: 70, y: 500 },
+        { type: "Z" },
+      ],
+      windingRule: "NONZERO",
+    },
+  ],
+  warnings: [],
+};
+
+const glyphLowerB = makeRectGlyph("b", 98, "glyph-b", 70, 0, 640, 700);
+const glyphLowerG = makeRectGlyph("g", 103, "glyph-g", 70, -200, 640, 500);
+const glyphLowerO = makeRectGlyph("o", 111, "glyph-o", 70, 0, 640, 500);
+const glyphLowerX = makeRectGlyph("x", 120, "glyph-x", 70, 0, 640, 500);
+const lowercasePilotGlyphs = [glyphLowerA, glyphLowerB, glyphLowerG, glyphLowerO, glyphLowerX];
+const fullLowercaseGlyphs = Array.from("abcdefghijklmnopqrstuvwxyz").map((char) =>
+  makeRectGlyph(char, char.codePointAt(0) ?? 0, `glyph-${char}`, 70, "gjpqy".includes(char) ? -200 : 0, 640, 500),
+);
+const glyphAt = makeRectGlyph("@", 64, "glyph-at", 40, 0, 720, 700, defaultAdvanceForChar("@"));
+const glyphPlus = makeRectGlyph("+", 43, "glyph-plus", 90, 180, 470, 560, defaultAdvanceForChar("+"));
+const glyphSlash = makeRectGlyph("/", 47, "glyph-slash", 90, 0, 430, 700, defaultAdvanceForChar("/"));
+const commonSymbolGlyphs = [glyphAt, glyphPlus, glyphSlash];
+
+assert.equal(GLYPH_CHARS.length, 77, "supported glyph list should contain V2 glyphs, full lowercase a-z, and V3.2 symbols");
 assert.equal(isGlyphChar("A"), true, "A should be supported");
 assert.equal(isGlyphChar("2"), true, "numeric glyphs should be supported");
 assert.equal(isGlyphChar("!"), true, "supported punctuation glyphs should be supported");
-assert.equal(isGlyphChar("a"), false, "lowercase should remain unsupported");
+assert.equal(isGlyphChar("a"), true, "lowercase glyphs should be supported");
+assert.equal(isGlyphChar("z"), true, "lowercase z should be supported");
+assert.equal(isGlyphChar("@"), true, "common symbols should be supported");
+assert.equal(isGlyphChar("#"), false, "extra symbols should remain unsupported");
 assert.equal(defaultAdvanceForChar("."), 260, "periods should have a narrow default advance");
 assert.equal(defaultAdvanceForChar(","), 260, "commas should have a narrow default advance");
 assert.equal(defaultAdvanceForChar("!"), 320, "exclamation should have a narrow default advance");
 assert.equal(defaultAdvanceForChar("?"), 560, "question should have a medium default advance");
+assert.equal(defaultAdvanceForChar("'"), 260, "apostrophe should have a narrow default advance");
+assert.equal(defaultAdvanceForChar('"'), 360, "quote should have a narrow default advance");
+assert.equal(defaultAdvanceForChar("@"), 760, "at sign should have a wider default advance");
 assert.equal(defaultAdvanceForChar("A"), 700, "letters should keep the standard default advance");
 
 assert.equal(isSupportedGlyphName("glyph-A"), true, "strict uppercase glyph name should parse");
 assert.equal(isSupportedGlyphName("glyph-2"), true, "strict numeric glyph name should parse");
 assert.equal(isSupportedGlyphName("glyph-exclamation"), true, "strict punctuation glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-a"), true, "lowercase glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-z"), true, "lowercase z glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-at"), true, "safe symbol glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-plus"), true, "safe plus glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-@"), true, "raw at sign alias should parse");
+assert.equal(isSupportedGlyphName("glyph-+"), true, "raw plus alias should parse");
 assert.equal(isSupportedGlyphName("glyph-!"), true, "raw punctuation alias should parse");
 assert.equal(isSupportedGlyphName("glyph-."), true, "raw period alias should parse");
 assert.equal(isSupportedGlyphName("glyph-?"), true, "raw question alias should parse");
-assert.equal(isSupportedGlyphName("glyph-a"), false, "lowercase glyph names should stay unsupported");
 assert.equal(isSupportedGlyphName("glyph-AA"), false, "multi-character glyph names should stay unsupported");
 assert.equal(glyphCharFromName("glyph-Z"), "Z", "glyph-Z should map to Z");
 assert.equal(glyphCharFromName("glyph-0"), "0", "glyph-0 should map to 0");
 assert.equal(glyphCharFromName("glyph-exclamation"), "!", "glyph-exclamation should map to !");
+assert.equal(glyphCharFromName("glyph-a"), "a", "glyph-a should map to a");
+assert.equal(glyphCharFromName("glyph-z"), "z", "glyph-z should map to z");
+assert.equal(glyphCharFromName("glyph-at"), "@", "glyph-at should map to @");
+assert.equal(glyphCharFromName("glyph-@"), "@", "glyph-@ alias should map to @");
+assert.equal(glyphCharFromName("glyph-plus"), "+", "glyph-plus should map to +");
+assert.equal(glyphCharFromName("glyph-+"), "+", "glyph-+ alias should map to +");
 assert.equal(glyphCharFromName("glyph-!"), "!", "glyph-! alias should map to !");
 assert.equal(glyphCharFromName("glyph-."), ".", "glyph-. alias should map to period");
 assert.equal(glyphCharFromName("Glyph-Z"), null, "name parsing should be case-sensitive");
 assert.equal(unicodeForChar("A"), 65, "A unicode should be stable");
 assert.equal(unicodeForChar("2"), 50, "2 unicode should be stable");
 assert.equal(unicodeForChar("!"), 33, "! unicode should be stable");
+assert.equal(unicodeForChar("@"), 64, "@ unicode should be stable");
 
 const spacing = normalizeSpacingSettings({
   letterSpacing: 999,
@@ -295,10 +353,34 @@ assert.ok(
   "very wide glyph advance should warn",
 );
 
-const preview = layoutPreviewText("AZ a", [glyphA], DEFAULT_SPACING);
+const preview = layoutPreviewText("AZ #", [glyphA], DEFAULT_SPACING);
 assert.equal(preview.items.length, 4, "preview should lay out all entered characters");
 assert.equal(preview.missingChars.join(","), "Z", "missing supported glyphs should be tracked");
-assert.equal(preview.unsupportedChars.join(","), "a", "unsupported characters should be tracked");
+assert.equal(preview.unsupportedChars.join(","), "#", "unsupported characters should be tracked");
+
+const lowercasePreview = layoutPreviewText("Aa", [glyphA, glyphLowerA], DEFAULT_SPACING);
+assert.equal(lowercasePreview.missingChars.length, 0, "lowercase pilot glyphs should preview when available");
+assert.equal(lowercasePreview.unsupportedChars.length, 0, "lowercase pilot glyphs should not be unsupported");
+
+for (const text of ["box", "go", "bag", "go ox"]) {
+  const pilotWordPreview = layoutPreviewText(text, lowercasePilotGlyphs, DEFAULT_SPACING);
+  assert.equal(pilotWordPreview.missingChars.length, 0, `${text} should have no missing lowercase pilot glyphs`);
+  assert.equal(pilotWordPreview.unsupportedChars.length, 0, `${text} should have no unsupported lowercase pilot glyphs`);
+}
+
+const mixedPilotPreview = layoutPreviewText("ABC box 012", [glyphA, glyph2, ...lowercasePilotGlyphs], DEFAULT_SPACING);
+assert.equal(mixedPilotPreview.unsupportedChars.length, 0, "ABC box 012 should only contain supported characters");
+assert.deepEqual(mixedPilotPreview.missingChars, ["B", "C", "0", "1"], "ABC box 012 should only miss undrawn supported fixture glyphs");
+
+for (const text of ["type", "glyph", "font", "quick", "boxing glyph"]) {
+  const fullLowercasePreview = layoutPreviewText(text, fullLowercaseGlyphs, DEFAULT_SPACING);
+  assert.equal(fullLowercasePreview.missingChars.length, 0, `${text} should have no missing full lowercase glyphs`);
+  assert.equal(fullLowercasePreview.unsupportedChars.length, 0, `${text} should have no unsupported full lowercase glyphs`);
+}
+
+const commonSymbolPreview = layoutPreviewText("a/b @2+2", [glyphLowerA, glyphLowerB, glyph2, ...commonSymbolGlyphs], DEFAULT_SPACING);
+assert.equal(commonSymbolPreview.missingChars.length, 0, "common symbol preview should have no missing glyphs");
+assert.equal(commonSymbolPreview.unsupportedChars.length, 0, "common symbol preview should not be unsupported");
 
 const numericPreview = layoutPreviewText("A2#", [glyphA, glyph2], DEFAULT_SPACING);
 assert.equal(numericPreview.missingChars.length, 0, "numeric glyphs should preview when available");
@@ -347,6 +429,49 @@ assert.ok(
   "punctuation fitting should keep the period inside its advance width",
 );
 
+const normalizedLowercaseXHeight = normalizePathsForSlotMetrics(
+  [
+    {
+      commands: [
+        { type: "M", x: 40, y: 77 },
+        { type: "L", x: 120, y: 77 },
+        { type: "L", x: 120, y: 170 },
+        { type: "L", x: 40, y: 170 },
+        { type: "Z" },
+      ],
+      windingRule: "NONZERO",
+    },
+  ],
+  { xMin: 0, yMin: 0, xMax: 160, yMax: 240 },
+  LOWERCASE_GUIDE_PROFILE,
+);
+assert.ok(
+  normalizedLowercaseXHeight.bounds.yMax >= 495 && normalizedLowercaseXHeight.bounds.yMax <= 505,
+  "lowercase x-height guide should normalize near 500 font units",
+);
+assert.equal(normalizedLowercaseXHeight.bounds.yMin, 0, "lowercase baseline guide should normalize to zero");
+
+const normalizedLowercaseDescender = normalizePathsForSlotMetrics(
+  [
+    {
+      commands: [
+        { type: "M", x: 72, y: 77 },
+        { type: "L", x: 112, y: 77 },
+        { type: "L", x: 112, y: 207 },
+        { type: "L", x: 72, y: 207 },
+        { type: "Z" },
+      ],
+      windingRule: "NONZERO",
+    },
+  ],
+  { xMin: 0, yMin: 0, xMax: 160, yMax: 240 },
+  LOWERCASE_GUIDE_PROFILE,
+);
+assert.ok(
+  normalizedLowercaseDescender.bounds.yMin < 0,
+  "lowercase descender guide should normalize below the baseline",
+);
+
 assert.equal(createFontDownloadName(" Typegen Demo! "), "Typegen-Demo.otf");
 assert.equal(createSmokeTestDownloadName(" Typegen Demo! "), "Typegen-Demo-smoke-test.html");
 
@@ -359,7 +484,7 @@ const font = buildFont({
 assert.equal(font.familyName, "Typegen Regression", "font family should use user input");
 assert.equal(font.glyphCount, 1, "font generation should include one usable glyph");
 assert.ok(font.arrayBuffer.byteLength > 0, "generated font should produce a non-empty buffer");
-assert.ok(font.warnings.some((warning) => warning.includes("1/42")), "partial glyph-set warning should be preserved");
+assert.ok(font.warnings.some((warning) => warning.includes("1/77")), "partial glyph-set warning should be preserved");
 assert.equal(font.verification.failedGlyphs.length, 0, "single glyph font should verify cleanly");
 assert.equal(font.verification.verifiedGlyphs.length, 1, "single glyph font should verify one glyph");
 assert.ok(font.verification.parsedGlyphCount >= 3, "single glyph font should include notdef, space, and A");
@@ -408,7 +533,66 @@ assert.equal(punctuationFont.verification.failedGlyphs.length, 0, "punctuation f
 assertRoundTripGlyph(punctuationFont.arrayBuffer, "!", 360, "punctuation fixture should preserve !");
 assertRoundTripGlyph(punctuationFont.arrayBuffer, ".", 260, "punctuation fixture should preserve narrow period advance");
 
-console.log("V2 regression checks passed.");
+const symbolFont = buildFont({
+  familyName: "Typegen Symbol Regression",
+  glyphs: [glyphAt, glyphPlus, glyphSlash],
+  spacing: DEFAULT_SPACING,
+});
+
+assert.equal(symbolFont.glyphCount, 3, "symbol fixture should include @, +, and / glyphs");
+assert.equal(symbolFont.verification.failedGlyphs.length, 0, "symbol fixture should verify cleanly");
+assertRoundTripGlyph(symbolFont.arrayBuffer, "@", 760, "symbol fixture should preserve @");
+assertRoundTripGlyph(symbolFont.arrayBuffer, "+", 560, "symbol fixture should preserve +");
+assertRoundTripGlyph(symbolFont.arrayBuffer, "/", 420, "symbol fixture should preserve /");
+
+const lowercasePilotFont = buildFont({
+  familyName: "Typegen Lowercase Pilot Regression",
+  glyphs: [glyphA, glyphLowerA],
+  spacing: DEFAULT_SPACING,
+});
+
+assert.equal(lowercasePilotFont.glyphCount, 2, "lowercase pilot fixture should include A and a glyphs");
+assert.equal(lowercasePilotFont.verification.failedGlyphs.length, 0, "lowercase pilot fixture should verify cleanly");
+assertRoundTripGlyph(lowercasePilotFont.arrayBuffer, "a", 700, "lowercase pilot fixture should preserve a");
+
+console.log("V3.2 symbol regression checks passed.");
+
+function makeRectGlyph(
+  char: string,
+  unicode: number,
+  name: string,
+  xMin: number,
+  yMin: number,
+  xMax: number,
+  yMax: number,
+  advanceWidth = 700,
+): GlyphModel {
+  return {
+    char,
+    unicode,
+    name,
+    advanceWidth,
+    bounds: {
+      xMin,
+      yMin,
+      xMax,
+      yMax,
+    },
+    paths: [
+      {
+        commands: [
+          { type: "M", x: xMin, y: yMin },
+          { type: "L", x: xMax, y: yMin },
+          { type: "L", x: xMax, y: yMax },
+          { type: "L", x: xMin, y: yMax },
+          { type: "Z" },
+        ],
+        windingRule: "NONZERO",
+      },
+    ],
+    warnings: [],
+  };
+}
 
 function assertRoundTripGlyph(
   buffer: ArrayBuffer,

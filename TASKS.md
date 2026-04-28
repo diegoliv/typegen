@@ -1,5 +1,216 @@
 # Typegen MVP Implementation Plan
 
+## 47. V3 Alpha Closeout Planning
+
+Goal: close the V3 alpha character-set expansion cleanly before starting a new feature track.
+
+Completed:
+
+- Ran final automated verification.
+- Confirmed README, release notes, QA docs, roadmap, and `TASKS.md` match V3.2/V3.3 behavior.
+- Rebuilt `dist/` from current source.
+- Prepared the V3 alpha closeout for commit/PR handoff.
+- Deferred new feature work until the V3 alpha closeout is committed.
+
+Verification completed:
+
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Out of scope:
+
+- More glyph scope.
+- Kerning.
+- Ligatures.
+- Variable fonts.
+- Side-bearing editing.
+- AI generation.
+
+Suggested next step:
+
+- Commit, push, and open the V3 alpha closeout PR.
+
+## 46. V3.3 Metrics And Preview Polish Planning
+
+Goal: improve usability of the expanded V3 character set before adding more glyph scope.
+
+Completed:
+
+- Review default advances for lowercase and common symbols in preview and exported OTF.
+- Confirm common symbols do not feel too wide or too tight in realistic strings.
+- Manual QA passed for lowercase plus symbols.
+- No V3.3 code changes were needed.
+
+QA strings reviewed:
+
+- `quick fox @ 10/10`
+- `type + glyph = font`
+- `(boxing glyph)`
+- `"quick" & 'font'`
+- `A-Z / a-z`
+
+Out of scope:
+
+- More character sets.
+- Kerning.
+- Ligatures.
+- Side-bearing editing.
+- Variable fonts.
+- AI generation.
+
+Suggested next step:
+
+- Move to V3 alpha closeout.
+
+## 45. V3.2 Common Symbols Implementation
+
+Goal: add the next narrow common-symbol slice after V3.1 lowercase signoff.
+
+Completed:
+
+- Updated package metadata to `3.2.0-alpha.1`.
+- Added common-symbol glyph definitions for `'`, `"`, `/`, `(`, `)`, `&`, `+`, `=`, and `@`.
+- Added safe symbol slot names: `glyph-apostrophe`, `glyph-quote`, `glyph-slash`, `glyph-paren-left`, `glyph-paren-right`, `glyph-ampersand`, `glyph-plus`, `glyph-equals`, and `glyph-at`.
+- Added raw scan aliases for the common symbols where simple and unambiguous.
+- Added default advance widths for narrow and wide common symbols.
+- Updated UI copy, default preview text, and smoke-test fallback text for V3.2.
+- Added regression coverage for symbol name parsing, preview layout, generated-font verification, and OTF roundtrip parsing.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+- Manual QA passed for `a/b @2+2`, `A+B=C`, `font@example`, and `(quick)` in Figma and smoke-test HTML.
+
+Suggested next step:
+
+- Move to V3.3 metrics and preview polish planning before adding more glyph scope.
+
+## 44. V3.2 Common Symbols Planning
+
+Goal: choose the next narrow character-set expansion after V3.1 lowercase signoff.
+
+Completed:
+
+- Chose the V3.2 symbol subset: apostrophe, quote, slash, parentheses, ampersand, plus, equals, and at sign.
+- Kept one static OTF export.
+- Reused the existing uppercase-style guide profile.
+- Preserved sorted board behavior and artwork-safe board updates.
+- Kept kerning, ligatures, variable fonts, side-bearing editing, AI generation, and broad Unicode coverage out of scope.
+
+Out of scope for V3.2:
+
+- Kerning.
+- Ligatures.
+- Variable fonts.
+- Side-bearing editor.
+- AI generation.
+- Broad Unicode coverage.
+
+Suggested next step:
+
+- Implement the V3.2 common-symbol subset.
+
+## 43. V3.1 Full Lowercase Signoff
+
+Goal: validate and close V3.1 full lowercase alpha before starting another scope expansion.
+
+Completed:
+
+- Manual QA fresh V3.1 board creation with sorted A-Z, a-z, 0-9, punctuation slots.
+- Manual QA update of an existing V3.0 pilot board; confirm `a`, `b`, `g`, `o`, and `x` artwork moves with the correct slots.
+- Manual QA update of a V2 board; confirm existing uppercase, numeric, and punctuation artwork is preserved.
+- Smoke test lowercase words: `type`, `glyph`, `font`, `quick`, `boxing glyph`, `box`, `go`, `bag`, `go ox`, and `ABC box 012`.
+- Smoke test V2 regression strings: `ABC, 012.!`, `A-B: 10?`, `ABOPR PRO BAR`, and `2024 A10`.
+- Confirm descender, ascender, and x-height proportions against the lowercase guides.
+- No release-blocking V3.1 defects reported during manual QA.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Suggested next step:
+
+- Close out V3.1 and plan the next narrow scope expansion.
+
+## 42. V3.1 Full Lowercase Expansion Planning
+
+Goal: expand from the verified V3 alpha lowercase pilot to full lowercase `a-z` without disrupting existing boards.
+
+Completed:
+
+- Confirmed manual Figma QA passed for the V3 alpha lowercase pilot strings.
+- Added the V3.1 expansion plan to `docs/V3_ROADMAP.md`.
+- Identified the key board migration risk: inserting alphabetical lowercase slots can overlap existing V3 alpha pilot artwork.
+- Updated package metadata to `3.1.0-alpha.1`.
+- Added lowercase definitions for every missing `glyph-c` through `glyph-z` slot.
+- Reused the lowercase guide profile for every lowercase glyph.
+- Kept uppercase, numeric, punctuation, spacing, preview, export, and persistence behavior unchanged.
+- Added full lowercase regression coverage for naming and preview strings: `type`, `glyph`, `font`, `quick`, and `boxing glyph`.
+- Updated UI/docs from "lowercase pilot" language to full lowercase `a-z` language.
+- Reordered the canonical board sequence to A-Z, a-z, 0-9, punctuation.
+- Updated board creation so existing supported slots are repositioned into canonical order while preserving their artwork.
+
+Suggested next step:
+
+- Manually QA a fresh V3.1 board and an existing V3.0 pilot board after clicking `Create/update glyph board`; confirm slots are sorted and old artwork moved with its slot.
+
+## 41. V3.0 Alpha Lowercase Pilot Foundations
+
+Goal: implement the first narrow V3 slice by supporting lowercase guide geometry for `a`, `b`, `g`, `o`, and `x` only.
+
+Completed:
+
+- Updated package metadata to `3.0.0-alpha.1`.
+- Updated plugin UI label to `Typegen V3.0 alpha`.
+- Added shared uppercase and lowercase slot guide profiles.
+- Added lowercase pilot glyph definitions for `glyph-a`, `glyph-b`, `glyph-g`, `glyph-o`, and `glyph-x`.
+- Updated board generation to append mixed-height lowercase pilot slots without clearing existing board artwork.
+- Added lowercase ascender, x-height, baseline, descender, and side-boundary guides.
+- Updated slot-relative extraction to choose the correct guide profile per glyph.
+- Added regression coverage for lowercase name parsing, preview support, x-height normalization, descender normalization, and OTF roundtrip export.
+- Added automated coverage for the V3 manual QA preview targets: `box`, `go`, `bag`, `go ox`, and `ABC box 012`.
+- Updated V3 alpha UI copy so recipe, preview warnings, and export diagnostics mention the lowercase pilot instead of saying all lowercase is unsupported.
+- Updated default preview and smoke-test fallback text to `ABC box 012`.
+- Manual Figma QA passed for the lowercase pilot strings: `box`, `go`, `bag`, `go ox`, and `ABC box 012`.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run build` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Suggested next step:
+
+- Plan the full lowercase `a-z` expansion as the next V3 slice, using the verified lowercase guide profile.
+
+## 40. V3.0 Lowercase Geometry Planning
+
+Goal: define lowercase guide geometry before implementation.
+
+Completed:
+
+- Added `docs/V3_LOWERCASE_GEOMETRY.md`.
+- Defined the V3.0 lowercase pilot set: `a`, `b`, `g`, `o`, and `x`.
+- Defined recommended lowercase slot dimensions: `160 x 240`.
+- Defined lowercase guide positions: ascender `40`, x-height `77`, baseline `170`, descender `207`, side boundaries `24` and `136`.
+- Defined font-unit mapping: ascender `700`, x-height `500`, baseline `0`, descender `-200`.
+- Proposed a `SlotGuideProfile` abstraction for uppercase and lowercase normalization.
+- Defined V3.0 implementation order and regression fixture targets.
+- Linked the geometry spec from README and roadmap docs.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+
+Suggested next step:
+
+- Implement V3.0 pilot board slots and guide-profile constants without enabling full lowercase yet.
+
 ## 39. V3 Roadmap Kickoff
 
 Goal: start the 3.x roadmap after closing the V2 punctuation/static-font milestone.
