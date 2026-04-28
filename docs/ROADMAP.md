@@ -108,3 +108,21 @@ Manual V4.0 QA should confirm:
 - Partially edited boards keep existing artwork and only fill empty slots.
 - Inter-based lowercase starters respect ascender, x-height, baseline, and descender guides.
 - Generated punctuation and common symbols scan as valid filled vectors.
+
+## V4.1 Preview Presets
+
+V4.1 should make the full generated starter set easier to inspect after scanning.
+
+Scope:
+
+- Add preset buttons beside the preview text input.
+- Keep presets as editable text changes, not a separate preview engine.
+- Cover mixed text, headline text, lowercase word lists, paragraph-style samples, and numbers/symbols.
+- Reuse existing missing-glyph, unsupported-character, diagnostics, font generation, and smoke-test export behavior.
+
+Out of scope:
+
+- Multi-panel specimen layouts.
+- Font-size, line-height, and theme controls.
+- Kerning or OpenType feature previews.
+- Any export behavior changes.

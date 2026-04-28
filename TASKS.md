@@ -1,5 +1,27 @@
 # Typegen MVP Implementation Plan
 
+## 49. V4.1 Preview Presets
+
+Goal: make generated full-font starter sets easier to inspect without adding a new preview engine.
+
+Completed:
+
+- Added preview preset buttons for mixed text, headline text, lowercase word lists, paragraph-style samples, and numbers/symbols.
+- Presets update the editable preview text input instead of creating separate preview modes.
+- Presets reuse existing missing-glyph warnings, unsupported-character warnings, diagnostics, font generation, and smoke-test HTML behavior.
+- Updated package metadata to `4.1.0-alpha.1`.
+- Updated release notes, roadmap, QA docs, and rebuilt `dist/`.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Manual QA target:
+
+- Generate Inter starters, scan the board, click each preview preset, confirm the preview updates, then type custom text and confirm focus/scroll stability still holds.
+
 ## 48. V4.0 Starter Glyph Generation
 
 Goal: let users create a full editable Inter-based starting alphabet/symbol set inside Figma, then refine it using the existing Typegen scan, preview, spacing, and export workflow.

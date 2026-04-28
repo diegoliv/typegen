@@ -8,7 +8,7 @@ The current V4 alpha keeps the reliable V3 loop and adds editable Inter-based st
 2. Generate starter glyph outlines in empty slots or draw filled vector glyphs yourself.
 3. Refine the editable vector outlines in Figma.
 4. Scan the selected board.
-5. Preview available glyphs.
+5. Preview available glyphs with custom text or quick presets.
 6. Tune spacing.
 7. Export an OTF font and smoke-test HTML.
 
@@ -30,6 +30,7 @@ Supported:
 - Inter-based starter glyph outline generation for empty slots
 - Glyph scan and validation
 - SVG preview from extracted outlines
+- Preview presets for mixed, headline, word-list, paragraph-style, and number/symbol samples
 - Global letter spacing and space width
 - Per-glyph advance width overrides
 - OTF export
@@ -76,6 +77,7 @@ The committed `dist/` files are included so the manifest can load immediately af
 - Expand strokes before scanning.
 - Avoid images, effects, gradients, masks, booleans, and live shape layers.
 - Use preview, spacing controls, and the glyph inspector before exporting.
+- Use preview presets to quickly inspect mixed-case text, words, paragraph-style samples, numbers, and symbols.
 
 ## Development
 
@@ -97,4 +99,4 @@ See [docs/QA.md](docs/QA.md) for the manual QA checklist, [docs/SMOKE_TEST.md](d
 
 ## Status
 
-V4.0 alpha Inter-based starter glyph generation. This is intentionally still an MVP, built to prove and harden the Figma vectors -> glyph model -> preview -> font export workflow before broader character support.
+V4.1 alpha preview presets on top of Inter-based starter glyph generation. This is intentionally still an MVP, built to prove and harden the Figma vectors -> glyph model -> preview -> font export workflow before broader character support.
