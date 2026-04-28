@@ -46,6 +46,20 @@ type ExportDiagnostics = {
   overrideCount: number;
 };
 
+type PreviewPreset = {
+  id: string;
+  label: string;
+  text: string;
+};
+
+const PREVIEW_PRESETS: PreviewPreset[] = [
+  { id: 'default', label: 'Mixed', text: 'ABC box @2+2' },
+  { id: 'headline', label: 'Headline', text: 'TYPEGEN quick fox' },
+  { id: 'words', label: 'Words', text: 'type glyph font quick boxing' },
+  { id: 'paragraph', label: 'Paragraph', text: 'The quick type glyphs box a font.' },
+  { id: 'symbols', label: 'Numbers', text: 'A-Z / a-z @ 10+20 = 30' },
+];
+
 const state: UiState = {
   fontName: 'Typegen Demo',
   previewText: "ABC box @2+2",
@@ -97,7 +111,7 @@ function render() {
     <section class="shell">
       <header class="header">
         <div>
-          <p class="eyebrow">Typegen V4.0 alpha</p>
+          <p class="eyebrow">Typegen V4.1 alpha</p>
           <h1>Figma glyphs to font file</h1>
         </div>
         <span class="count">${validCount}/${GLYPH_CHARS.length} ready</span>
@@ -228,6 +242,12 @@ function render() {
           <span>Preview text</span>
           <input id="preview-text" value="${escapeAttr(state.previewText)}" />
         </label>
+        <div class="preset-grid" aria-label="Preview presets">
+          ${PREVIEW_PRESETS.map(
+            (preset) =>
+              `<button class="preset-button ${preset.text === state.previewText ? 'selected' : ''}" data-preview-preset="${escapeAttr(preset.id)}">${escapeHtml(preset.label)}</button>`,
+          ).join('')}
+        </div>
         <div class="spacing-grid">
           <label class="field compact">
             <span>Letter spacing</span>
@@ -332,6 +352,21 @@ function bindEvents() {
     state.previewText = (event.target as HTMLInputElement).value;
     persistSettings();
     render();
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('[data-preview-preset]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const preset = PREVIEW_PRESETS.find((item) => item.id === button.dataset.previewPreset);
+      if (!preset) {
+        return;
+      }
+
+      state.previewText = preset.text;
+      state.generatedFont = null;
+      state.statusMessage = `Preview preset applied: ${preset.label}.`;
+      persistSettings();
+      render();
+    });
   });
 
   document.querySelector<HTMLInputElement>('#letter-spacing')?.addEventListener('input', (event) => {

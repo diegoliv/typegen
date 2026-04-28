@@ -90,6 +90,15 @@ Record these before each QA pass:
 - [ ] Lowercase starters align with ascender, x-height, baseline, and descender guides.
 - [ ] Punctuation and common-symbol starters remain compact enough to inspect and refine.
 
+## V4.1 Preview Preset Checks
+
+- [ ] Preview section includes preset buttons for mixed, headline, words, paragraph, and numbers/symbols samples.
+- [ ] Clicking each preset updates the editable preview text input.
+- [ ] After applying a preset, typing in the preview input still works and preserves focus/scroll behavior.
+- [ ] Presets reuse the existing missing-glyph and unsupported-character warnings.
+- [ ] Preset text appears in smoke-test HTML when it contains at least one exportable glyph.
+- [ ] Presets do not change scanned glyphs, spacing controls, advance overrides, generated-font verification, or export behavior.
+
 ## V3.1 Board Migration Checks
 
 - [ ] Fresh board creates slots in A-Z, a-z, 0-9, punctuation order.
@@ -133,6 +142,7 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] UI includes `Scan selected glyphs`.
 - [ ] UI includes glyph status list/table.
 - [ ] UI includes preview text input.
+- [ ] UI includes preview preset controls.
 - [ ] UI includes preview area.
 - [ ] UI includes `Generate font file`.
 - [ ] UI includes an export/download action.

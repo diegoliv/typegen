@@ -1,5 +1,15 @@
 # Release Notes
 
+## 4.1.0-alpha.1
+
+Typegen V4.1 alpha preview presets.
+
+### Added
+
+- Added preview preset buttons for mixed text, headline text, lowercase word lists, paragraph-style samples, and number/symbol samples.
+- Presets update the editable preview text field, so users can start from a sample and then refine the string manually.
+- Presets reuse the existing preview, diagnostics, generated-font, and smoke-test export workflow.
+
 ## 4.0.0-alpha.1
 
 Typegen V4.0 alpha Inter-based starter glyph generation.
