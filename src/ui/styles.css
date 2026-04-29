@@ -644,7 +644,8 @@ h2 {
 }
 
 .glyph-tile.unsupported,
-.glyph-tile.warning {
+.glyph-tile.warning,
+.glyph-tile.has-issue {
   border-color: #f24822;
   background: #fff4f2;
   color: #f24822;

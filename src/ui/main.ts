@@ -408,17 +408,29 @@ function restoreRenderInteraction(interaction: RenderInteraction): void {
 
 function renderGlyphTile(row: GlyphScanResult): string {
   const isSelected = row.char === state.selectedGlyph;
+  const hasIssue = hasGlyphTileIssue(row);
   const label = glyphLabelForChar(row.char);
   const glyphMarkup = row.glyph
     ? renderGlyphTileSvg(row.glyph)
     : `<span>${escapeHtml(label)}</span>`;
+  const title = hasIssue
+    ? `${row.message} ${glyphTileIssueMessages(row).join(' ')}`
+    : row.message;
 
   return `
-    <button class="glyph-tile ${row.status} ${isSelected ? 'selected' : ''}" role="listitem" data-glyph="${escapeAttr(row.char)}" title="${escapeAttr(row.message)}">
+    <button class="glyph-tile ${row.status} ${hasIssue ? 'has-issue' : ''} ${isSelected ? 'selected' : ''}" role="listitem" data-glyph="${escapeAttr(row.char)}" title="${escapeAttr(title)}">
       <em>${escapeHtml(label)}</em>
       <strong>${glyphMarkup}</strong>
     </button>
   `;
+}
+
+function hasGlyphTileIssue(row: GlyphScanResult): boolean {
+  return glyphTileIssueMessages(row).length > 0 || row.status === 'unsupported' || row.status === 'warning';
+}
+
+function glyphTileIssueMessages(row: GlyphScanResult): string[] {
+  return [...row.warnings, ...(row.glyph?.warnings ?? []), createWindingWarning(row.glyph)].filter(Boolean).filter(uniqueString);
 }
 
 function renderGlyphTileSvg(glyph: GlyphModel): string {
