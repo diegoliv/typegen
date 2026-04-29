@@ -6,11 +6,12 @@ import {
 } from '../font/exportFont';
 import {
   DEFAULT_SPACING,
+  FONT_METRICS,
   GLYPH_CHARS,
   collectMetricsWarnings,
+  glyphLabelForChar,
   glyphNameForChar,
   isGlyphChar,
-  resolveGlyphAdvance,
   type FontBuildResult,
   type FontSpacingSettings,
   type GlyphChar,
@@ -18,25 +19,35 @@ import {
 } from '../font/glyphModel';
 import { postToPlugin, isPluginMessage, type ActiveBoardInfo, type BoardScanResult, type PluginToUiMessage } from '../shared/messages';
 import type { GlyphScanResult, PersistedTypegenSettings } from '../shared/types';
-import { renderPreviewMarkup } from './preview/renderGlyphPreview';
+import { glyphToSvgPathData, layoutPreviewText, renderPreviewMarkup } from './preview/renderGlyphPreview';
 import './styles.css';
 
 type UiState = {
   fontName: string;
+  fontVersion: string;
+  fontAuthor: string;
   previewText: string;
+  previewFontSize: number;
+  activeTab: UiTab;
   starterStyle: 'Regular' | 'Bold';
   glyphs: GlyphScanResult[];
   selectedGlyph: GlyphChar;
   activeBoard: ActiveBoardInfo | null;
   lastScanNodeIds: string[];
   statusMessage: string;
-  savedStatus: string;
   generatedFont: FontBuildResult | null;
   spacing: FontSpacingSettings;
-  showRecipe: boolean;
+  showRecipeOverlay: boolean;
+  glyphOverlayOpen: boolean;
+  previewCollapsed: boolean;
+  healthCollapsed: boolean;
+  fontSettingsCollapsed: boolean;
+  starterSettingsCollapsed: boolean;
   isScanning: boolean;
   isGenerating: boolean;
 };
+
+type UiTab = 'glyphs' | 'preview' | 'settings';
 
 type ExportDiagnostics = {
   status: 'ready' | 'blocked' | 'needs-scan';
@@ -66,19 +77,29 @@ const PREVIEW_PRESETS: PreviewPreset[] = [
   { id: 'symbols', label: 'Numbers', text: 'A-Z / a-z @ 10+20 = 30' },
 ];
 
+const SHOW_DEBUG_CONTENT = false;
+
 const state: UiState = {
   fontName: 'Typegen Demo',
+  fontVersion: '1.0',
+  fontAuthor: 'John Doe',
   previewText: "ABC box @2+2",
+  previewFontSize: 24,
+  activeTab: 'glyphs',
   starterStyle: 'Regular',
   glyphs: [],
   selectedGlyph: 'A',
   activeBoard: null,
   lastScanNodeIds: [],
-  statusMessage: 'Create a board or select glyph slots named glyph-A through glyph-Z, glyph-a through glyph-z, glyph-0 through glyph-9, punctuation, or common symbol slots.',
-  savedStatus: 'No saved settings loaded yet.',
+  statusMessage: 'Select a Typegen glyph board to auto-scan, or create a starter board.',
   generatedFont: null,
   spacing: { ...DEFAULT_SPACING, glyphAdvanceOverrides: {} },
-  showRecipe: true,
+  showRecipeOverlay: false,
+  glyphOverlayOpen: false,
+  previewCollapsed: false,
+  healthCollapsed: false,
+  fontSettingsCollapsed: false,
+  starterSettingsCollapsed: false,
   isScanning: false,
   isGenerating: false,
 };
@@ -97,11 +118,6 @@ function render() {
   if (!app) return;
 
   const interaction = captureRenderInteraction();
-  const validCount = validGlyphs().length;
-  const canGenerate = !state.isGenerating;
-  const scanWarning = createScanExportWarning();
-  const previewWarning = createPreviewExportWarning();
-  const generatedWarnings = state.generatedFont?.warnings ?? [];
   const diagnostics = createExportDiagnostics();
   const rows: GlyphScanResult[] = state.glyphs.length
     ? state.glyphs
@@ -116,191 +132,239 @@ function render() {
 
   app.innerHTML = `
     <section class="shell">
-      <header class="header">
-        <div>
-          <p class="eyebrow">Typegen V5.0 alpha</p>
-          <h1>Figma glyphs to font file</h1>
-        </div>
-        <span class="count">${validCount}/${GLYPH_CHARS.length} ready</span>
-      </header>
-
-      <section class="panel">
-        <label class="field">
-          <span>Font name</span>
-          <input id="font-name" value="${escapeAttr(state.fontName)}" />
-        </label>
-        <p class="instructions">
-          Create a board, draw filled vector outlines in glyph slots, scan, preview, then export an OTF.
-        </p>
-        <div class="actions">
-          <label class="starter-style-field">
-            <span>Starter</span>
-            <select id="starter-style">
-              <option value="Regular" ${state.starterStyle === 'Regular' ? 'selected' : ''}>Inter Regular</option>
-              <option value="Bold" ${state.starterStyle === 'Bold' ? 'selected' : ''}>Inter Bold</option>
-            </select>
-          </label>
-          <button id="create-board">Create/update glyph board</button>
-          <button id="generate-starters">Generate starter glyphs</button>
-          <button id="scan-glyphs">${state.isScanning ? 'Scanning...' : 'Scan selected glyphs'}</button>
-          <button id="toggle-recipe">${state.showRecipe ? 'Hide recipe' : 'Show recipe'}</button>
-        </div>
-        <div class="active-board ${state.activeBoard ? '' : 'empty'}">
-          <span>Active board</span>
-          <strong>${state.activeBoard ? escapeHtml(state.activeBoard.name) : 'None selected'}</strong>
-          <em>${state.activeBoard ? `Inter ${escapeHtml(state.activeBoard.style)}` : 'Select or create a board'}</em>
-        </div>
-        <p class="status">${escapeHtml(state.statusMessage)}</p>
-      </section>
-
-      ${
-        state.showRecipe
-          ? `<section class="panel recipe-panel">
-              <div class="section-head">
-                <h2>Supported glyph recipe</h2>
-                <span>A-Z + a-z + 0-9 + punctuation + symbols</span>
-              </div>
-              <ol class="recipe-list">
-                <li>Name slots exactly <strong>glyph-A</strong> through <strong>glyph-Z</strong>, <strong>glyph-a</strong> through <strong>glyph-z</strong>, <strong>glyph-0</strong> through <strong>glyph-9</strong>, punctuation slots, and common symbol slots such as <strong>glyph-apostrophe</strong>, <strong>glyph-slash</strong>, and <strong>glyph-at</strong>.</li>
-                <li>Draw with simple filled vector paths inside each slot, or generate starter glyphs and refine the editable vector outlines.</li>
-                <li>Convert text and strokes to outlines before scanning.</li>
-                <li>Avoid images, effects, gradients, masks, booleans, and live shape layers.</li>
-                <li>Use preview, spacing, and the inspector before exporting.</li>
-              </ol>
-              <p class="status">Symbols beyond the supported common set, kerning, variable fonts, and AI generation are intentionally outside this MVP.</p>
-            </section>`
-          : ''
-      }
-
-      <section class="panel compact-panel">
-        <div class="section-head">
-          <h2>Saved state</h2>
-          <span>${countAdvanceOverrides()} overrides</span>
-        </div>
-        <p class="status">${escapeHtml(state.savedStatus)}</p>
-        <div class="saved-stats">
-          <span>Scan nodes: ${state.lastScanNodeIds.length}</span>
-          <span>Preview: ${escapeHtml(state.previewText || 'empty')}</span>
-        </div>
-        <div class="actions">
-          <button id="reset-settings" ${hasSavedState() ? '' : 'disabled'}>Reset saved settings</button>
-        </div>
-      </section>
-
-      <section class="panel diagnostics-panel ${diagnostics.status}">
-        <div class="section-head">
-          <h2>Ready to export</h2>
-          <span>${diagnostics.status === 'ready' ? 'Ready' : diagnostics.status === 'needs-scan' ? 'Scan needed' : 'Blocked'}</span>
-        </div>
-        <p class="${diagnostics.status === 'ready' ? 'status' : 'warning'}">${escapeHtml(diagnostics.headline)}</p>
-        <div class="diagnostic-grid">
-          <div>
-            <span>Valid</span>
-            <strong>${diagnostics.validCount}</strong>
-          </div>
-          <div>
-            <span>Empty</span>
-            <strong>${diagnostics.emptyCount}</strong>
-          </div>
-          <div>
-            <span>Missing</span>
-            <strong>${diagnostics.missingCount}</strong>
-          </div>
-          <div>
-            <span>Unsupported</span>
-            <strong>${diagnostics.unsupportedCount}</strong>
-          </div>
-          <div>
-            <span>Preview gaps</span>
-            <strong>${diagnostics.previewMissing.length + diagnostics.previewUnsupported.length}</strong>
-          </div>
-          <div>
-            <span>Overrides</span>
-            <strong>${diagnostics.overrideCount}</strong>
-          </div>
-        </div>
-        ${
-          diagnostics.details.length
-            ? `<ul class="message-list">${diagnostics.details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join('')}</ul>`
-            : ''
-        }
-      </section>
-
-      <section class="panel">
-        <div class="section-head">
-          <h2>Glyph status</h2>
-          <span>${validCount} valid</span>
-        </div>
-        ${scanWarning ? `<p class="warning">${escapeHtml(scanWarning)}</p>` : ''}
-        <div class="glyph-table" role="table" aria-label="Glyph status">
-          ${rows
-            .map(
-              (row) => `
-                <button class="glyph-row ${row.status} ${row.char === state.selectedGlyph ? 'selected' : ''}" role="row" data-glyph="${escapeAttr(row.char)}">
-                  <strong>${escapeHtml(row.char)}</strong>
-                  <span>${escapeHtml(row.name)}</span>
-                  <em>${row.status}</em>
-                  <small>${escapeHtml(row.message)}</small>
-                </button>
-              `,
-            )
-            .join('')}
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="section-head">
-          <h2>Glyph inspector</h2>
-          <span>${selectedGlyph.name}</span>
-        </div>
-        ${renderGlyphInspector(selectedGlyph)}
-      </section>
-
-      <section class="panel">
-        <label class="field">
-          <span>Preview text</span>
-          <input id="preview-text" value="${escapeAttr(state.previewText)}" />
-        </label>
-        <div class="preset-grid" aria-label="Preview presets">
-          ${PREVIEW_PRESETS.map(
-            (preset) =>
-              `<button class="preset-button ${preset.text === state.previewText ? 'selected' : ''}" data-preview-preset="${escapeAttr(preset.id)}">${escapeHtml(preset.label)}</button>`,
-          ).join('')}
-        </div>
-        <div class="spacing-grid">
-          <label class="field compact">
-            <span>Letter spacing</span>
-            <input id="letter-spacing" type="number" min="-120" max="300" step="10" value="${state.spacing.letterSpacing}" />
-          </label>
-          <label class="field compact">
-            <span>Space width</span>
-            <input id="space-width" type="number" min="120" max="900" step="10" value="${state.spacing.spaceWidth}" />
-          </label>
-        </div>
-        <div class="preview">${renderPreviewMarkup(state.previewText, state.glyphs, state.spacing)}</div>
-        ${previewWarning ? `<p class="warning">${escapeHtml(previewWarning)}</p>` : ''}
-        <div class="actions">
-          <button id="generate-font" ${canGenerate ? '' : 'disabled'}>${state.isGenerating ? 'Generating...' : 'Generate font'}</button>
-        </div>
-        ${
-          state.generatedFont
-            ? `<p class="status">Font generated with ${state.generatedFont.glyphCount}/${GLYPH_CHARS.length} glyphs. Export includes: ${escapeHtml(exportedChars().join(', ') || 'none')}. Letter spacing: ${state.spacing.letterSpacing}, space width: ${state.spacing.spaceWidth}, overrides: ${countAdvanceOverrides()}.</p>`
-            : ''
-        }
-        ${state.generatedFont ? renderFontVerification(state.generatedFont) : ''}
-        ${
-          generatedWarnings.length
-            ? `<ul class="message-list">${generatedWarnings
-                .map((warning) => `<li>${escapeHtml(warning)}</li>`)
-                .join('')}</ul>`
-            : ''
-        }
-      </section>
+      ${state.activeBoard ? renderTabbedPanel(rows, diagnostics) : renderEmptyPanel()}
+      ${SHOW_DEBUG_CONTENT ? renderGeneratedPanel() : ''}
+      ${state.showRecipeOverlay ? renderRecipeOverlay() : ''}
+      ${state.glyphOverlayOpen ? renderGlyphOverlay(selectedGlyph) : ''}
     </section>
   `;
 
   bindEvents();
   restoreRenderInteraction(interaction);
+}
+
+function renderEmptyPanel(): string {
+  return `
+    ${renderTopHeader(false)}
+    <section class="panel empty-panel">
+      <div class="empty-content">
+        <div>
+          <h2>No Typegen board selected</h2>
+          <p>Select a Typegen board to auto-scan status, weight, and preview data.</p>
+        </div>
+        <div class="empty-actions">
+          <button id="create-board">Create board</button>
+          <button id="open-recipe" class="tertiary-action">Recipe</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderTabbedPanel(rows: GlyphScanResult[], diagnostics: ExportDiagnostics): string {
+  return `
+    ${renderTopHeader(true)}
+    ${state.activeTab === 'glyphs' ? renderGlyphsTab(rows, diagnostics) : ''}
+    ${state.activeTab === 'preview' ? renderPreviewTab() : ''}
+    ${state.activeTab === 'settings' ? renderSettingsTab() : ''}
+  `;
+}
+
+function renderTopHeader(showBoardControls: boolean): string {
+  const canGenerate = !state.isGenerating && Boolean(state.activeBoard);
+
+  return `
+    <section class="panel workflow-panel ${showBoardControls ? 'with-tabs' : 'empty-workflow'}">
+      <div class="workflow-main">
+        <div class="font-action-group">
+          <label class="field font-name-field">
+            <span>Font name</span>
+            <input id="font-name" data-font-name value="${escapeAttr(state.fontName)}" />
+          </label>
+          <button id="generate-font" class="primary-action" ${canGenerate ? '' : 'disabled'}>${state.isGenerating ? 'Generating...' : 'Generate font'}</button>
+        </div>
+        ${
+          showBoardControls
+            ? `<div class="active-action-row">
+                <div class="active-board">
+                  <span>Active board</span>
+                  <strong>${escapeHtml(state.activeBoard?.name ?? 'None selected')}</strong>
+                </div>
+                <button id="create-board">Update board</button>
+              </div>`
+            : ''
+        }
+      </div>
+      ${showBoardControls ? renderTabs() : ''}
+    </section>
+  `;
+}
+
+function renderTabs(): string {
+  const tabs: Array<{ id: UiTab; label: string }> = [
+    { id: 'glyphs', label: 'Glyphs' },
+    { id: 'preview', label: 'Preview' },
+    { id: 'settings', label: 'Settings' },
+  ];
+
+  return `
+    <div class="tab-list" role="tablist" aria-label="Typegen panels">
+      ${tabs
+        .map(
+          (tab) => `
+            <button id="tab-${tab.id}" class="tab-button ${state.activeTab === tab.id ? 'active' : ''}" type="button" role="tab" aria-selected="${state.activeTab === tab.id}" data-tab="${tab.id}">
+              ${escapeHtml(tab.label)}
+            </button>
+          `,
+        )
+        .join('')}
+    </div>
+  `;
+}
+
+function renderGlyphsTab(rows: GlyphScanResult[], diagnostics: ExportDiagnostics): string {
+  const scanWarning = createScanExportWarning();
+  const missingTotal = diagnostics.emptyCount + diagnostics.missingCount;
+  const issueTotal = diagnostics.unsupportedCount + diagnostics.warningCount;
+
+  return `
+    <section class="panel diagnostics-panel ${diagnostics.status} ${state.healthCollapsed ? 'collapsed' : ''}">
+      <div class="section-head">
+        <h2>Glyph health</h2>
+        <button id="toggle-health" class="collapse-button" type="button" aria-label="${state.healthCollapsed ? 'Expand glyph health' : 'Collapse glyph health'}">${renderChevronIcon(state.healthCollapsed)}</button>
+      </div>
+      ${
+        state.healthCollapsed
+          ? ''
+          : `<div class="diagnostic-grid">
+              <div>
+                <span>Valid</span>
+                <strong>${diagnostics.validCount}/${GLYPH_CHARS.length}</strong>
+              </div>
+              <div>
+                <span>Missing</span>
+                <strong>${missingTotal}/${GLYPH_CHARS.length}</strong>
+              </div>
+              <div>
+                <span>Issues</span>
+                <strong class="${issueTotal ? 'issue-count' : ''}">${issueTotal}</strong>
+              </div>
+            </div>
+            ${
+              diagnostics.details.length
+                ? `<details class="diagnostic-details"><summary>Details</summary><ul class="message-list">${diagnostics.details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join('')}</ul></details>`
+                : ''
+            }`
+      }
+    </section>
+    <section class="panel">
+      <div class="section-head">
+        <h2>Glyphs</h2>
+      </div>
+      ${scanWarning ? `<p class="warning">${escapeHtml(scanWarning)}</p>` : ''}
+      <div class="glyph-grid" role="list" aria-label="Glyph status">
+        ${rows.map((row) => renderGlyphTile(row)).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderPreviewTab(): string {
+  const previewWarning = createPreviewExportWarning();
+
+  return `
+    <section class="panel preview-panel ${state.previewCollapsed ? 'collapsed' : ''}">
+      <div class="section-head">
+        <h2>Preview</h2>
+        <button id="toggle-preview" class="collapse-button" type="button" aria-label="${state.previewCollapsed ? 'Expand preview' : 'Collapse preview'}">${renderChevronIcon(state.previewCollapsed)}</button>
+      </div>
+      ${
+        state.previewCollapsed
+          ? ''
+          : `<input id="preview-text" class="preview-text-input" value="${escapeAttr(state.previewText)}" aria-label="Preview text" />
+            <div class="metric-slider-grid">
+              ${renderMetricSlider('preview-font-size', 'Font Size', state.previewFontSize, 12, 96, 1, false, 'wide')}
+              <div class="metric-two-up">
+                ${renderMetricSlider('letter-spacing', 'Letter spacing', state.spacing.letterSpacing, -120, 300, 10)}
+                ${renderMetricSlider('space-width', 'Space width', state.spacing.spaceWidth, 120, 900, 10)}
+              </div>
+            </div>
+            <div class="preview" style="--preview-font-size: ${state.previewFontSize}px">${renderPreviewMarkup(state.previewText, state.glyphs, state.spacing)}</div>
+            ${previewWarning ? `<p class="warning">${escapeHtml(previewWarning)}</p>` : ''}`
+      }
+    </section>
+  `;
+}
+
+function renderSettingsTab(): string {
+  return `
+    <section class="panel settings-panel ${state.fontSettingsCollapsed ? 'collapsed' : ''}">
+      <div class="section-head">
+        <h2>Font Settings</h2>
+        <button id="toggle-font-settings" class="collapse-button" type="button" aria-label="${state.fontSettingsCollapsed ? 'Expand font settings' : 'Collapse font settings'}">${renderChevronIcon(state.fontSettingsCollapsed)}</button>
+      </div>
+      ${
+        state.fontSettingsCollapsed
+          ? ''
+          : `<label class="field">
+              <span>Font name</span>
+              <input id="font-name-setting" data-font-name value="${escapeAttr(state.fontName)}" />
+            </label>
+            <label class="field">
+              <span>Font Version</span>
+              <input id="font-version" value="${escapeAttr(state.fontVersion)}" />
+            </label>
+            <label class="field">
+              <span>Font Author</span>
+              <input id="font-author" value="${escapeAttr(state.fontAuthor)}" />
+            </label>`
+      }
+    </section>
+    <section class="panel settings-panel ${state.starterSettingsCollapsed ? 'collapsed' : ''}">
+      <div class="section-head">
+        <h2>Starter Glyphs</h2>
+        <button id="toggle-starter-settings" class="collapse-button" type="button" aria-label="${state.starterSettingsCollapsed ? 'Expand starter glyphs' : 'Collapse starter glyphs'}">${renderChevronIcon(state.starterSettingsCollapsed)}</button>
+      </div>
+      ${
+        state.starterSettingsCollapsed
+          ? ''
+          : `<div class="settings-starter-row">
+              <label class="field starter-settings-field">
+                <span>Generate starter glyphs on the selected board</span>
+                <select id="starter-style">
+                  <option value="Regular" ${state.starterStyle === 'Regular' ? 'selected' : ''}>Inter Regular</option>
+                  <option value="Bold" ${state.starterStyle === 'Bold' ? 'selected' : ''}>Inter Bold</option>
+                </select>
+              </label>
+              <button id="generate-starters">Generate starters</button>
+            </div>`
+      }
+    </section>
+  `;
+}
+
+function renderGeneratedPanel(): string {
+  const generatedWarnings = state.generatedFont?.warnings ?? [];
+
+  if (!state.generatedFont && generatedWarnings.length === 0) {
+    return '';
+  }
+
+  return `
+    <section class="panel compact-panel">
+      ${
+        state.generatedFont
+          ? `<p class="status">Font generated with ${state.generatedFont.glyphCount}/${GLYPH_CHARS.length} glyphs. Export includes: ${escapeHtml(exportedChars().join(', ') || 'none')}. Letter spacing: ${state.spacing.letterSpacing}, space width: ${state.spacing.spaceWidth}, overrides: ${countAdvanceOverrides()}.</p>`
+          : ''
+      }
+      ${state.generatedFont ? renderFontVerification(state.generatedFont) : ''}
+      ${
+        generatedWarnings.length
+          ? `<ul class="message-list">${generatedWarnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul>`
+          : ''
+      }
+    </section>
+  `;
 }
 
 type RenderInteraction = {
@@ -342,11 +406,222 @@ function restoreRenderInteraction(interaction: RenderInteraction): void {
   }
 }
 
+function renderGlyphTile(row: GlyphScanResult): string {
+  const isSelected = row.char === state.selectedGlyph;
+  const label = glyphLabelForChar(row.char);
+  const glyphMarkup = row.glyph
+    ? renderGlyphTileSvg(row.glyph)
+    : `<span>${escapeHtml(label)}</span>`;
+
+  return `
+    <button class="glyph-tile ${row.status} ${isSelected ? 'selected' : ''}" role="listitem" data-glyph="${escapeAttr(row.char)}" title="${escapeAttr(row.message)}">
+      <em>${escapeHtml(label)}</em>
+      <strong>${glyphMarkup}</strong>
+    </button>
+  `;
+}
+
+function renderGlyphTileSvg(glyph: GlyphModel): string {
+  const padding = 80;
+  const advanceWidth = Math.max(120, glyph.advanceWidth);
+  const metricHeight = FONT_METRICS.ascender - FONT_METRICS.descender;
+  const viewBox = `${-padding} ${-padding} ${advanceWidth + padding * 2} ${metricHeight + padding * 2}`;
+  const transform = `translate(0 ${FONT_METRICS.ascender}) scale(1 -1)`;
+
+  return `<svg viewBox="${escapeAttr(viewBox)}" aria-hidden="true" preserveAspectRatio="xMidYMid meet"><path d="${escapeAttr(glyphToSvgPathData(glyph))}" transform="${escapeAttr(transform)}" /></svg>`;
+}
+
+function renderMetricSlider(
+  id: string,
+  label: string,
+  value: number | string,
+  min: number,
+  max: number,
+  step: number,
+  disabled = false,
+  variant = '',
+): string {
+  return `
+    <label class="metric-slider ${variant}">
+      <span>${escapeHtml(label)}</span>
+      <div>
+        <input data-metric="${escapeAttr(id)}" type="range" min="${min}" max="${max}" step="${step}" value="${escapeAttr(String(value))}" style="--value: ${metricPercent(Number(value), min, max)}%" ${disabled ? 'disabled' : ''} />
+        <input data-metric="${escapeAttr(id)}" type="number" min="${min}" max="${max}" step="${step}" value="${escapeAttr(String(value))}" ${disabled ? 'disabled' : ''} />
+      </div>
+    </label>
+  `;
+}
+
+function metricPercent(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value) || max <= min) {
+    return 0;
+  }
+
+  return Math.round(((Math.min(max, Math.max(min, value)) - min) / (max - min)) * 100);
+}
+
+function renderChevronIcon(collapsed: boolean): string {
+  return `
+    <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false" class="${collapsed ? 'collapsed' : ''}">
+      <path d="M2.25 4.5L6 8.25L9.75 4.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  `;
+}
+
+function renderRecipeOverlay(): string {
+  return `
+    <div class="overlay-backdrop" role="dialog" aria-modal="true" aria-label="Supported glyph recipe">
+      <section class="overlay-card">
+        <div class="overlay-head">
+          <div>
+            <p class="eyebrow">Recipe</p>
+            <h2>Supported glyph recipe</h2>
+          </div>
+          <button id="close-recipe" class="icon-button" aria-label="Close recipe">Close</button>
+        </div>
+        <ol class="recipe-list">
+          <li>Name slots exactly <strong>glyph-A</strong> through <strong>glyph-Z</strong>, <strong>glyph-a</strong> through <strong>glyph-z</strong>, <strong>glyph-0</strong> through <strong>glyph-9</strong>, punctuation slots, and common symbol slots such as <strong>glyph-slash</strong> and <strong>glyph-at</strong>.</li>
+          <li>Draw simple filled vector paths inside each slot, or generate starter glyphs and refine the editable outlines.</li>
+          <li>Convert text and strokes to outlines before scanning.</li>
+          <li>Avoid images, effects, gradients, masks, booleans, and live shape layers.</li>
+        </ol>
+        <p class="status">Kerning, variable fonts, AI generation, and broader symbol coverage remain outside this MVP.</p>
+      </section>
+    </div>
+  `;
+}
+
+function renderGlyphOverlay(row: GlyphScanResult): string {
+  const glyph = row.glyph;
+  const advanceOverride = state.spacing.glyphAdvanceOverrides[row.char];
+  const overrideValue = advanceOverride ?? glyph?.advanceWidth ?? 700;
+  const canOverride = row.status === 'valid' && Boolean(glyph);
+
+  return `
+    <div class="overlay-backdrop" role="dialog" aria-modal="true" aria-label="Glyph details">
+      <section class="overlay-card glyph-overlay">
+        <div class="overlay-head">
+          <p class="eyebrow">Glyph ${escapeHtml(row.char)}</p>
+          <button id="close-glyph-overlay" class="icon-button" aria-label="Close glyph details">Close</button>
+        </div>
+        ${renderGlyphSpecimen(row, overrideValue)}
+        <div class="glyph-detail-stats">
+          <div>
+            <span>Status</span>
+            <strong class="${row.status === 'valid' ? '' : 'issue-count'}">${escapeHtml(formatStatusLabel(row.status))}</strong>
+          </div>
+          <div>
+            <span>Unicode</span>
+            <strong>U+${row.char.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}</strong>
+          </div>
+        </div>
+        ${renderMetricSlider('advance-override', 'Advance width override', overrideValue, 120, 1400, 10, !canOverride)}
+        ${renderGlyphOverlayMessage(row)}
+      </section>
+    </div>
+  `;
+}
+
+function renderGlyphSpecimen(row: GlyphScanResult, advanceWidth: number): string {
+  const glyph = row.glyph;
+  const content = glyph
+    ? renderGlyphSpecimenSvg(row.char, glyph, advanceWidth)
+    : `<div class="glyph-specimen main"><span>${escapeHtml(row.char)}</span></div>`;
+
+  return `
+    <div class="glyph-detail-preview ${row.status}" aria-hidden="true">
+      <div class="glyph-guides">
+        <span class="cap-height"></span>
+        <span class="x-height"></span>
+        <span class="baseline"></span>
+        <span class="descender"></span>
+      </div>
+      ${content}
+    </div>
+  `;
+}
+
+function renderGlyphSpecimenSvg(char: GlyphChar, glyph: GlyphModel, advanceWidth: number): string {
+  const spacing: FontSpacingSettings = {
+    ...state.spacing,
+    glyphAdvanceOverrides: {
+      ...state.spacing.glyphAdvanceOverrides,
+      [char]: advanceWidth,
+    },
+  };
+  const layout = layoutPreviewText(`${char}${char}${char}`, [glyph], spacing);
+  const middleGlyph = layout.items[1];
+  const middleOrigin = middleGlyph ? previewTransformX(middleGlyph.transform) : 0;
+  const middleCenter = middleOrigin + glyph.bounds.xMin + (glyph.bounds.xMax - glyph.bounds.xMin) / 2;
+  const viewBoxWidth = 2930;
+  const viewBox = `${Math.round(middleCenter - viewBoxWidth / 2)} -240 ${viewBoxWidth} 1080`;
+  const paths = layout.items
+    .map((item, index) => {
+      if (item.kind !== 'glyph') {
+        return '';
+      }
+
+      const className = index === 1 ? 'specimen-main' : 'specimen-ghost';
+      const transform = item.transform.replace(/\s830\)/, ' 700)');
+      return `<path class="${className}" d="${escapeAttr(item.pathData)}" transform="${escapeAttr(transform)}" />`;
+    })
+    .join('');
+
+  return `<svg class="glyph-specimen-svg" viewBox="${escapeAttr(viewBox)}" aria-hidden="true">${paths}</svg>`;
+}
+
+function previewTransformX(transform: string): number {
+  const match = /^translate\(([-\d.]+)/.exec(transform);
+  return match ? Number(match[1]) : 0;
+}
+
+function renderGlyphOverlayMessage(row: GlyphScanResult): string {
+  const glyph = row.glyph;
+  const windingWarning = createWindingWarning(glyph);
+  const warnings = [...row.warnings, ...(glyph?.warnings ?? []), windingWarning].filter(Boolean).filter(uniqueString);
+  const detail = warnings[0] ? ` ${warnings[0]}` : '';
+
+  return `<p class="glyph-message">${escapeHtml(`${row.message}${detail}`)}</p>`;
+}
+
+function formatStatusLabel(status: GlyphScanResult['status']): string {
+  if (status === 'valid') return 'Valid';
+  if (status === 'empty') return 'Missing';
+  if (status === 'unsupported') return 'Issue';
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
 function bindEvents() {
-  document.querySelector<HTMLInputElement>('#font-name')?.addEventListener('input', (event) => {
-    state.fontName = (event.target as HTMLInputElement).value;
+  document.querySelectorAll<HTMLInputElement>('[data-font-name]').forEach((input) => input.addEventListener('input', (event) => {
+    const nextName = (event.target as HTMLInputElement).value;
+    state.fontName = nextName;
+    document.querySelectorAll<HTMLInputElement>('[data-font-name]').forEach((peer) => {
+      if (peer !== event.target) {
+        peer.value = nextName;
+      }
+    });
     state.generatedFont = null;
     persistSettings();
+  }));
+
+  document.querySelector<HTMLInputElement>('#font-version')?.addEventListener('input', (event) => {
+    state.fontVersion = (event.target as HTMLInputElement).value;
+    persistSettings();
+  });
+
+  document.querySelector<HTMLInputElement>('#font-author')?.addEventListener('input', (event) => {
+    state.fontAuthor = (event.target as HTMLInputElement).value;
+    persistSettings();
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const tab = button.dataset.tab;
+      if (tab === 'glyphs' || tab === 'preview' || tab === 'settings') {
+        state.activeTab = tab;
+        render();
+      }
+    });
   });
 
   document.querySelectorAll<HTMLButtonElement>('[data-glyph]').forEach((button) => {
@@ -354,14 +629,45 @@ function bindEvents() {
       const glyph = button.dataset.glyph;
       if (glyph && isGlyphChar(glyph)) {
         state.selectedGlyph = glyph;
+        state.glyphOverlayOpen = true;
         persistSettings();
         render();
       }
     });
   });
 
-  document.querySelector<HTMLButtonElement>('#toggle-recipe')?.addEventListener('click', () => {
-    state.showRecipe = !state.showRecipe;
+  document.querySelector<HTMLButtonElement>('#open-recipe')?.addEventListener('click', () => {
+    state.showRecipeOverlay = true;
+    render();
+  });
+
+  document.querySelector<HTMLButtonElement>('#close-recipe')?.addEventListener('click', () => {
+    state.showRecipeOverlay = false;
+    render();
+  });
+
+  document.querySelector<HTMLButtonElement>('#close-glyph-overlay')?.addEventListener('click', () => {
+    state.glyphOverlayOpen = false;
+    render();
+  });
+
+  document.querySelector<HTMLButtonElement>('#toggle-preview')?.addEventListener('click', () => {
+    state.previewCollapsed = !state.previewCollapsed;
+    render();
+  });
+
+  document.querySelector<HTMLButtonElement>('#toggle-health')?.addEventListener('click', () => {
+    state.healthCollapsed = !state.healthCollapsed;
+    render();
+  });
+
+  document.querySelector<HTMLButtonElement>('#toggle-font-settings')?.addEventListener('click', () => {
+    state.fontSettingsCollapsed = !state.fontSettingsCollapsed;
+    render();
+  });
+
+  document.querySelector<HTMLButtonElement>('#toggle-starter-settings')?.addEventListener('click', () => {
+    state.starterSettingsCollapsed = !state.starterSettingsCollapsed;
     render();
   });
 
@@ -392,43 +698,23 @@ function bindEvents() {
     });
   });
 
-  document.querySelector<HTMLInputElement>('#letter-spacing')?.addEventListener('input', (event) => {
-    state.spacing.letterSpacing = readMetricInput(event.target as HTMLInputElement, -120, 300);
+  bindMetricInputs('letter-spacing', -120, 300, (value) => {
+    state.spacing.letterSpacing = value;
     state.generatedFont = null;
-    persistSettings();
-    render();
   });
 
-  document.querySelector<HTMLInputElement>('#space-width')?.addEventListener('input', (event) => {
-    state.spacing.spaceWidth = readMetricInput(event.target as HTMLInputElement, 120, 900);
+  bindMetricInputs('space-width', 120, 900, (value) => {
+    state.spacing.spaceWidth = value;
     state.generatedFont = null;
-    persistSettings();
-    render();
   });
 
-  document.querySelector<HTMLInputElement>('#advance-override')?.addEventListener('input', (event) => {
-    const input = event.target as HTMLInputElement;
-    if (!input.value.trim()) {
-      delete state.spacing.glyphAdvanceOverrides[state.selectedGlyph];
-    } else {
-      state.spacing.glyphAdvanceOverrides[state.selectedGlyph] = readMetricInput(input, 120, 1400);
-    }
-    state.generatedFont = null;
-    persistSettings();
-    render();
+  bindMetricInputs('preview-font-size', 12, 96, (value) => {
+    state.previewFontSize = value;
   });
 
-  document.querySelector<HTMLButtonElement>('#reset-advance')?.addEventListener('click', () => {
-    delete state.spacing.glyphAdvanceOverrides[state.selectedGlyph];
+  bindMetricInputs('advance-override', 120, 1400, (value) => {
+    state.spacing.glyphAdvanceOverrides[state.selectedGlyph] = value;
     state.generatedFont = null;
-    persistSettings();
-    render();
-  });
-
-  document.querySelector<HTMLButtonElement>('#reset-settings')?.addEventListener('click', () => {
-    resetLocalSettings();
-    postToPlugin({ type: 'RESET_SETTINGS' });
-    render();
   });
 
   document.querySelector<HTMLButtonElement>('#create-board')?.addEventListener('click', () => {
@@ -444,14 +730,6 @@ function bindEvents() {
     render();
   });
 
-  document.querySelector<HTMLButtonElement>('#scan-glyphs')?.addEventListener('click', () => {
-    state.isScanning = true;
-    state.statusMessage = 'Scanning current selection...';
-    state.generatedFont = null;
-    postToPlugin({ type: 'SCAN_SELECTED_GLYPHS' });
-    render();
-  });
-
   document.querySelector<HTMLButtonElement>('#generate-font')?.addEventListener('click', () => {
     state.isGenerating = true;
     state.generatedFont = null;
@@ -461,12 +739,93 @@ function bindEvents() {
   });
 }
 
+function bindMetricInputs(metric: string, min: number, max: number, applyValue: (value: number) => void): void {
+  const inputs = Array.from(document.querySelectorAll<HTMLInputElement>(`[data-metric="${metric}"]`));
+  const ranges = inputs.filter((input) => input.type === 'range');
+  const numbers = inputs.filter((input) => input.type === 'number');
+
+  for (const input of inputs) {
+    input.addEventListener('input', (event) => {
+      const target = event.target as HTMLInputElement;
+      const value = readMetricInput(target, min, max);
+      applyValue(value);
+      syncMetricInputs(ranges, numbers, value);
+
+      if (target.type === 'range') {
+        updateLiveMetricPreview(metric);
+        return;
+      }
+
+      persistSettings();
+      render();
+    });
+
+    if (input.type === 'range') {
+      input.addEventListener('change', () => {
+        persistSettings();
+        render();
+      });
+    }
+  }
+}
+
+function syncMetricInputs(ranges: HTMLInputElement[], numbers: HTMLInputElement[], value: number): void {
+  for (const range of ranges) {
+    range.value = String(value);
+    updateRangeFill(range);
+  }
+
+  for (const number of numbers) {
+    number.value = String(value);
+  }
+}
+
+function updateRangeFill(input: HTMLInputElement): void {
+  const min = Number(input.min);
+  const max = Number(input.max);
+  const value = Number(input.value);
+  input.style.setProperty('--value', `${metricPercent(value, min, max)}%`);
+}
+
+function updateLiveMetricPreview(metric: string): void {
+  if (metric === 'preview-font-size') {
+    document.querySelector<HTMLElement>('.preview')?.style.setProperty('--preview-font-size', `${state.previewFontSize}px`);
+    return;
+  }
+
+  if (metric === 'advance-override') {
+    const value = state.spacing.glyphAdvanceOverrides[state.selectedGlyph] ?? 700;
+    refreshGlyphSpecimen(value);
+  }
+
+  if (metric === 'letter-spacing' || metric === 'space-width' || metric === 'advance-override') {
+    refreshPreviewMarkup();
+  }
+}
+
+function refreshPreviewMarkup(): void {
+  const preview = document.querySelector<HTMLElement>('.preview');
+  if (!preview) return;
+
+  preview.innerHTML = renderPreviewMarkup(state.previewText, state.glyphs, state.spacing);
+}
+
+function refreshGlyphSpecimen(advanceWidth: number): void {
+  const preview = document.querySelector<HTMLElement>('.glyph-detail-preview');
+  if (!preview) return;
+
+  const row = state.glyphs.find((glyph) => glyph.char === state.selectedGlyph);
+  if (!row) return;
+
+  preview.outerHTML = renderGlyphSpecimen(row, advanceWidth);
+}
+
 window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginToUiMessage }>) => {
   const message = event.data.pluginMessage;
   if (!isPluginMessage(message)) return;
 
   if (message.type === 'PLUGIN_READY') {
-    state.statusMessage = 'Plugin ready. Create a board or scan selected glyphs.';
+    state.statusMessage = 'Plugin ready. Select a Typegen board to auto-scan.';
   }
 
   if (message.type === 'SETTINGS_LOADED') {
@@ -475,10 +834,6 @@ window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginToUiMessage }>) 
       state.statusMessage = 'Restoring saved glyph scan...';
       postToPlugin({ type: 'RESTORE_SAVED_SCAN', nodeIds: state.lastScanNodeIds });
     }
-  }
-
-  if (message.type === 'SETTINGS_RESET') {
-    state.savedStatus = 'Saved settings cleared from this Figma file.';
   }
 
   if (message.type === 'GLYPH_BOARD_CREATED') {
@@ -505,8 +860,17 @@ window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginToUiMessage }>) 
     state.selectedGlyph = chooseSelectedGlyph(message.glyphs, state.selectedGlyph);
     state.isScanning = false;
     state.generatedFont = null;
-    state.statusMessage = `Scan complete: ${message.summary.valid} valid, ${message.summary.empty} empty, ${message.summary.unsupported} unsupported.`;
+    state.statusMessage = `Auto-scan updated: ${message.summary.valid} valid, ${message.summary.empty} empty, ${message.summary.unsupported} unsupported.`;
     persistSettings();
+  }
+
+  if (message.type === 'BOARD_SELECTION_CLEARED') {
+    state.activeBoard = null;
+    state.glyphs = [];
+    state.lastScanNodeIds = [];
+    state.generatedFont = null;
+    state.glyphOverlayOpen = false;
+    state.statusMessage = 'Select a Typegen board to auto-scan status, weight, and preview data.';
   }
 
   if (message.type === 'ALL_GLYPH_BOARDS_SCANNED') {
@@ -824,79 +1188,6 @@ function chooseSelectedGlyph(glyphs: GlyphScanResult[], current: GlyphChar): Gly
   return glyphs.find((glyph) => glyph.status === 'valid')?.char ?? 'A';
 }
 
-function renderGlyphInspector(row: GlyphScanResult): string {
-  const glyph = row.glyph;
-  const windingWarning = createWindingWarning(glyph);
-  const warnings = [...row.warnings, ...(glyph?.warnings ?? []), windingWarning].filter(Boolean).filter(uniqueString);
-  const bounds = glyph?.bounds;
-  const commandCount = glyph?.paths.reduce((total, path) => total + path.commands.length, 0) ?? 0;
-  const windingRules = glyph?.paths
-    .map((path) => path.windingRule ?? 'NONZERO')
-    .filter(uniqueString)
-    .join(', ');
-  const advanceOverride = state.spacing.glyphAdvanceOverrides[row.char];
-  const exportAdvance = glyph ? resolveGlyphAdvance(glyph, state.spacing) : null;
-  const canOverride = row.status === 'valid' && Boolean(glyph);
-
-  return `
-    <div class="inspector-grid">
-      <div>
-        <span>Status</span>
-        <strong>${escapeHtml(row.status)}</strong>
-      </div>
-      <div>
-        <span>Unicode</span>
-        <strong>U+${row.char.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}</strong>
-      </div>
-      <div>
-        <span>Node</span>
-        <strong>${escapeHtml(row.nodeId ?? 'none')}</strong>
-      </div>
-      <div>
-        <span>Paths</span>
-        <strong>${glyph?.paths.length ?? 0}</strong>
-      </div>
-      <div>
-        <span>Commands</span>
-        <strong>${commandCount}</strong>
-      </div>
-      <div>
-        <span>Winding</span>
-        <strong>${escapeHtml(windingRules || 'none')}${glyph && glyph.paths.length > 1 ? ` (${glyph.paths.length} contours)` : ''}</strong>
-      </div>
-      <div>
-        <span>Base advance</span>
-        <strong>${glyph?.advanceWidth ?? 'none'}</strong>
-      </div>
-      <div>
-        <span>Override</span>
-        <strong>${advanceOverride ?? 'auto'}</strong>
-      </div>
-      <div>
-        <span>Export advance</span>
-        <strong>${exportAdvance ?? 'none'}</strong>
-      </div>
-    </div>
-    <div class="inspector-bounds">
-      <span>Bounds</span>
-      <strong>${bounds ? `${bounds.xMin}, ${bounds.yMin}, ${bounds.xMax}, ${bounds.yMax}` : 'none'}</strong>
-    </div>
-    <div class="metric-editor">
-      <label class="field compact">
-        <span>Advance width override</span>
-        <input id="advance-override" type="number" min="120" max="1400" step="10" value="${advanceOverride ?? ''}" placeholder="${glyph?.advanceWidth ?? 'auto'}" ${canOverride ? '' : 'disabled'} />
-      </label>
-      <button id="reset-advance" ${advanceOverride !== undefined ? '' : 'disabled'}>Reset to auto</button>
-    </div>
-    <p class="status">${escapeHtml(row.message)}</p>
-    ${
-      warnings.length
-        ? `<ul class="message-list">${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul>`
-        : '<p class="status">No glyph-specific warnings.</p>'
-    }
-  `;
-}
-
 function renderFontVerification(result: FontBuildResult): string {
   const verifiedChars = result.verification.verifiedGlyphs.map((glyph) => glyph.char);
   const failedChars = result.verification.failedGlyphs;
@@ -1010,13 +1301,15 @@ function persistSettings(): void {
     type: 'SAVE_SETTINGS',
     settings: createPersistedSettings(),
   });
-  state.savedStatus = `Saved to this Figma file: ${state.lastScanNodeIds.length} scan nodes, ${countAdvanceOverrides()} overrides.`;
 }
 
 function createPersistedSettings(): PersistedTypegenSettings {
   return {
     fontName: state.fontName,
+    fontVersion: state.fontVersion,
+    fontAuthor: state.fontAuthor,
     previewText: state.previewText,
+    previewFontSize: state.previewFontSize,
     selectedGlyph: state.selectedGlyph,
     lastScanNodeIds: [...state.lastScanNodeIds],
     spacing: {
@@ -1033,7 +1326,10 @@ function applyPersistedSettings(settings: PersistedTypegenSettings | null): void
   }
 
   state.fontName = settings.fontName || state.fontName;
+  state.fontVersion = settings.fontVersion || state.fontVersion;
+  state.fontAuthor = settings.fontAuthor || state.fontAuthor;
   state.previewText = settings.previewText || state.previewText;
+  state.previewFontSize = clampNumber(settings.previewFontSize, 12, 96, state.previewFontSize);
   state.selectedGlyph = isGlyphChar(settings.selectedGlyph) ? settings.selectedGlyph : state.selectedGlyph;
   state.lastScanNodeIds = Array.isArray(settings.lastScanNodeIds)
     ? settings.lastScanNodeIds.filter((id) => typeof id === 'string')
@@ -1045,7 +1341,6 @@ function applyPersistedSettings(settings: PersistedTypegenSettings | null): void
   };
   state.generatedFont = null;
   state.statusMessage = 'Restored saved Typegen settings from this Figma file.';
-  state.savedStatus = `Loaded saved settings: ${state.lastScanNodeIds.length} scan nodes, ${countAdvanceOverrides()} overrides.`;
 }
 
 function collectScanNodeIds(glyphs: GlyphScanResult[]): string[] {
@@ -1072,34 +1367,6 @@ function clampNumber(value: number | undefined, min: number, max: number, fallba
   }
 
   return Math.round(Math.min(max, Math.max(min, value as number)));
-}
-
-function hasSavedState(): boolean {
-  return (
-    state.fontName !== 'Typegen Demo' ||
-    state.previewText !== "ABC box @2+2" ||
-    state.selectedGlyph !== 'A' ||
-    state.lastScanNodeIds.length > 0 ||
-    state.spacing.letterSpacing !== DEFAULT_SPACING.letterSpacing ||
-    state.spacing.spaceWidth !== DEFAULT_SPACING.spaceWidth ||
-    countAdvanceOverrides() > 0
-  );
-}
-
-function resetLocalSettings(): void {
-  state.fontName = 'Typegen Demo';
-  state.previewText = "ABC box @2+2";
-  state.glyphs = [];
-  state.selectedGlyph = 'A';
-  state.activeBoard = null;
-  state.lastScanNodeIds = [];
-  state.statusMessage = 'Saved settings reset. Create a board or scan selected glyphs.';
-  state.savedStatus = 'Reset requested.';
-  state.generatedFont = null;
-  state.spacing = { ...DEFAULT_SPACING, glyphAdvanceOverrides: {} };
-  state.isScanning = false;
-  state.isGenerating = false;
-  state.showRecipe = true;
 }
 
 render();

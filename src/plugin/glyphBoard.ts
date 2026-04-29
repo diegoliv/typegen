@@ -7,7 +7,7 @@ import {
   glyphCharFromName,
   glyphNameForChar,
 } from "./pluginTypes";
-import { glyphLabelForChar, guideProfileForChar, type GlyphChar, type SlotGuideProfile } from "../shared/types";
+import { glyphLabelForChar, unifiedVisualGuideProfileForChar, type GlyphChar, type SlotGuideProfile } from "../shared/types";
 
 const GAP = 24;
 const COLUMNS = 6;
@@ -49,11 +49,12 @@ export async function createGlyphBoard(style: GlyphBoardStyle = "Regular"): Prom
     let slot = existingSlotsByChar.get(char);
 
     if (!slot) {
-      slot = createSlot(char, labelsEnabled);
+      slot = createSlot(char);
       board.appendChild(slot);
       addedSlots++;
     }
 
+    syncSlotGuides(slot, char as GlyphChar, labelsEnabled);
     positionSlot(slot, char, index);
   }
 
@@ -93,7 +94,7 @@ function positionSlot(slot: SceneNode, char: string, index: number): void {
   slot.y = layout.y;
 
   if (slot.type === "FRAME") {
-    const profile = guideProfileForChar(char as GlyphChar);
+    const profile = unifiedVisualGuideProfileForChar(char as GlyphChar);
     if (slot.width !== profile.slotWidth || slot.height !== profile.slotHeight) {
       slot.resize(profile.slotWidth, profile.slotHeight);
     }
@@ -228,14 +229,14 @@ function getRowsHeight(rowCount: number): number {
 
 function getRowHeight(row: number): number {
   const rowChars = SUPPORTED_CHARS.slice(row * COLUMNS, row * COLUMNS + COLUMNS);
-  return Math.max(...rowChars.map((char) => guideProfileForChar(char as GlyphChar).slotHeight), UPPERCASE_SLOT_HEIGHT);
+  return Math.max(...rowChars.map((char) => unifiedVisualGuideProfileForChar(char as GlyphChar).slotHeight), UPPERCASE_SLOT_HEIGHT);
 }
 
-const UPPERCASE_SLOT_WIDTH = guideProfileForChar("A").slotWidth;
-const UPPERCASE_SLOT_HEIGHT = guideProfileForChar("A").slotHeight;
+const UPPERCASE_SLOT_WIDTH = unifiedVisualGuideProfileForChar("A").slotWidth;
+const UPPERCASE_SLOT_HEIGHT = unifiedVisualGuideProfileForChar("A").slotHeight;
 
-function createSlot(char: string, labelsEnabled: boolean): FrameNode {
-  const profile = guideProfileForChar(char as GlyphChar);
+function createSlot(char: string): FrameNode {
+  const profile = unifiedVisualGuideProfileForChar(char as GlyphChar);
   const slot = figma.createFrame();
   slot.name = glyphNameForChar(char);
   slot.resize(profile.slotWidth, profile.slotHeight);
@@ -245,12 +246,6 @@ function createSlot(char: string, labelsEnabled: boolean): FrameNode {
   slot.cornerRadius = 4;
   slot.clipsContent = false;
   slot.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_SLOT);
-
-  addGuides(slot, profile);
-
-  if (labelsEnabled) {
-    addLabel(slot, glyphLabelForChar(char as GlyphChar));
-  }
 
   return slot;
 }
@@ -263,24 +258,27 @@ function addGuides(slot: FrameNode, profile: SlotGuideProfile): void {
 
   addGuide(slot, "tg-left-boundary", profile.leftBoundaryX, guideTop, 1, guideHeight, 0.78);
   addGuide(slot, "tg-right-boundary", profile.rightBoundaryX, guideTop, 1, guideHeight, 0.78);
-  addGuide(
-    slot,
-    profile.name === "lowercase" ? "tg-ascender" : "tg-cap-height",
-    profile.leftBoundaryX,
-    profile.ascenderY,
-    guideWidth,
-    1,
-    0.62,
-  );
+  addGuide(slot, "tg-ascender", profile.leftBoundaryX, profile.ascenderY, guideWidth, 1, 0.62);
+  addGuide(slot, "tg-x-height", profile.leftBoundaryX, profile.xHeightY ?? profile.ascenderY, guideWidth, 1, 0.5);
+  addGuide(slot, "tg-baseline", profile.leftBoundaryX, profile.baselineY, guideWidth, 1, 0.36);
+  addGuide(slot, "tg-descender", profile.leftBoundaryX, profile.descenderY ?? profile.baselineY, guideWidth, 1, 0.28);
+}
 
-  if (typeof profile.xHeightY === "number") {
-    addGuide(slot, "tg-x-height", profile.leftBoundaryX, profile.xHeightY, guideWidth, 1, 0.5);
+function syncSlotGuides(slot: SceneNode, char: GlyphChar, labelsEnabled: boolean): void {
+  if (slot.type !== "FRAME") {
+    return;
   }
 
-  addGuide(slot, "tg-baseline", profile.leftBoundaryX, profile.baselineY, guideWidth, 1, 0.36);
+  for (const child of [...slot.children]) {
+    if (child.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_HELPER && (child.type === "RECTANGLE" || (labelsEnabled && child.name.startsWith("tg-label-")))) {
+      child.remove();
+    }
+  }
 
-  if (typeof profile.descenderY === "number") {
-    addGuide(slot, "tg-descender", profile.leftBoundaryX, profile.descenderY, guideWidth, 1, 0.28);
+  addGuides(slot, unifiedVisualGuideProfileForChar(char));
+
+  if (labelsEnabled) {
+    addLabel(slot, glyphLabelForChar(char));
   }
 }
 

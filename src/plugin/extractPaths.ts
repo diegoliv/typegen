@@ -2,7 +2,7 @@ import { GlyphCommand, GlyphModel, NormalizedPath, glyphNameForChar } from "./pl
 import {
   UPPERCASE_GUIDE_PROFILE,
   defaultAdvanceForChar,
-  guideProfileForChar,
+  unifiedVisualGuideProfileForChar,
   type GlyphChar,
   type SlotGuideProfile,
 } from "../shared/types";
@@ -27,7 +27,6 @@ const CAP_HEIGHT = 700;
 const SLOT_BOUNDS_TOLERANCE = 1;
 const TINY_GLYPH_SIZE = 8;
 const FONT_LEFT_BEARING = 40;
-const FONT_DESIGN_WIDTH = 720;
 
 export function extractGlyphFromNode(node: SceneNode, char: string): ExtractedGlyph {
   const issues: ExtractionIssue[] = [];
@@ -75,14 +74,18 @@ export function extractGlyphFromNode(node: SceneNode, char: string): ExtractedGl
   const slotBounds = "children" in node ? boundsForNode(node) : null;
   issues.push(...validateRawGeometry(char, glyphName, rawBounds, slotBounds));
 
-  const guideProfile = guideProfileForChar(char as GlyphChar);
+  const guideProfile = unifiedVisualGuideProfileForChar(char as GlyphChar);
   const normalized = slotBounds
     ? normalizePathsForSlotMetrics(rawPaths, slotBounds, guideProfile)
     : normalizePaths(rawPaths, rawBounds);
-  const advanceWidth = resolveExtractedAdvanceWidth(char, normalized.bounds);
-  const fitted = shouldFitGlyphToAdvance(char)
-    ? fitPathsToAdvance(normalized, advanceWidth)
-    : normalized;
+  const slotAdvanceWidth = readSlotFrameAdvanceWidth(normalized);
+  const advanceWidth = slotAdvanceWidth ?? resolveExtractedAdvanceWidth(char, normalized.bounds);
+  const fitted = slotAdvanceWidth === null
+    ? shouldFitGlyphToAdvance(char)
+      ? fitPathsToAdvance(normalized, advanceWidth)
+      : normalized
+    : centerSlotPathsToAdvance(normalized, resolveSlotAdvanceWidth(char, normalized.bounds), slotAdvanceWidth);
+  const finalAdvanceWidth = slotAdvanceWidth === null ? advanceWidth : resolveSlotAdvanceWidth(char, normalized.bounds);
 
   return {
     issues,
@@ -91,12 +94,18 @@ export function extractGlyphFromNode(node: SceneNode, char: string): ExtractedGl
       char,
       unicode: char.codePointAt(0) ?? 0,
       name: glyphName,
-      advanceWidth,
+      advanceWidth: finalAdvanceWidth,
       bounds: fitted.bounds,
       paths: fitted.paths,
       warnings: issues.filter((issue) => issue.level === "warning").map((issue) => issue.message),
     },
   };
+}
+
+function readSlotFrameAdvanceWidth(
+  normalized: { paths: NormalizedPath[]; bounds: GlyphModel["bounds"] } | { paths: NormalizedPath[]; bounds: GlyphModel["bounds"]; frameAdvanceWidth: number },
+): number | null {
+  return "frameAdvanceWidth" in normalized ? normalized.frameAdvanceWidth : null;
 }
 
 function resolveExtractedAdvanceWidth(char: string, bounds: GlyphModel["bounds"]): number {
@@ -106,6 +115,16 @@ function resolveExtractedAdvanceWidth(char: string, bounds: GlyphModel["bounds"]
   }
 
   return Math.max(defaultAdvance, bounds.xMax + 80);
+}
+
+function resolveSlotAdvanceWidth(char: string, bounds: GlyphModel["bounds"]): number {
+  const defaultAdvance = defaultAdvanceForChar(char as GlyphChar);
+  if (defaultAdvance < 700) {
+    return defaultAdvance;
+  }
+
+  const glyphWidth = Math.max(1, bounds.xMax - bounds.xMin);
+  return Math.max(120, Math.min(1400, Math.round(glyphWidth + 80)));
 }
 
 function shouldFitGlyphToAdvance(char: string): boolean {
@@ -388,19 +407,21 @@ export function normalizePathsForSlotMetrics(
   paths: NormalizedPath[],
   slotBounds: Bounds,
   guideProfile: SlotGuideProfile = UPPERCASE_GUIDE_PROFILE,
-): { paths: NormalizedPath[]; bounds: GlyphModel["bounds"] } {
+): { paths: NormalizedPath[]; bounds: GlyphModel["bounds"]; frameAdvanceWidth: number } {
   const slotWidth = Math.max(1, slotBounds.xMax - slotBounds.xMin);
   const slotHeight = Math.max(1, slotBounds.yMax - slotBounds.yMin);
   const designLeft = slotBounds.xMin + slotWidth * (guideProfile.leftBoundaryX / guideProfile.slotWidth);
-  const designWidth = slotWidth * ((guideProfile.rightBoundaryX - guideProfile.leftBoundaryX) / guideProfile.slotWidth);
   const ascenderY = slotBounds.yMin + slotHeight * (guideProfile.ascenderY / guideProfile.slotHeight);
   const baselineY = slotBounds.yMin + slotHeight * (guideProfile.baselineY / guideProfile.slotHeight);
   const designHeight = Math.max(1, baselineY - ascenderY);
+  const scale = guideProfile.ascenderUnits / designHeight;
+  const designWidth = slotWidth * ((guideProfile.rightBoundaryX - guideProfile.leftBoundaryX) / guideProfile.slotWidth);
+  const frameAdvanceWidth = Math.round(designWidth * scale + FONT_LEFT_BEARING * 2);
 
   const normalizedPaths = paths.map((path) => ({
     windingRule: path.windingRule,
     commands: path.commands.map((command) =>
-      normalizeCommandToSlotMetrics(command, designLeft, designWidth, baselineY, designHeight, guideProfile.ascenderUnits),
+      normalizeCommandToSlotMetrics(command, designLeft, baselineY, scale),
     ),
   }));
 
@@ -412,6 +433,32 @@ export function normalizePathsForSlotMetrics(
   return {
     paths: normalizedPaths,
     bounds: normalizedBounds ?? { xMin: 0, yMin: 0, xMax: 0, yMax: 0 },
+    frameAdvanceWidth,
+  };
+}
+
+function centerSlotPathsToAdvance(
+  normalized: { paths: NormalizedPath[]; bounds: GlyphModel["bounds"] },
+  advanceWidth: number,
+  frameAdvanceWidth: number,
+): { paths: NormalizedPath[]; bounds: GlyphModel["bounds"] } {
+  const dx = Math.round(advanceWidth / 2 - frameAdvanceWidth / 2);
+
+  if (dx === 0) {
+    return normalized;
+  }
+
+  return {
+    paths: normalized.paths.map((path) => ({
+      windingRule: path.windingRule,
+      commands: path.commands.map((command) => shiftCommandX(command, dx)),
+    })),
+    bounds: {
+      xMin: normalized.bounds.xMin + dx,
+      yMin: normalized.bounds.yMin,
+      xMax: normalized.bounds.xMax + dx,
+      yMax: normalized.bounds.yMax,
+    },
   };
 }
 
@@ -479,14 +526,12 @@ function normalizeCommand(
 function normalizeCommandToSlotMetrics(
   command: GlyphCommand,
   designLeft: number,
-  designWidth: number,
   baselineY: number,
-  designHeight: number,
-  ascenderUnits: number,
+  scale: number,
 ): GlyphCommand {
   const mapPoint = (point: Point): Point => ({
-    x: Math.round(((point.x - designLeft) / designWidth) * FONT_DESIGN_WIDTH + FONT_LEFT_BEARING),
-    y: Math.round(((baselineY - point.y) / designHeight) * ascenderUnits),
+    x: Math.round((point.x - designLeft) * scale + FONT_LEFT_BEARING),
+    y: Math.round((baselineY - point.y) * scale),
   });
 
   if (command.type === "M" || command.type === "L") {

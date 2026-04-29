@@ -45,6 +45,9 @@ export type PluginToUiMessage =
       activeBoard?: ActiveBoardInfo;
     }
   | {
+      type: 'BOARD_SELECTION_CLEARED';
+    }
+  | {
       type: 'ALL_GLYPH_BOARDS_SCANNED';
       boards: BoardScanResult[];
     }

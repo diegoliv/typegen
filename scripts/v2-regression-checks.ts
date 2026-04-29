@@ -416,6 +416,21 @@ const preview = layoutPreviewText("AZ #", [glyphA], DEFAULT_SPACING);
 assert.equal(preview.items.length, 4, "preview should lay out all entered characters");
 assert.equal(preview.missingChars.join(","), "Z", "missing supported glyphs should be tracked");
 assert.equal(preview.unsupportedChars.join(","), "#", "unsupported characters should be tracked");
+const defaultOverridePreview = layoutPreviewText("AA", [glyphA], DEFAULT_SPACING);
+const wideOverridePreview = layoutPreviewText("AA", [glyphA], {
+  ...DEFAULT_SPACING,
+  glyphAdvanceOverrides: { A: 1000 },
+});
+assert.equal(
+  defaultOverridePreview.items[1]?.transform,
+  "translate(740 830) scale(1 -1)",
+  "default preview layout should position the second glyph after the base advance",
+);
+assert.equal(
+  wideOverridePreview.items[1]?.transform,
+  "translate(1040 830) scale(1 -1)",
+  "preview layout should position repeated glyphs using the per-glyph advance override",
+);
 
 const lowercasePreview = layoutPreviewText("Aa", [glyphA, glyphLowerA], DEFAULT_SPACING);
 assert.equal(lowercasePreview.missingChars.length, 0, "lowercase pilot glyphs should preview when available");
