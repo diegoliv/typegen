@@ -52,6 +52,7 @@ Completed:
 - Changed slot-based glyph extraction to preserve frame-relative X positions and derive advance width from the slot guide box, so the center of the Figma glyph frame maps to the center of the converted glyph.
 - Refined slot extraction metrics so frame-center alignment is preserved while the exported advance width is derived from glyph ink width plus padding, reducing oversized side bearings for narrow glyphs in preview text.
 - Hid the post-generation debug/verification panel behind a UI flag while keeping the implementation available for later QA.
+- Updated the glyph edit overlay specimen guides to use the same unified guide profile geometry as glyph board slots instead of decorative percentage-based lines.
 
 Out of scope:
 

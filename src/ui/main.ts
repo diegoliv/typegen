@@ -18,7 +18,7 @@ import {
   type GlyphModel,
 } from '../font/glyphModel';
 import { postToPlugin, isPluginMessage, type ActiveBoardInfo, type BoardScanResult, type PluginToUiMessage } from '../shared/messages';
-import type { GlyphScanResult, PersistedTypegenSettings } from '../shared/types';
+import { unifiedVisualGuideProfileForChar, type GlyphScanResult, type PersistedTypegenSettings } from '../shared/types';
 import { glyphToSvgPathData, layoutPreviewText, renderPreviewMarkup } from './preview/renderGlyphPreview';
 import './styles.css';
 
@@ -530,12 +530,6 @@ function renderGlyphSpecimen(row: GlyphScanResult, advanceWidth: number): string
 
   return `
     <div class="glyph-detail-preview ${row.status}" aria-hidden="true">
-      <div class="glyph-guides">
-        <span class="cap-height"></span>
-        <span class="x-height"></span>
-        <span class="baseline"></span>
-        <span class="descender"></span>
-      </div>
       ${content}
     </div>
   `;
@@ -555,6 +549,7 @@ function renderGlyphSpecimenSvg(char: GlyphChar, glyph: GlyphModel, advanceWidth
   const middleCenter = middleOrigin + glyph.bounds.xMin + (glyph.bounds.xMax - glyph.bounds.xMin) / 2;
   const viewBoxWidth = 2930;
   const viewBox = `${Math.round(middleCenter - viewBoxWidth / 2)} -240 ${viewBoxWidth} 1080`;
+  const guides = renderGlyphSpecimenGuides(char, middleOrigin, advanceWidth);
   const paths = layout.items
     .map((item, index) => {
       if (item.kind !== 'glyph') {
@@ -567,7 +562,37 @@ function renderGlyphSpecimenSvg(char: GlyphChar, glyph: GlyphModel, advanceWidth
     })
     .join('');
 
-  return `<svg class="glyph-specimen-svg" viewBox="${escapeAttr(viewBox)}" aria-hidden="true">${paths}</svg>`;
+  return `<svg class="glyph-specimen-svg" viewBox="${escapeAttr(viewBox)}" aria-hidden="true">${guides}${paths}</svg>`;
+}
+
+function renderGlyphSpecimenGuides(char: GlyphChar, originX: number, advanceWidth: number): string {
+  const profile = unifiedVisualGuideProfileForChar(char);
+  const designHeight = Math.max(1, profile.baselineY - profile.ascenderY);
+  const scale = profile.ascenderUnits / designHeight;
+  const guideWidth = (profile.rightBoundaryX - profile.leftBoundaryX) * scale;
+  const centerX = originX + advanceWidth / 2;
+  const xMin = centerX - guideWidth / 2;
+  const xMax = centerX + guideWidth / 2;
+  const ascenderY = profile.ascenderUnits;
+  const xHeightY = ((profile.baselineY - (profile.xHeightY ?? profile.ascenderY)) / designHeight) * profile.ascenderUnits;
+  const baselineY = 0;
+  const descenderY = ((profile.baselineY - (profile.descenderY ?? profile.baselineY)) / designHeight) * profile.ascenderUnits;
+  const transform = `translate(0 ${FONT_METRICS.ascender}) scale(1 -1)`;
+
+  return `
+    <g class="specimen-guides" transform="${escapeAttr(transform)}">
+      <line class="specimen-side-guide" x1="${roundSvg(xMin)}" y1="${roundSvg(descenderY)}" x2="${roundSvg(xMin)}" y2="${roundSvg(ascenderY)}" />
+      <line class="specimen-side-guide" x1="${roundSvg(xMax)}" y1="${roundSvg(descenderY)}" x2="${roundSvg(xMax)}" y2="${roundSvg(ascenderY)}" />
+      <line x1="${roundSvg(xMin)}" y1="${roundSvg(ascenderY)}" x2="${roundSvg(xMax)}" y2="${roundSvg(ascenderY)}" />
+      <line x1="${roundSvg(xMin)}" y1="${roundSvg(xHeightY)}" x2="${roundSvg(xMax)}" y2="${roundSvg(xHeightY)}" />
+      <line x1="${roundSvg(xMin)}" y1="${roundSvg(baselineY)}" x2="${roundSvg(xMax)}" y2="${roundSvg(baselineY)}" />
+      <line x1="${roundSvg(xMin)}" y1="${roundSvg(descenderY)}" x2="${roundSvg(xMax)}" y2="${roundSvg(descenderY)}" />
+    </g>
+  `;
+}
+
+function roundSvg(value: number): number {
+  return Math.round(value * 10) / 10;
 }
 
 function previewTransformX(transform: string): number {

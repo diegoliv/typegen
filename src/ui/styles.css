@@ -807,33 +807,20 @@ h2 {
   color: rgba(0, 0, 0, 0.1);
 }
 
-.glyph-guides {
-  position: absolute;
-  inset: 0;
+.glyph-specimen-svg .specimen-guides {
+  color: #4c7dff;
 }
 
-.glyph-guides span {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 1px;
-  background: rgba(242, 72, 34, 0.12);
+.glyph-specimen-svg .specimen-guides line {
+  vector-effect: non-scaling-stroke;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  stroke-opacity: 0.28;
 }
 
-.glyph-guides .cap-height {
-  top: 31%;
-}
-
-.glyph-guides .x-height {
-  top: 40%;
-}
-
-.glyph-guides .baseline {
-  top: 78%;
-}
-
-.glyph-guides .descender {
-  top: 87%;
+.glyph-specimen-svg .specimen-guides .specimen-side-guide {
+  stroke-opacity: 0.52;
 }
 
 .glyph-specimen {
