@@ -255,7 +255,7 @@ function renderGlyphsTab(rows: GlyphScanResult[], diagnostics: ExportDiagnostics
               </div>
             </div>
             ${
-              diagnostics.details.length
+              SHOW_DEBUG_CONTENT && diagnostics.details.length
                 ? `<details class="diagnostic-details"><summary>Details</summary><ul class="message-list">${diagnostics.details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join('')}</ul></details>`
                 : ''
             }`
