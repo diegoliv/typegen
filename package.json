@@ -1,6 +1,6 @@
 {
   "name": "typegen",
-  "version": "7.0.0-alpha.1",
+  "version": "8.0.0-alpha.1",
   "private": true,
   "type": "module",
   "scripts": {

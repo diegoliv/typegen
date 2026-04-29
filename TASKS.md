@@ -1,5 +1,45 @@
 # Typegen MVP Implementation Plan
 
+## 55. V8.0 Temporary Slot Flattening
+
+Goal: support glyph artwork built from filled vectors, filled live shapes, and live Figma boolean operations by flattening a temporary slot copy before extraction while preserving the existing scanned glyph -> preview -> exported OTF pipeline.
+
+Plan:
+
+- Keep V8 inside the current glyph extraction path so filled vectors, live shapes, and booleans become normal normalized vector paths before preview/export.
+- For glyph slot frames/components/instances, clone the whole slot, remove helper/hidden layers, flatten the cloned artwork through Figma's native flatten behavior, read the resulting vector paths, and remove the temporary clone.
+- Keep the source Figma artwork non-destructive during scanning.
+- Keep live lines, stroked vectors, text, images, effects, gradients, and unsupported live shape layers outside the MVP.
+- Update validation copy so users know glyph slots are scanned through temporary flattening.
+- Verify with typecheck, regression checks, and build.
+
+Implementation status:
+
+- Added non-destructive scan-time flattening for glyph slot artwork.
+- Added support for filled live shape layers such as rounded rectangles by flattening a temporary slot copy.
+- Corrected V8 normalization so a live boolean node named as a glyph is normalized from its own outline bounds instead of being mistaken for a full glyph slot container.
+- Corrected flattened boolean/vector coordinate parsing by matching path bounds against Figma's `absoluteBoundingBox`, avoiding double-transform offsets when flattened path data is already page-relative.
+- Replaced per-child V8 conversion inside glyph slots with a more stable whole-slot temporary clone flattening path, so filled vectors, live shapes, and booleans share one slot-relative flattened coordinate frame before extraction.
+- Removed live line/stroked-vector support from V8 after Figma plugin outlining proved unreliable; users should convert strokes to filled outlines before scanning.
+- Removed the per-glyph temporary-flattening warning for normal slot scans.
+- Updated glyph grid thumbnails to render through the same preview layout engine used by the overlay, fixing blank tiles for flattened Inter starter glyphs.
+- Anchored temporary slot clones to the source slot transform before flattening so flattened artwork bounds stay aligned with the original glyph slot.
+- Remapped flattened temporary slot coordinates from clone bounds back to source slot bounds before validation and normalization, covering board-specific clone offsets seen on Bold starter boards.
+- Restored glyph grid thumbnails to a stable font-metric frame after the Bold-board coordinate remap fixed clipping, so small glyphs no longer scale up to fill each tile.
+- Kept informational V8 conversion warnings from coloring otherwise-valid glyph grid tiles as warning tiles.
+- Updated recipe UI copy, README, release notes, QA checklist, project context, package metadata, and rebuilt `dist/`.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run build` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Remaining:
+
+- Manual Figma QA for filled vector glyphs, rounded-rectangle/live-shape glyphs, live boolean glyphs, source artwork preservation after scan, preview output, and exported OTF output.
+
 ## 54. V7.0 Manual Kerning
 
 Goal: add constrained manual kerning pairs from the glyph detail overlay while preserving Typegen's scanned glyph -> preview -> exported OTF pipeline.

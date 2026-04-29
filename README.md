@@ -2,10 +2,10 @@
 
 Typegen is a focused Figma plugin MVP for turning glyphs drawn in Figma into a usable static OTF font.
 
-The current V7 alpha keeps the reliable V6 export loop and adds constrained manual kerning:
+The current V8 alpha keeps the reliable V7 kerning/export loop and flattens supported glyph-slot artwork before extraction:
 
 1. Create a starter A-Z, a-z, 0-9, punctuation, and common-symbol glyph board.
-2. Generate starter glyph outlines in empty slots or draw filled vector glyphs yourself.
+2. Generate starter glyph outlines in empty slots, draw filled vector glyphs yourself, or build glyphs from supported live shapes and booleans.
 3. Refine the editable vector outlines in Figma.
 4. Select a board and let Typegen auto-scan it.
 5. Preview available glyphs with custom text or quick presets.
@@ -30,6 +30,9 @@ Supported:
 - Lowercase a-z
 - Common symbols: `'`, `"`, `/`, `(`, `)`, `&`, `+`, `=`, `@`
 - Simple filled vector paths
+- Filled shape layers such as rounded rectangles, ellipses, polygons, and stars
+- Live boolean operations
+- Temporary slot flattening before glyph extraction, without changing source artwork
 - Starter glyph board generation
 - Inter-based starter glyph outline generation for empty slots, with Regular and Bold starter styles
 - Figma-native, compact plugin UI direction
@@ -55,7 +58,7 @@ Not supported in the MVP:
 - Variable fonts
 - AI glyph generation
 - Replacing existing glyph artwork from the starter generator
-- Strokes, text layers, images, gradients, effects, masks, booleans, or live shape layers as glyph outlines
+- Text layers, images, gradients, effects, masks, or unsupported live shape layers as glyph outlines
 - Multiple weights or styles
 
 ## Using The Plugin In Figma
@@ -82,11 +85,11 @@ The committed `dist/` files are included so the manifest can load immediately af
 
 - Use slots named exactly `glyph-A` through `glyph-Z`, `glyph-a` through `glyph-z`, `glyph-0` through `glyph-9`, `glyph-period`, `glyph-comma`, `glyph-exclamation`, `glyph-question`, `glyph-hyphen`, `glyph-colon`, `glyph-apostrophe`, `glyph-quote`, `glyph-slash`, `glyph-paren-left`, `glyph-paren-right`, `glyph-ampersand`, `glyph-plus`, `glyph-equals`, and `glyph-at`.
 - Raw punctuation aliases such as `glyph-!`, `glyph-.`, and `glyph-?` are also accepted during scanning, but the generated board uses the safer names above.
-- Draw simple filled vector paths inside each slot.
+- Draw simple filled vector paths, filled live shape layers, or live boolean operations inside each slot. Typegen scans a temporary flattened copy of the slot artwork.
 - Choose Inter Regular or Inter Bold, then use `Generate starter glyphs` to fill empty slots with editable Inter-derived starter outlines.
 - Convert text to outlines before scanning.
-- Expand strokes before scanning.
-- Avoid images, effects, gradients, masks, booleans, and live shape layers.
+- Convert strokes and live lines to filled vector outlines before scanning.
+- Avoid images, effects, gradients, masks, and unsupported live shape layers.
 - Use preview, spacing controls, and the glyph inspector before exporting.
 - Use preview presets to quickly inspect mixed-case text, words, paragraph-style samples, numbers, and symbols.
 
@@ -110,4 +113,4 @@ See [docs/QA.md](docs/QA.md) for the manual QA checklist, [docs/SMOKE_TEST.md](d
 
 ## Status
 
-V6.0 alpha begins the core UX/UI direction on top of V5 export package polish, starter glyph generation, style controls, active board clarity, and preview presets. This is intentionally still an MVP with one static OTF export path, built to prove and harden the Figma vectors -> glyph model -> preview -> font export workflow before broader export formats.
+V8.0 alpha adds scan-time slot flattening on top of V7 manual kerning. This is intentionally still an MVP with one static OTF export path, built to prove and harden the Figma vectors -> glyph model -> preview -> font export workflow before broader export formats.
