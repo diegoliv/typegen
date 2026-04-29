@@ -1,5 +1,44 @@
 # Typegen MVP Implementation Plan
 
+## 54. V7.0 Manual Kerning
+
+Goal: add constrained manual kerning pairs from the glyph detail overlay while preserving Typegen's scanned glyph -> preview -> exported OTF pipeline.
+
+Completed:
+
+- Created `codex/v7-kerning` from the latest `origin/main`.
+- Added typed manual kerning pairs to saved spacing settings.
+- Added kerning normalization, clamping, lookup, update, removal, sorting, and metric warnings.
+- Applied kerning pairs in the SVG preview layout.
+- Added a minimal exported `kern` table injection step after `opentype.js` font generation so manual kerning survives OTF export.
+- Added a minimal GPOS `kern` feature alongside the legacy `kern` table so browsers apply exported manual kerning reliably.
+- Added explicit `font-kerning: normal` and `"kern" 1` CSS to generated test HTML/CSS.
+- Extended generated-font verification to parse exported kerning pairs back from the OTF.
+- Split the glyph detail overlay into `Glyph` and `Kerning` tabs.
+- Added a kerning pair glyph input, kerning amount slider/number input, reset action, pair preview, and validation message.
+- Refined the pair glyph input so users can clear it with Backspace while editing; the kerning controls disable until the field contains one supported glyph.
+- Split board creation from board update so new boards are created through an explicit weight picker.
+- Prevented duplicate boards for the same weight; choosing an existing weight selects that board instead of creating another one.
+- Replaced two-option board weight choices with a common weight select: Thin, Extra Light, Light, Regular, Medium, Semi Bold, Bold, Extra Bold, and Black.
+- Removed starter-font brand naming from board creation and starter weight UI labels.
+- Removed the settings-panel new-board shortcut, moved the modal create action beside the weight select, and kept the modal open in a disabled `Creating...` state until the board is created and selected.
+- Persisted letter spacing, space width, advance overrides, and kerning pairs on each Typegen board instead of sharing one global spacing state across selected boards.
+- Restored board-specific spacing whenever an existing board is selected or restored across plugin sessions.
+- Added a board settings import overlay so the active board can copy spacing basics, advance overrides, and kerning pairs from another board.
+- Updated font package generation so each exported weight uses that board's own saved spacing and kerning settings.
+- Changed board update to require a selected Typegen board instead of silently selecting an existing board when nothing is selected.
+- Added regression coverage for kerning sanitization, preview positioning, and OTF roundtrip kerning.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Remaining:
+
+- Manual Figma QA for pair editing, saved settings restore, and exported web-test package kerning behavior.
+
 ## 53. V6.0 Core UX/UI Direction
 
 Goal: make the stable Typegen workflow feel like a practical Figma-native plugin workspace before adding more feature scope.

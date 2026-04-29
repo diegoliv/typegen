@@ -80,6 +80,30 @@ export const GLYPH_DEFINITIONS = [
 
 export type GlyphChar = (typeof GLYPH_DEFINITIONS)[number]['char'];
 
+export const FONT_WEIGHT_DEFINITIONS = [
+  { style: 'Thin', label: 'Thin', cssWeight: 100 },
+  { style: 'Extra Light', label: 'Extra Light', cssWeight: 200 },
+  { style: 'Light', label: 'Light', cssWeight: 300 },
+  { style: 'Regular', label: 'Regular', cssWeight: 400 },
+  { style: 'Medium', label: 'Medium', cssWeight: 500 },
+  { style: 'Semi Bold', label: 'Semi Bold', cssWeight: 600 },
+  { style: 'Bold', label: 'Bold', cssWeight: 700 },
+  { style: 'Extra Bold', label: 'Extra Bold', cssWeight: 800 },
+  { style: 'Black', label: 'Black', cssWeight: 900 },
+] as const;
+
+export type FontWeightStyle = (typeof FONT_WEIGHT_DEFINITIONS)[number]['style'];
+
+export const DEFAULT_FONT_WEIGHT_STYLE: FontWeightStyle = 'Regular';
+
+export function isFontWeightStyle(value: string | undefined): value is FontWeightStyle {
+  return FONT_WEIGHT_DEFINITIONS.some((definition) => definition.style === value);
+}
+
+export function fontWeightValueForStyle(style: FontWeightStyle): number {
+  return FONT_WEIGHT_DEFINITIONS.find((definition) => definition.style === style)?.cssWeight ?? 400;
+}
+
 export type SlotGuideProfileName = 'uppercase' | 'lowercase';
 
 export type SlotGuideProfile = {
@@ -193,6 +217,12 @@ export type GlyphModel = {
   warnings: string[];
 };
 
+export type KerningPair = {
+  left: GlyphChar;
+  right: GlyphChar;
+  value: number;
+};
+
 export type GlyphScanResult = {
   char: GlyphChar;
   name: string;
@@ -218,6 +248,13 @@ export type GeneratedFont = {
   buffer: ArrayBuffer;
 };
 
+export type BoardSpacingSettings = {
+  letterSpacing: number;
+  spaceWidth: number;
+  glyphAdvanceOverrides: Partial<Record<GlyphChar, number>>;
+  kerningPairs: KerningPair[];
+};
+
 export type PersistedTypegenSettings = {
   fontName: string;
   fontVersion?: string;
@@ -226,9 +263,5 @@ export type PersistedTypegenSettings = {
   previewFontSize?: number;
   selectedGlyph: GlyphChar;
   lastScanNodeIds: string[];
-  spacing: {
-    letterSpacing: number;
-    spaceWidth: number;
-    glyphAdvanceOverrides: Partial<Record<GlyphChar, number>>;
-  };
+  spacing?: Partial<BoardSpacingSettings>;
 };

@@ -1,4 +1,5 @@
 import type { FontBuildResult } from "./glyphModel";
+import { fontWeightValueForStyle, type FontWeightStyle } from "../shared/types";
 
 export const FONT_MIME_TYPE = "font/otf";
 export const FONT_EXTENSION = "otf";
@@ -6,7 +7,7 @@ export const SMOKE_TEST_EXTENSION = "html";
 export const CSS_EXTENSION = "css";
 export const ZIP_EXTENSION = "zip";
 
-export type FontPackageStyle = "Regular" | "Bold";
+export type FontPackageStyle = FontWeightStyle;
 
 export type FontPackageItem = {
   result: FontBuildResult;
@@ -66,6 +67,8 @@ export function createFontFaceCss(result: FontBuildResult): string {
 
 .typegen-sample {
   font-family: "${cssFamilyName}", system-ui, sans-serif;
+  font-kerning: normal;
+  font-feature-settings: "kern" 1;
 }`;
 }
 
@@ -159,6 +162,8 @@ ${fontFaces}
       background: #fffef9;
       padding: 22px;
       font-size: 64px;
+      font-kerning: normal;
+      font-feature-settings: "kern" 1;
       line-height: 1.12;
       overflow-wrap: anywhere;
     }
@@ -244,6 +249,8 @@ export function createSmokeTestHtml(
       padding: 24px;
       font-family: "${cssFamilyName}", system-ui, sans-serif;
       font-size: 72px;
+      font-kerning: normal;
+      font-feature-settings: "kern" 1;
       line-height: 1.15;
       overflow-wrap: anywhere;
     }
@@ -287,12 +294,11 @@ export function downloadFontPackageZip(items: FontPackageItem[], sampleText?: st
 }
 
 function sortPackageItems(items: FontPackageItem[]): FontPackageItem[] {
-  const order: Record<FontPackageStyle, number> = { Regular: 0, Bold: 1 };
-  return [...items].sort((a, b) => order[a.style] - order[b.style]);
+  return [...items].sort((a, b) => fontWeightForStyle(a.style) - fontWeightForStyle(b.style));
 }
 
 function fontWeightForStyle(style: FontPackageStyle): number {
-  return style === "Bold" ? 700 : 400;
+  return fontWeightValueForStyle(style);
 }
 
 function triggerDownload(blob: Blob, filename: string): void {

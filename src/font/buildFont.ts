@@ -9,10 +9,12 @@ import {
   type NormalizedPathCommand,
   type GlyphModel,
   getUsableGlyphs,
+  normalizeKerningPairs,
   normalizeSpacingSettings,
   resolveGlyphAdvance,
   sortGlyphsByAlphabet,
 } from "./glyphModel";
+import type { KerningPair } from "../shared/types";
 
 export type BuildFontOptions = {
   styleName?: string;
@@ -27,6 +29,7 @@ export function buildFont(
   const familyName = normalizeFamilyName(input.familyName);
   const usableGlyphs = getUsableGlyphs(input.glyphs);
   const spacing = normalizeSpacingSettings(input.spacing);
+  const exportedKerningPairs = getExportedKerningPairs(spacing.kerningPairs, usableGlyphs);
 
   if (usableGlyphs.length === 0) {
     throw new Error("Generate at least one valid glyph before exporting.");
@@ -54,14 +57,17 @@ export function buildFont(
     glyphs,
   });
 
-  const arrayBuffer = font.toArrayBuffer();
+  const arrayBuffer = addKerningTables(font.toArrayBuffer(), {
+    kern: createKernTable(exportedKerningPairs, glyphs),
+    GPOS: createGposTable(exportedKerningPairs, glyphs),
+  });
 
   return {
     arrayBuffer,
     familyName,
     glyphCount: usableGlyphs.length,
     warnings,
-    verification: verifyGeneratedFont(arrayBuffer, usableGlyphs, spacing),
+    verification: verifyGeneratedFont(arrayBuffer, usableGlyphs, spacing, exportedKerningPairs),
   };
 }
 
@@ -421,15 +427,335 @@ function collectBuildWarnings(
   return [...warnings];
 }
 
+function getExportedKerningPairs(pairs: KerningPair[], glyphs: GlyphModel[]): KerningPair[] {
+  const exported = new Set(glyphs.map((glyph) => glyph.char));
+  return normalizeKerningPairs(pairs).filter((pair) => exported.has(pair.left) && exported.has(pair.right));
+}
+
+function createKernTable(pairs: KerningPair[], glyphs: opentype.Glyph[]): Uint8Array | null {
+  if (pairs.length === 0) {
+    return null;
+  }
+
+  const glyphIndexByChar = new Map<string, number>();
+  glyphs.forEach((glyph, index) => {
+    if (glyph.unicode) {
+      glyphIndexByChar.set(String.fromCharCode(glyph.unicode), index);
+    }
+  });
+
+  const records = pairs
+    .map((pair) => {
+      const left = glyphIndexByChar.get(pair.left);
+      const right = glyphIndexByChar.get(pair.right);
+      return left === undefined || right === undefined ? null : { left, right, value: pair.value };
+    })
+    .filter((record): record is { left: number; right: number; value: number } => Boolean(record))
+    .sort((a, b) => a.left - b.left || a.right - b.right);
+
+  if (records.length === 0) {
+    return null;
+  }
+
+  const nPairs = records.length;
+  const subtableLength = 14 + nPairs * 6;
+  const bytes = new Uint8Array(4 + subtableLength);
+  const view = new DataView(bytes.buffer);
+  let offset = 0;
+
+  writeUint16(view, offset, 0); offset += 2;
+  writeUint16(view, offset, 1); offset += 2;
+  writeUint16(view, offset, 0); offset += 2;
+  writeUint16(view, offset, subtableLength); offset += 2;
+  writeUint16(view, offset, 1); offset += 2;
+  writeUint16(view, offset, nPairs); offset += 2;
+
+  const entrySelector = Math.floor(Math.log2(nPairs));
+  const searchRange = Math.pow(2, entrySelector) * 6;
+  const rangeShift = nPairs * 6 - searchRange;
+  writeUint16(view, offset, searchRange); offset += 2;
+  writeUint16(view, offset, entrySelector); offset += 2;
+  writeUint16(view, offset, rangeShift); offset += 2;
+
+  for (const record of records) {
+    writeUint16(view, offset, record.left); offset += 2;
+    writeUint16(view, offset, record.right); offset += 2;
+    writeInt16(view, offset, record.value); offset += 2;
+  }
+
+  return bytes;
+}
+
+function createGposTable(pairs: KerningPair[], glyphs: opentype.Glyph[]): Uint8Array | null {
+  if (pairs.length === 0) {
+    return null;
+  }
+
+  const glyphIndexByChar = createGlyphIndexByChar(glyphs);
+  const grouped = new Map<number, { right: number; value: number }[]>();
+
+  for (const pair of pairs) {
+    const left = glyphIndexByChar.get(pair.left);
+    const right = glyphIndexByChar.get(pair.right);
+    if (left === undefined || right === undefined) {
+      continue;
+    }
+
+    const records = grouped.get(left) ?? [];
+    records.push({ right, value: pair.value });
+    grouped.set(left, records);
+  }
+
+  const leftGlyphs = [...grouped.keys()].sort((a, b) => a - b);
+  if (leftGlyphs.length === 0) {
+    return null;
+  }
+
+  for (const records of grouped.values()) {
+    records.sort((a, b) => a.right - b.right);
+  }
+
+  const coverageLength = 4 + leftGlyphs.length * 2;
+  const pairSetLengths = leftGlyphs.map((left) => 2 + (grouped.get(left)?.length ?? 0) * 4);
+  const pairPosHeaderLength = 10 + leftGlyphs.length * 2;
+  const pairPosLength = pairPosHeaderLength + coverageLength + pairSetLengths.reduce((total, length) => total + length, 0);
+  const scriptListLength = 20;
+  const featureListLength = 14;
+  const lookupListLength = 12 + pairPosLength;
+  const totalLength = 10 + scriptListLength + featureListLength + lookupListLength;
+  const bytes = new Uint8Array(totalLength);
+  const view = new DataView(bytes.buffer);
+  const scriptListOffset = 10;
+  const featureListOffset = scriptListOffset + scriptListLength;
+  const lookupListOffset = featureListOffset + featureListLength;
+  const lookupTableOffset = lookupListOffset + 4;
+  const pairPosOffset = lookupTableOffset + 8;
+  let offset = 0;
+
+  writeUint32(view, offset, 0x00010000); offset += 4;
+  writeUint16(view, offset, scriptListOffset); offset += 2;
+  writeUint16(view, offset, featureListOffset); offset += 2;
+  writeUint16(view, offset, lookupListOffset); offset += 2;
+
+  offset = scriptListOffset;
+  writeUint16(view, offset, 1); offset += 2;
+  writeTag(bytes, offset, "DFLT"); offset += 4;
+  writeUint16(view, offset, 8); offset += 2;
+  writeUint16(view, offset, 4); offset += 2;
+  writeUint16(view, offset, 0); offset += 2;
+  writeUint16(view, offset, 0); offset += 2;
+  writeUint16(view, offset, 0xffff); offset += 2;
+  writeUint16(view, offset, 1); offset += 2;
+  writeUint16(view, offset, 0); offset += 2;
+
+  offset = featureListOffset;
+  writeUint16(view, offset, 1); offset += 2;
+  writeTag(bytes, offset, "kern"); offset += 4;
+  writeUint16(view, offset, 8); offset += 2;
+  writeUint16(view, offset, 0); offset += 2;
+  writeUint16(view, offset, 1); offset += 2;
+  writeUint16(view, offset, 0); offset += 2;
+
+  offset = lookupListOffset;
+  writeUint16(view, offset, 1); offset += 2;
+  writeUint16(view, offset, 4); offset += 2;
+
+  offset = lookupTableOffset;
+  writeUint16(view, offset, 2); offset += 2;
+  writeUint16(view, offset, 0); offset += 2;
+  writeUint16(view, offset, 1); offset += 2;
+  writeUint16(view, offset, 8); offset += 2;
+
+  offset = pairPosOffset;
+  writeUint16(view, offset, 1); offset += 2;
+  writeUint16(view, offset, pairPosHeaderLength); offset += 2;
+  writeUint16(view, offset, 0x0004); offset += 2;
+  writeUint16(view, offset, 0); offset += 2;
+  writeUint16(view, offset, leftGlyphs.length); offset += 2;
+  let nextPairSetOffset = pairPosHeaderLength + coverageLength;
+  for (const length of pairSetLengths) {
+    writeUint16(view, offset, nextPairSetOffset); offset += 2;
+    nextPairSetOffset += length;
+  }
+
+  writeUint16(view, offset, 1); offset += 2;
+  writeUint16(view, offset, leftGlyphs.length); offset += 2;
+  for (const left of leftGlyphs) {
+    writeUint16(view, offset, left); offset += 2;
+  }
+
+  for (const left of leftGlyphs) {
+    const records = grouped.get(left) ?? [];
+    writeUint16(view, offset, records.length); offset += 2;
+    for (const record of records) {
+      writeUint16(view, offset, record.right); offset += 2;
+      writeInt16(view, offset, record.value); offset += 2;
+    }
+  }
+
+  return bytes;
+}
+
+function createGlyphIndexByChar(glyphs: opentype.Glyph[]): Map<string, number> {
+  const glyphIndexByChar = new Map<string, number>();
+  glyphs.forEach((glyph, index) => {
+    if (glyph.unicode) {
+      glyphIndexByChar.set(String.fromCharCode(glyph.unicode), index);
+    }
+  });
+  return glyphIndexByChar;
+}
+
+type SfntRecord = {
+  tag: string;
+  checksum: number;
+  offset: number;
+  length: number;
+  data: Uint8Array;
+};
+
+function addKerningTables(buffer: ArrayBuffer, kerningTables: Partial<Record<"kern" | "GPOS", Uint8Array | null>>): ArrayBuffer {
+  const nextTables = Object.entries(kerningTables).filter((entry): entry is ["kern" | "GPOS", Uint8Array] => Boolean(entry[1]));
+  if (nextTables.length === 0) {
+    return buffer;
+  }
+
+  const source = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+  const version = source.slice(0, 4);
+  const replacedTags = new Set(nextTables.map(([tag]) => tag));
+  const records = readSfntRecords(source, view).filter((record) => !replacedTags.has(record.tag as "kern" | "GPOS"));
+  for (const [tag, data] of nextTables) {
+    records.push({
+      tag,
+      checksum: computeChecksum([...data]),
+      offset: 0,
+      length: data.length,
+      data,
+    });
+  }
+  records.sort((a, b) => a.tag.localeCompare(b.tag));
+
+  const numTables = records.length;
+  const highestPowerOf2 = Math.pow(2, Math.floor(Math.log2(numTables)));
+  const searchRange = 16 * highestPowerOf2;
+  const entrySelector = Math.floor(Math.log2(highestPowerOf2));
+  const rangeShift = numTables * 16 - searchRange;
+  let offset = 12 + numTables * 16;
+
+  for (const record of records) {
+    offset = align4(offset);
+    record.offset = offset;
+    record.checksum = computeChecksum([...record.data]);
+    offset += record.length;
+  }
+
+  const output = new Uint8Array(align4(offset));
+  output.set(version, 0);
+  const outputView = new DataView(output.buffer);
+  writeUint16(outputView, 4, numTables);
+  writeUint16(outputView, 6, searchRange);
+  writeUint16(outputView, 8, entrySelector);
+  writeUint16(outputView, 10, rangeShift);
+
+  let recordOffset = 12;
+  for (const record of records) {
+    writeTag(output, recordOffset, record.tag);
+    writeUint32(outputView, recordOffset + 4, record.checksum);
+    writeUint32(outputView, recordOffset + 8, record.offset);
+    writeUint32(outputView, recordOffset + 12, record.length);
+    output.set(record.data, record.offset);
+    recordOffset += 16;
+  }
+
+  setHeadChecksumAdjustment(output, outputView);
+  return output.buffer;
+}
+
+function readSfntRecords(source: Uint8Array, view: DataView): SfntRecord[] {
+  const numTables = view.getUint16(4);
+  const records: SfntRecord[] = [];
+
+  for (let index = 0; index < numTables; index++) {
+    const recordOffset = 12 + index * 16;
+    const tag = String.fromCharCode(...source.slice(recordOffset, recordOffset + 4));
+    const offset = view.getUint32(recordOffset + 8);
+    const length = view.getUint32(recordOffset + 12);
+    records.push({
+      tag,
+      checksum: view.getUint32(recordOffset + 4),
+      offset,
+      length,
+      data: source.slice(offset, offset + length),
+    });
+  }
+
+  return records;
+}
+
+function setHeadChecksumAdjustment(output: Uint8Array, view: DataView): void {
+  const numTables = view.getUint16(4);
+  for (let index = 0; index < numTables; index++) {
+    const recordOffset = 12 + index * 16;
+    const tag = String.fromCharCode(...output.slice(recordOffset, recordOffset + 4));
+    if (tag !== "head") {
+      continue;
+    }
+
+    const headOffset = view.getUint32(recordOffset + 8);
+    writeUint32(view, headOffset + 8, 0);
+    writeUint32(view, headOffset + 8, (0xb1b0afba - computeChecksum([...output])) >>> 0);
+    return;
+  }
+}
+
+function computeChecksum(bytes: number[]): number {
+  const padded = [...bytes];
+  while (padded.length % 4 !== 0) {
+    padded.push(0);
+  }
+
+  let sum = 0;
+  for (let index = 0; index < padded.length; index += 4) {
+    sum = (sum + (((padded[index] << 24) >>> 0) + (padded[index + 1] << 16) + (padded[index + 2] << 8) + padded[index + 3])) >>> 0;
+  }
+
+  return sum >>> 0;
+}
+
+function align4(value: number): number {
+  return value % 4 === 0 ? value : value + (4 - (value % 4));
+}
+
+function writeTag(output: Uint8Array, offset: number, tag: string): void {
+  for (let index = 0; index < 4; index++) {
+    output[offset + index] = tag.charCodeAt(index);
+  }
+}
+
+function writeUint16(view: DataView, offset: number, value: number): void {
+  view.setUint16(offset, value);
+}
+
+function writeInt16(view: DataView, offset: number, value: number): void {
+  view.setInt16(offset, value);
+}
+
+function writeUint32(view: DataView, offset: number, value: number): void {
+  view.setUint32(offset, value >>> 0);
+}
 
 function verifyGeneratedFont(
   arrayBuffer: ArrayBuffer,
   glyphs: GlyphModel[],
   spacing: ReturnType<typeof normalizeSpacingSettings>,
+  kerningPairs: KerningPair[],
 ): FontVerificationResult {
   const parsed = opentype.parse(arrayBuffer);
   const verifiedGlyphs: FontVerificationResult["verifiedGlyphs"] = [];
   const failedGlyphs: FontVerificationResult["failedGlyphs"] = [];
+  const verifiedKerningPairs: FontVerificationResult["verifiedKerningPairs"] = [];
+  const failedKerningPairs: FontVerificationResult["failedKerningPairs"] = [];
 
   for (const glyph of sortGlyphsByAlphabet(glyphs)) {
     const parsedGlyph = parsed.charToGlyph(glyph.char);
@@ -452,9 +778,22 @@ function verifyGeneratedFont(
     }
   }
 
+  for (const pair of kerningPairs) {
+    const leftGlyph = parsed.charToGlyph(pair.left);
+    const rightGlyph = parsed.charToGlyph(pair.right);
+    const value = (parsed as opentype.Font).getKerningValue(leftGlyph, rightGlyph);
+    if (value === pair.value) {
+      verifiedKerningPairs.push(pair);
+    } else {
+      failedKerningPairs.push(pair);
+    }
+  }
+
   return {
     parsedGlyphCount: parsed.glyphs.length,
     verifiedGlyphs,
     failedGlyphs,
+    verifiedKerningPairs,
+    failedKerningPairs,
   };
 }

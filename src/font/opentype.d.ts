@@ -48,6 +48,7 @@ declare module "opentype.js" {
 
     toArrayBuffer(): ArrayBuffer;
     charToGlyph(char: string): Glyph;
+    getKerningValue(leftGlyph: Glyph | number, rightGlyph: Glyph | number): number;
   }
 
   export function parse(buffer: ArrayBuffer): Font;

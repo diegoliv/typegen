@@ -2,6 +2,8 @@ import {
   GLYPH_CHARS,
   GLYPH_DEFINITIONS,
   glyphNameForChar as sharedGlyphNameForChar,
+  type BoardSpacingSettings,
+  type FontWeightStyle,
   type GlyphChar,
 } from "../shared/types";
 
@@ -63,17 +65,24 @@ export type PersistedTypegenSettings = {
   previewFontSize?: number;
   selectedGlyph: string;
   lastScanNodeIds: string[];
-  spacing: {
+  spacing?: {
     letterSpacing: number;
     spaceWidth: number;
     glyphAdvanceOverrides: Record<string, number>;
+    kerningPairs?: Array<{ left: string; right: string; value: number }>;
   };
 };
 
 export type ActiveBoardInfo = {
   id: string;
   name: string;
-  style: "Regular" | "Bold";
+  style: FontWeightStyle;
+  spacing: BoardSpacingSettings;
+  hasCustomSpacing: boolean;
+};
+
+export type BoardSettingsSource = {
+  activeBoard: ActiveBoardInfo;
 };
 
 export type PluginToUiMessage =
@@ -113,17 +122,23 @@ export type PluginToUiMessage =
       boards: BoardScanResult[];
     }
   | {
+      type: "BOARD_SETTINGS_SOURCES";
+      sources: BoardSettingsSource[];
+    }
+  | {
       type: "VALIDATION_ERROR";
       message: string;
     };
 
 export type UiToPluginMessage =
-  | { type: "CREATE_GLYPH_BOARD"; style?: "Regular" | "Bold" }
-  | { type: "GENERATE_STARTER_GLYPHS"; style?: "Regular" | "Bold" }
+  | { type: "CREATE_GLYPH_BOARD"; style?: FontWeightStyle; mode?: "new" | "update" }
+  | { type: "GENERATE_STARTER_GLYPHS"; style?: FontWeightStyle }
   | { type: "SCAN_SELECTED_GLYPHS" }
   | { type: "SCAN_ALL_GLYPH_BOARDS" }
   | { type: "RESTORE_SAVED_SCAN"; nodeIds: string[] }
   | { type: "SAVE_SETTINGS"; settings: PersistedTypegenSettings }
+  | { type: "SAVE_BOARD_SPACING"; boardId: string; spacing: BoardSpacingSettings }
+  | { type: "REQUEST_BOARD_SETTINGS_SOURCES" }
   | { type: "RESET_SETTINGS" };
 
 export type BoardScanResult = {

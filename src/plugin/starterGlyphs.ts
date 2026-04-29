@@ -83,19 +83,19 @@ async function loadInterStarterFont(style: StarterGlyphStyle, warnings: string[]
     await figma.loadFontAsync(requestedFont);
     return requestedFont;
   } catch {
-    if (style === "Bold") {
+    if (style !== "Regular") {
       const regularFont: FontName = { family: "Inter", style: "Regular" };
       try {
         await figma.loadFontAsync(regularFont);
-        warnings.push("Could not load Inter Bold for starter outlines. Used Inter Regular instead.");
+        warnings.push(`Could not load ${style} for starter outlines. Used Regular instead.`);
         return regularFont;
       } catch {
-        warnings.push("Could not load Inter Bold or Regular for starter outlines. Used geometric fallback glyphs instead.");
+        warnings.push(`Could not load ${style} or Regular for starter outlines. Used geometric fallback glyphs instead.`);
         return null;
       }
     }
 
-    warnings.push("Could not load Inter Regular for starter outlines. Used geometric fallback glyphs instead.");
+    warnings.push("Could not load Regular for starter outlines. Used geometric fallback glyphs instead.");
     return null;
   }
 }
@@ -135,7 +135,7 @@ function addStarterGlyphToSlot(slot: FrameNode, char: GlyphChar, starterFont: Fo
       createInterStarterOutline(slot, char, starterFont);
       return;
     } catch {
-      warnings.push(`${glyphNameForChar(char)} could not be generated, merged, and flattened from Inter. Used geometric fallback for that slot.`);
+      warnings.push(`${glyphNameForChar(char)} could not be generated, merged, and flattened from the starter font. Used geometric fallback for that slot.`);
     }
   }
 
