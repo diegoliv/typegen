@@ -549,7 +549,7 @@ function renderGlyphSpecimenSvg(char: GlyphChar, glyph: GlyphModel, advanceWidth
   const middleCenter = middleOrigin + glyph.bounds.xMin + (glyph.bounds.xMax - glyph.bounds.xMin) / 2;
   const viewBoxWidth = 2930;
   const viewBoxX = Math.round(middleCenter - viewBoxWidth / 2);
-  const viewBox = `${viewBoxX} -330 ${viewBoxWidth} 1080`;
+  const viewBox = `${viewBoxX} -150 ${viewBoxWidth} 1080`;
   const guides = renderGlyphSpecimenGuides(char, viewBoxX, viewBoxX + viewBoxWidth);
   const paths = layout.items
     .map((item, index) => {
