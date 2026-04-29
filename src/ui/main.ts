@@ -31,7 +31,7 @@ import {
   type GlyphScanResult,
   type PersistedTypegenSettings,
 } from '../shared/types';
-import { glyphToSvgPathData, layoutPreviewText, renderPreviewMarkup } from './preview/renderGlyphPreview';
+import { layoutPreviewText, renderPreviewMarkup } from './preview/renderGlyphPreview';
 import './styles.css';
 
 type UiState = {
@@ -484,21 +484,32 @@ function hasGlyphTileIssue(row: GlyphScanResult): boolean {
 }
 
 function hasGlyphTileWarning(row: GlyphScanResult): boolean {
-  return row.status === 'warning' || glyphTileIssueMessages(row).length > 0;
+  return row.status === 'warning' || glyphTileIssueMessages(row).some((message) => !isInformationalGlyphWarning(message));
 }
 
 function glyphTileIssueMessages(row: GlyphScanResult): string[] {
   return [...row.warnings, ...(row.glyph?.warnings ?? []), createWindingWarning(row.glyph)].filter(Boolean).filter(uniqueString);
 }
 
+function isInformationalGlyphWarning(message: string): boolean {
+  return message.includes('temporary flattened copy') || message.includes('temporary flattened slot copy') || message.includes('temporary outlined and flattened copy') || message.includes('temporary outlined copy');
+}
+
 function renderGlyphTileSvg(glyph: GlyphModel): string {
+  const layout = layoutPreviewText(glyph.char, [glyph], state.spacing);
+  const item = layout.items.find((previewItem) => previewItem.kind === 'glyph');
+
+  if (!item || item.kind !== 'glyph') {
+    return `<span>${escapeHtml(glyphLabelForChar(glyph.char))}</span>`;
+  }
+
   const padding = 80;
-  const advanceWidth = Math.max(120, glyph.advanceWidth);
+  const advanceWidth = Math.max(120, item.advanceWidth);
   const metricHeight = FONT_METRICS.ascender - FONT_METRICS.descender;
   const viewBox = `${-padding} ${-padding} ${advanceWidth + padding * 2} ${metricHeight + padding * 2}`;
   const transform = `translate(0 ${FONT_METRICS.ascender}) scale(1 -1)`;
 
-  return `<svg viewBox="${escapeAttr(viewBox)}" aria-hidden="true" preserveAspectRatio="xMidYMid meet"><path d="${escapeAttr(glyphToSvgPathData(glyph))}" transform="${escapeAttr(transform)}" /></svg>`;
+  return `<svg viewBox="${escapeAttr(viewBox)}" aria-hidden="true" preserveAspectRatio="xMidYMid meet"><path d="${escapeAttr(item.pathData)}" transform="${escapeAttr(transform)}" /></svg>`;
 }
 
 function renderMetricSlider(
@@ -551,11 +562,12 @@ function renderRecipeOverlay(): string {
         </div>
         <ol class="recipe-list">
           <li>Name slots exactly <strong>glyph-A</strong> through <strong>glyph-Z</strong>, <strong>glyph-a</strong> through <strong>glyph-z</strong>, <strong>glyph-0</strong> through <strong>glyph-9</strong>, punctuation slots, and common symbol slots such as <strong>glyph-slash</strong> and <strong>glyph-at</strong>.</li>
-          <li>Draw simple filled vector paths inside each slot, or generate starter glyphs and refine the editable outlines.</li>
-          <li>Convert text and strokes to outlines before scanning.</li>
-          <li>Avoid images, effects, gradients, masks, booleans, and live shape layers.</li>
+          <li>Draw filled vectors, filled live shapes, or live booleans inside each slot.</li>
+          <li>Glyph slots are scanned from temporary flattened copies.</li>
+          <li>Convert text, live lines, and strokes to filled outlines before scanning.</li>
+          <li>Avoid images, effects, gradients, masks, and unsupported live shape layers.</li>
         </ol>
-        <p class="status">V7 supports manual pair kerning for scanned glyphs. Variable fonts, AI generation, and broader symbol coverage remain outside this MVP.</p>
+        <p class="status">V8 supports temporary slot flattening and manual pair kerning for scanned glyphs. Variable fonts, AI generation, live lines, and broader symbol coverage remain outside this MVP.</p>
       </section>
     </div>
   `;

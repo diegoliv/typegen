@@ -20,6 +20,15 @@ export type ExtractedGlyph = {
 
 type Point = { x: number; y: number };
 export type Bounds = { xMin: number; yMin: number; xMax: number; yMax: number };
+type VectorSource = {
+  vector: VectorNode;
+  temporary: boolean;
+  cleanupNodes?: BaseNode[];
+  coordinateMap?: {
+    from: Bounds;
+    to: Bounds;
+  };
+};
 
 const COMMAND_RE = /[MmLlHhVvCcQqZz]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi;
 const FONT_UNITS = 1000;
@@ -27,51 +36,71 @@ const CAP_HEIGHT = 700;
 const SLOT_BOUNDS_TOLERANCE = 1;
 const TINY_GLYPH_SIZE = 8;
 const FONT_LEFT_BEARING = 40;
+const IDENTITY_TRANSFORM: Transform = [
+  [1, 0, 0],
+  [0, 1, 0],
+];
 
 export function extractGlyphFromNode(node: SceneNode, char: string): ExtractedGlyph {
   const issues: ExtractionIssue[] = [];
-  const vectors: VectorNode[] = [];
+  const vectorSources: VectorSource[] = [];
   const glyphName = glyphNameForChar(char);
 
-  collectSupportedVectors(node, vectors, issues);
-
-  if (issues.some((issue) => issue.level === "error")) {
-    return { issues, vectorCount: vectors.length };
+  if (isGlyphMetricContainer(node)) {
+    collectFlattenedContainerVector(node, vectorSources, issues);
+  } else {
+    collectSupportedVectors(node, vectorSources, issues);
   }
 
-  if (vectors.length === 0) {
+  if (issues.some((issue) => issue.level === "error")) {
+    cleanupTemporaryVectors(vectorSources);
+    return { issues, vectorCount: vectorSources.length };
+  }
+
+  if (vectorSources.length === 0) {
     return { issues, vectorCount: 0 };
   }
 
   const rawPaths: NormalizedPath[] = [];
   let rawBounds: Bounds | null = null;
 
-  for (const vector of vectors) {
-    for (const path of vector.vectorPaths) {
-      // Counters work best when the user flattens compound glyphs into simple vector paths.
-      // Boolean nodes remain unsupported because their winding can differ from exported font contours.
-      const commands = parseSvgPathData(path.data, vector.absoluteTransform);
-      if (commands.length === 0) {
-        issues.push({ level: "warning", message: `${char}: skipped an empty vector path.` });
-        continue;
-      }
+  try {
+    for (const source of vectorSources) {
+      for (const path of source.vector.vectorPaths) {
+        const parsedCommands = parseVectorPathDataForNode(path.data, source.vector);
+        const commands = source.coordinateMap
+          ? mapCommandsBetweenBounds(parsedCommands, source.coordinateMap.from, source.coordinateMap.to)
+          : parsedCommands;
+        if (commands.length === 0) {
+          issues.push({ level: "warning", message: `${char}: skipped an empty vector path.` });
+          continue;
+        }
 
-      rawPaths.push({
-        commands,
-        windingRule: path.windingRule === "EVENODD" ? "EVENODD" : "NONZERO",
-      });
-      rawBounds = mergeBounds(rawBounds, boundsForCommands(commands));
+        rawPaths.push({
+          commands,
+          windingRule: path.windingRule === "EVENODD" ? "EVENODD" : "NONZERO",
+        });
+        rawBounds = mergeBounds(rawBounds, boundsForCommands(commands));
+      }
     }
+  } finally {
+    cleanupTemporaryVectors(vectorSources);
   }
+
+  if (issues.some((issue) => issue.level === "error")) {
+    return { issues, vectorCount: vectorSources.length };
+  }
+
+  const vectorCount = vectorSources.length;
 
   if (rawPaths.length === 0 || !rawBounds) {
     return {
       issues: [...issues, { level: "error", message: `Glyph ${char} contains vector layers, but no usable path data was found.` }],
-      vectorCount: vectors.length,
+      vectorCount,
     };
   }
 
-  const slotBounds = "children" in node ? boundsForNode(node) : null;
+  const slotBounds = isGlyphMetricContainer(node) ? boundsForNode(node) : null;
   issues.push(...validateRawGeometry(char, glyphName, rawBounds, slotBounds));
 
   const guideProfile = unifiedVisualGuideProfileForChar(char as GlyphChar);
@@ -89,7 +118,7 @@ export function extractGlyphFromNode(node: SceneNode, char: string): ExtractedGl
 
   return {
     issues,
-    vectorCount: vectors.length,
+    vectorCount,
     glyph: {
       char,
       unicode: char.codePointAt(0) ?? 0,
@@ -100,6 +129,270 @@ export function extractGlyphFromNode(node: SceneNode, char: string): ExtractedGl
       warnings: issues.filter((issue) => issue.level === "warning").map((issue) => issue.message),
     },
   };
+}
+
+function collectSupportedVectors(node: SceneNode, vectorSources: VectorSource[], issues: ExtractionIssue[]): void {
+  if (!node.visible) {
+    issues.push({ level: "warning", message: `${node.name}: hidden layer ignored.` });
+    return;
+  }
+
+  if (node.getPluginData("typegen-role") === "helper") {
+    return;
+  }
+
+  if (node.type === "TEXT") {
+    issues.push({ level: "error", message: `${node.name}: text layers are unsupported. Convert text to vector outlines first.` });
+    return;
+  }
+
+  if (node.type === "RECTANGLE" && node.getPluginData("typegen-role") === "helper") {
+    return;
+  }
+
+  if (node.type === "SLICE") {
+    issues.push({ level: "error", message: `${node.name}: unsupported layer type ${node.type}. Use simple filled vector paths.` });
+    return;
+  }
+
+  if ("effects" in node && node.effects.length > 0) {
+    issues.push({ level: "error", message: `${node.name}: effects are unsupported in the MVP. Remove effects before exporting.` });
+    return;
+  }
+
+  if (node.type === "BOOLEAN_OPERATION") {
+    const flattened = flattenCloneToVector(node, issues, `${node.name}: boolean operation could not be flattened. Flatten it manually and scan again.`);
+    if (flattened) {
+      vectorSources.push({ vector: flattened, temporary: true });
+    }
+    return;
+  }
+
+  if (node.type === "LINE") {
+    issues.push({ level: "error", message: `${node.name}: live lines are unsupported. Convert strokes to filled vector outlines before scanning.` });
+    return;
+  }
+
+  if (node.type === "VECTOR") {
+    if (hasVisibleStrokes(node)) {
+      issues.push({ level: "error", message: `${node.name}: stroked vectors are unsupported. Convert strokes to filled vector outlines before scanning.` });
+      return;
+    }
+
+    if (!hasSimpleVisibleFill(node)) {
+      issues.push({ level: "error", message: `${node.name}: use simple filled vector shapes.` });
+      return;
+    }
+
+    vectorSources.push({ vector: node, temporary: false });
+    return;
+  }
+
+  if (node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR") {
+    const hasImageFill = "fills" in node && Array.isArray(node.fills) && node.fills.some((paint) => paint.visible !== false && paint.type === "IMAGE");
+    issues.push({
+      level: "error",
+      message: hasImageFill
+        ? `${node.name}: image fills are unsupported. Use filled vector paths.`
+        : `${node.name}: convert shape layers to vector outlines before scanning.`,
+    });
+    return;
+  }
+
+  if ("children" in node) {
+    for (const child of node.children) {
+      collectSupportedVectors(child, vectorSources, issues);
+    }
+    return;
+  }
+}
+
+function collectFlattenedContainerVector(
+  node: FrameNode | ComponentNode | InstanceNode,
+  vectorSources: VectorSource[],
+  issues: ExtractionIssue[],
+): void {
+  validateFlattenableContainerArtwork(node, issues);
+  if (issues.some((issue) => issue.level === "error")) {
+    return;
+  }
+
+  let clone: FrameNode | ComponentNode | InstanceNode | null = null;
+  let flattened: VectorNode | null = null;
+
+  try {
+    clone = node.clone();
+    clone.name = `tg-temp-container-${node.name}`;
+    markTemporaryNode(clone);
+    clone.relativeTransform = node.relativeTransform;
+
+    if (!clone.parent) {
+      getTemporaryParent(node).appendChild(clone);
+      clone.relativeTransform = node.relativeTransform;
+    }
+
+    removeIgnoredCloneNodes(clone);
+    const artwork = clone.children.filter((child) => child.getPluginData("typegen-role") !== "helper");
+    if (artwork.length === 0) {
+      cleanupTemporaryNode(clone);
+      return;
+    }
+
+    flattened = figma.flatten(artwork, clone);
+    flattened.name = `tg-temp-flattened-${node.name}`;
+    markTemporaryNode(flattened);
+    const sourceBounds = boundsForNode(node);
+    const cloneBounds = boundsForNode(clone);
+    vectorSources.push({
+      vector: flattened,
+      temporary: true,
+      cleanupNodes: [clone],
+      coordinateMap: sourceBounds && cloneBounds ? { from: cloneBounds, to: sourceBounds } : undefined,
+    });
+  } catch {
+    cleanupTemporaryNode(flattened);
+    cleanupTemporaryNode(clone);
+    issues.push({ level: "error", message: `${node.name}: glyph artwork could not be flattened. Convert unsupported layers to filled vectors, then scan again.` });
+  }
+}
+
+function validateFlattenableContainerArtwork(node: SceneNode, issues: ExtractionIssue[]): void {
+  if (!node.visible) {
+    issues.push({ level: "warning", message: `${node.name}: hidden layer ignored.` });
+    return;
+  }
+
+  if (node.getPluginData("typegen-role") === "helper") {
+    return;
+  }
+
+  if (node.type === "BOOLEAN_OPERATION") {
+    return;
+  }
+
+  if (node.type === "LINE") {
+    issues.push({ level: "error", message: `${node.name}: live lines are unsupported. Convert strokes to filled vector outlines before scanning.` });
+    return;
+  }
+
+  if (node.type === "TEXT") {
+    issues.push({ level: "error", message: `${node.name}: text layers are unsupported. Convert text to vector outlines first.` });
+    return;
+  }
+
+  if (node.type === "SLICE") {
+    issues.push({ level: "error", message: `${node.name}: unsupported layer type ${node.type}. Use filled vectors, booleans, or outlined lines.` });
+    return;
+  }
+
+  if ("effects" in node && node.effects.length > 0) {
+    issues.push({ level: "error", message: `${node.name}: effects are unsupported in the MVP. Remove effects before exporting.` });
+    return;
+  }
+
+  if (node.type === "VECTOR") {
+    if (hasVisibleStrokes(node)) {
+      issues.push({ level: "error", message: `${node.name}: stroked vectors are unsupported. Convert strokes to filled vector outlines before scanning.` });
+      return;
+    }
+
+    if (!hasSimpleVisibleFill(node)) {
+      issues.push({ level: "error", message: `${node.name}: use simple filled vector shapes.` });
+    }
+    return;
+  }
+
+  if (node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR") {
+    const hasImageFill = "fills" in node && Array.isArray(node.fills) && node.fills.some((paint) => paint.visible !== false && paint.type === "IMAGE");
+    if (hasImageFill) {
+      issues.push({ level: "error", message: `${node.name}: image fills are unsupported. Use filled vector paths.` });
+      return;
+    }
+
+    if (!hasSimpleVisiblePaint(node.fills)) {
+      issues.push({ level: "error", message: `${node.name}: use a simple solid fill before scanning.` });
+    }
+    return;
+  }
+
+  if ("children" in node) {
+    for (const child of node.children) {
+      validateFlattenableContainerArtwork(child, issues);
+    }
+  }
+}
+
+function removeIgnoredCloneNodes(node: SceneNode): void {
+  if ("children" in node) {
+    for (const child of [...node.children]) {
+      if (!child.visible || child.getPluginData("typegen-role") === "helper") {
+        child.remove();
+        continue;
+      }
+
+      removeIgnoredCloneNodes(child);
+    }
+  }
+}
+
+function flattenCloneToVector(
+  node: BooleanOperationNode,
+  issues: ExtractionIssue[],
+  errorMessage: string,
+): VectorNode | null {
+  let clone: BooleanOperationNode | null = null;
+  let flattened: VectorNode | null = null;
+
+  try {
+    const parent = getTemporaryParent(node);
+    clone = node.clone();
+    clone.name = `tg-temp-flatten-${node.name}`;
+    markTemporaryNode(clone);
+    if (!clone.parent) {
+      parent.appendChild(clone);
+    }
+
+    flattened = figma.flatten([clone], parent);
+    flattened.name = `tg-temp-vector-${node.name}`;
+    markTemporaryNode(flattened);
+    issues.push({ level: "warning", message: `${node.name}: boolean operation was scanned from a temporary flattened copy.` });
+    return flattened;
+  } catch {
+    cleanupTemporaryNode(flattened);
+    cleanupTemporaryNode(clone);
+    issues.push({ level: "error", message: errorMessage });
+    return null;
+  }
+}
+
+function getTemporaryParent(node: SceneNode): BaseNode & ChildrenMixin {
+  return node.parent && "appendChild" in node.parent ? node.parent : figma.currentPage;
+}
+
+function cleanupTemporaryVectors(vectorSources: VectorSource[]): void {
+  for (const source of vectorSources) {
+    if (source.temporary) {
+      cleanupTemporaryNode(source.vector);
+    }
+
+    for (const node of source.cleanupNodes ?? []) {
+      cleanupTemporaryNode(node);
+    }
+  }
+}
+
+function cleanupTemporaryNode(node: BaseNode | null): void {
+  if (node && !node.removed) {
+    node.remove();
+  }
+}
+
+function markTemporaryNode(node: BaseNode): void {
+  node.setPluginData("typegen-role", "helper");
+}
+
+function isGlyphMetricContainer(node: SceneNode): node is FrameNode | ComponentNode | InstanceNode {
+  return node.type === "FRAME" || node.type === "COMPONENT" || node.type === "INSTANCE";
 }
 
 function readSlotFrameAdvanceWidth(
@@ -131,88 +424,39 @@ function shouldFitGlyphToAdvance(char: string): boolean {
   return defaultAdvanceForChar(char as GlyphChar) < 700;
 }
 
-function collectSupportedVectors(node: SceneNode, vectors: VectorNode[], issues: ExtractionIssue[]): void {
-  if (!node.visible) {
-    issues.push({ level: "warning", message: `${node.name}: hidden layer ignored.` });
-    return;
-  }
-
-  if (node.getPluginData("typegen-role") === "helper") {
-    return;
-  }
-
-  if (node.type === "TEXT") {
-    issues.push({ level: "error", message: `${node.name}: text layers are unsupported. Convert text to vector outlines first.` });
-    return;
-  }
-
-  if (node.type === "RECTANGLE" && node.getPluginData("typegen-role") === "helper") {
-    return;
-  }
-
-  if (node.type === "SLICE") {
-    issues.push({ level: "error", message: `${node.name}: unsupported layer type ${node.type}. Use simple filled vector paths.` });
-    return;
-  }
-
-  if ("effects" in node && node.effects.length > 0) {
-    issues.push({ level: "error", message: `${node.name}: effects are unsupported in the MVP. Remove effects before exporting.` });
-    return;
-  }
-
-  if (node.type === "VECTOR") {
-    if (hasVisibleStrokes(node)) {
-      issues.push({ level: "error", message: `${node.name}: contains strokes. Expand strokes before exporting.` });
-      return;
-    }
-
-    if (!hasSimpleVisibleFill(node)) {
-      issues.push({ level: "error", message: `${node.name}: use simple filled vector shapes.` });
-      return;
-    }
-
-    vectors.push(node);
-    return;
-  }
-
-  if (node.type === "BOOLEAN_OPERATION") {
-    issues.push({
-      level: "error",
-      message: `${node.name}: boolean operations are unsupported in V0.2. Flatten or convert to vector outlines first.`,
-    });
-    return;
-  }
-
-  if (node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "POLYGON" || node.type === "STAR" || node.type === "LINE") {
-    const hasImageFill = "fills" in node && Array.isArray(node.fills) && node.fills.some((paint) => paint.visible !== false && paint.type === "IMAGE");
-    issues.push({
-      level: "error",
-      message: hasImageFill
-        ? `${node.name}: image fills are unsupported. Use filled vector paths.`
-        : `${node.name}: convert shape layers to vector outlines before scanning.`,
-    });
-    return;
-  }
-
-  if ("children" in node) {
-    for (const child of node.children) {
-      collectSupportedVectors(child, vectors, issues);
-    }
-    return;
-  }
-}
-
-function hasVisibleStrokes(node: VectorNode): boolean {
+function hasVisibleStrokes(node: VectorNode | LineNode): boolean {
   return Array.isArray(node.strokes) && node.strokes.some((paint) => paint.visible !== false);
 }
 
 function hasSimpleVisibleFill(node: VectorNode): boolean {
-  if (!Array.isArray(node.fills)) {
+  return hasSimpleVisiblePaint(node.fills);
+}
+
+function hasSimpleVisiblePaint(fills: readonly Paint[] | PluginAPI["mixed"]): boolean {
+  if (!Array.isArray(fills)) {
     return false;
   }
 
-  const visibleFills = node.fills.filter((paint) => paint.visible !== false);
+  const visibleFills = fills.filter((paint) => paint.visible !== false);
   return visibleFills.length > 0 && visibleFills.every((paint) => paint.type === "SOLID");
+}
+
+function parseVectorPathDataForNode(data: string, vector: VectorNode): GlyphCommand[] {
+  const transformed = parseSvgPathData(data, vector.absoluteTransform);
+  const absoluteBounds = boundsForAbsoluteBoundingBox(vector.absoluteBoundingBox);
+
+  if (!absoluteBounds || transformed.length === 0) {
+    return transformed;
+  }
+
+  const local = parseSvgPathData(data, IDENTITY_TRANSFORM);
+  if (local.length === 0) {
+    return transformed;
+  }
+
+  const transformedScore = boundsDistance(boundsForCommands(transformed), absoluteBounds);
+  const localScore = boundsDistance(boundsForCommands(local), absoluteBounds);
+  return localScore + 0.5 < transformedScore ? local : transformed;
 }
 
 function parseSvgPathData(data: string, transform: Transform): GlyphCommand[] {
@@ -301,6 +545,47 @@ function parseSvgPathData(data: string, transform: Transform): GlyphCommand[] {
   return commands;
 }
 
+function mapCommandsBetweenBounds(commands: GlyphCommand[], from: Bounds, to: Bounds): GlyphCommand[] {
+  const fromWidth = Math.max(1, from.xMax - from.xMin);
+  const fromHeight = Math.max(1, from.yMax - from.yMin);
+  const toWidth = Math.max(1, to.xMax - to.xMin);
+  const toHeight = Math.max(1, to.yMax - to.yMin);
+  const scaleX = toWidth / fromWidth;
+  const scaleY = toHeight / fromHeight;
+  const mapPoint = (point: Point): Point => ({
+    x: to.xMin + (point.x - from.xMin) * scaleX,
+    y: to.yMin + (point.y - from.yMin) * scaleY,
+  });
+  const mapRounded = (point: Point): Point => {
+    const mapped = mapPoint(point);
+    return {
+      x: Math.round(mapped.x * 1000) / 1000,
+      y: Math.round(mapped.y * 1000) / 1000,
+    };
+  };
+
+  return commands.map((command) => {
+    if (command.type === "M" || command.type === "L") {
+      return { type: command.type, ...mapRounded(command) };
+    }
+
+    if (command.type === "C") {
+      const p1 = mapRounded({ x: command.x1, y: command.y1 });
+      const p2 = mapRounded({ x: command.x2, y: command.y2 });
+      const p = mapRounded({ x: command.x, y: command.y });
+      return { type: "C", x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, x: p.x, y: p.y };
+    }
+
+    if (command.type === "Q") {
+      const p1 = mapRounded({ x: command.x1, y: command.y1 });
+      const p = mapRounded({ x: command.x, y: command.y });
+      return { type: "Q", x1: p1.x, y1: p1.y, x: p.x, y: p.y };
+    }
+
+    return command;
+  });
+}
+
 function readPoint(tokens: string[], index: number, current: Point, relative: boolean): Point {
   const x = Number(tokens[index]);
   const y = Number(tokens[index + 1]);
@@ -363,6 +648,28 @@ function boundsForCommands(commands: GlyphCommand[]): Bounds {
     xMax: Math.max(...points.map((point) => point.x)),
     yMax: Math.max(...points.map((point) => point.y)),
   };
+}
+
+function boundsForAbsoluteBoundingBox(box: Rect | null): Bounds | null {
+  if (!box) {
+    return null;
+  }
+
+  return {
+    xMin: box.x,
+    yMin: box.y,
+    xMax: box.x + box.width,
+    yMax: box.y + box.height,
+  };
+}
+
+function boundsDistance(a: Bounds, b: Bounds): number {
+  return (
+    Math.abs(a.xMin - b.xMin) +
+    Math.abs(a.yMin - b.yMin) +
+    Math.abs(a.xMax - b.xMax) +
+    Math.abs(a.yMax - b.yMax)
+  );
 }
 
 function mergeBounds(

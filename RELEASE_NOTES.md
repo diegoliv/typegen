@@ -1,5 +1,22 @@
 # Release Notes
 
+## 8.0.0-alpha.1
+
+Typegen V8.0 alpha temporary slot flattening.
+
+### Added
+
+- Glyph slot artwork now scans through a temporary flattened copy before path extraction.
+- Live Figma boolean operation nodes can scan without destructively flattening source artwork.
+- Filled live shape layers, including rounded rectangles, can scan through the same temporary flattening path.
+- Recipe and QA docs now describe the supported V8 temporary slot flattening workflow.
+
+### Still Out Of Scope
+
+- Live lines, stroked vectors, text layers, images, gradients, effects, masks, and unsupported live shape layers.
+- Destructive canvas conversion during scan; source artwork should remain editable.
+- Variable fonts, AI generation, WOFF, or WOFF2 export.
+
 ## 7.0.0-alpha.1
 
 Typegen V7.0 alpha manual kerning.

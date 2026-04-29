@@ -1,4 +1,4 @@
-# Typegen V5 Alpha QA Checklist
+# Typegen V8 Alpha QA Checklist
 
 ## QA Goal
 
@@ -13,21 +13,21 @@ Validate that the smallest working Typegen loop remains stable and becomes relia
 7. Click `Generate font` to export the weight ZIP.
 8. Smoke test the exported font in a browser or font viewer.
 
-V5 alpha QA should first re-run the V4 happy path, then focus on export package polish: the OTF remains the only font binary format, one output button packages all valid board weights, and the ZIP test page uses inline CSS with one row per generated weight.
+V8 alpha QA should first re-run the V7 happy path, then focus on temporary slot flattening for filled vectors, live shapes, and booleans: the OTF remains the only font binary format, and scan-time flattening must preserve the original Figma artwork.
 
 ## Supported Glyph Recipe
 
 - Uppercase A-Z, lowercase a-z, numbers 0-9, basic punctuation, and common symbols.
 - Glyph slots are named `glyph-A` through `glyph-Z`, `glyph-a` through `glyph-z`, `glyph-0` through `glyph-9`, `glyph-period`, `glyph-comma`, `glyph-exclamation`, `glyph-question`, `glyph-hyphen`, `glyph-colon`, `glyph-apostrophe`, `glyph-quote`, `glyph-slash`, `glyph-paren-left`, `glyph-paren-right`, `glyph-ampersand`, `glyph-plus`, `glyph-equals`, and `glyph-at`.
-- Glyphs are simple filled vector shapes inside glyph slots.
+- Glyphs may be simple filled vector shapes, filled live shape layers, or live boolean operations inside glyph slots.
 - `Generate starter glyphs` may be used to create editable Inter-derived starting outlines in empty slots.
 - Starter generation must skip slots that already contain non-helper artwork.
 - Use vector outlines, not live text.
-- Strokes should be expanded before export.
+- Stroked lines and stroked vectors should be converted to filled outlines before scanning.
 - Use solid fills only.
 - Keep glyph artwork inside the slot bounds where possible.
 - Draw counters, such as the holes in `O`, `B`, `P`, and `R`, as proper compound vector outlines when supported by Figma export/path data.
-- Prefer flattened vector outlines for counter glyphs; avoid live boolean layers.
+- Live boolean layers should scan through Typegen's temporary flatten step; manually flattened vector outlines remain the safest fallback for counter glyphs.
 - Multi-contour glyphs should be checked in both preview and exported smoke-test HTML because path winding can affect whether counters stay open.
 - Mixed winding rules in one glyph should be treated as a warning that needs manual smoke testing.
 - Avoid mixed layer types inside a glyph slot during V2 testing unless intentionally testing validation.
@@ -138,6 +138,16 @@ Record these before each QA pass:
 - [ ] ZIP `index.html` shows one specimen row per generated weight.
 - [ ] WOFF and WOFF2 are not exposed in the UI.
 
+## V8.0 Temporary Flattening Checks
+
+- [ ] A glyph built from a live boolean operation scans as valid without permanently flattening the source artwork.
+- [ ] A glyph built from a filled rounded rectangle scans as valid without permanently flattening the source artwork.
+- [ ] A glyph built from a filled ellipse/polygon/star scans as valid without permanently flattening the source artwork.
+- [ ] The glyph grid shows valid temporary-flattened glyphs without warning styling.
+- [ ] Preview and exported OTF render the temporary-flattened glyphs.
+- [ ] Live lines and stroked vectors show actionable validation messages asking for filled outlines.
+- [ ] Text, images, gradients, effects, masks, and unsupported live shape layers still show actionable validation messages.
+
 ## V3.1 Board Migration Checks
 
 - [ ] Fresh board creates slots in A-Z, a-z, 0-9, punctuation order.
@@ -190,7 +200,7 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] UI includes a supported glyph recipe/help panel.
 - [ ] UI includes a `Ready to export` diagnostics panel.
 - [ ] `Show recipe` / `Hide recipe` toggles the help panel.
-- [ ] Help panel mentions A-Z, 0-9, supported punctuation names, filled vectors, outlined strokes/text, and unsupported MVP features.
+- [ ] Help panel mentions supported glyph names, filled vectors/shapes, temporary slot flattening, text/stroke outlines, and unsupported MVP features.
 
 ### Glyph Board Creation
 
@@ -239,7 +249,7 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Filled vector glyph reports valid or ready.
 - [ ] Glyph containing a text layer asks user to convert text to outlines.
 - [ ] Glyph containing an image layer reports images are unsupported.
-- [ ] Glyph containing a stroked vector reports strokes must be expanded.
+- [ ] Glyph containing a stroked vector asks user to convert strokes to filled outlines.
 - [ ] Glyph containing gradients/effects reports unsupported styling.
 - [ ] Hidden layers are ignored or reported with a warning.
 - [ ] Unsupported characters outside A-Z, 0-9, and supported punctuation are rejected with MVP scope messaging.
@@ -484,7 +494,7 @@ Expected result: supported custom glyphs visibly render with Typegen outlines; u
 - Reset clears document-level saved settings; generated font binaries are still not persisted.
 - The recipe/help panel is informational only; it does not change validation behavior.
 - No AI glyph generation.
-- No strokes unless expanded to outlines.
+- Stroked lines and stroked vectors must be converted to filled outlines before scanning.
 - No image/text/gradient/effect support for glyph outlines.
 - Export is one static font file format only.
 - Compound path/counter support may be limited by current extraction behavior; document exact failures.

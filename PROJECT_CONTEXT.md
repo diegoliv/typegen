@@ -92,8 +92,8 @@ The plugin must read vector path data from selected glyph nodes.
 For MVP, support the simplest reliable path:
 
 * Vector nodes inside each glyph frame/component
-* Boolean/compound shapes only if easy to support
-* Ignore images, text layers, effects, strokes, gradients, and complex fills at first
+* Filled vectors, filled live shape layers, and boolean/compound shapes by flattening a temporary slot copy before glyph extraction
+* Ignore images, text layers, effects, gradients, and complex fills at first
 
 The extraction should produce a normalized outline representation that can be passed into the font generation engine.
 
@@ -102,7 +102,7 @@ Important: the MVP may impose strict constraints on glyph construction if needed
 Example constraints:
 
 * Use filled vector shapes only
-* Convert strokes to outlines before generating font
+* Convert strokes and live lines to filled outlines before generating font
 * Avoid gradients and effects
 * Each glyph should be a frame containing vector paths
 
@@ -275,7 +275,7 @@ Example messages:
 
 * “Glyph A has no vector paths.”
 * “Glyph B contains a text layer. Convert it to outlines first.”
-* “Glyph C contains strokes. Expand strokes before exporting.”
+* "Glyph C contains a live line. Convert strokes to filled vector outlines before scanning."
 * “Only uppercase A–Z is supported in this MVP.”
 
 ### Prefer working constraints over fragile magic
