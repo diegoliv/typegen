@@ -1,18 +1,26 @@
-import type { GlyphScanResult, PersistedTypegenSettings, ScanSummary } from './types';
+import type { BoardSpacingSettings, FontWeightStyle, GlyphScanResult, PersistedTypegenSettings, ScanSummary } from './types';
 
 export type ActiveBoardInfo = {
   id: string;
   name: string;
-  style: 'Regular' | 'Bold';
+  style: FontWeightStyle;
+  spacing: BoardSpacingSettings;
+  hasCustomSpacing: boolean;
+};
+
+export type BoardSettingsSource = {
+  activeBoard: ActiveBoardInfo;
 };
 
 export type UiToPluginMessage =
-  | { type: 'CREATE_GLYPH_BOARD'; style?: 'Regular' | 'Bold' }
-  | { type: 'GENERATE_STARTER_GLYPHS'; style?: 'Regular' | 'Bold' }
+  | { type: 'CREATE_GLYPH_BOARD'; style?: FontWeightStyle; mode?: 'new' | 'update' }
+  | { type: 'GENERATE_STARTER_GLYPHS'; style?: FontWeightStyle }
   | { type: 'SCAN_SELECTED_GLYPHS' }
   | { type: 'SCAN_ALL_GLYPH_BOARDS' }
   | { type: 'RESTORE_SAVED_SCAN'; nodeIds: string[] }
   | { type: 'SAVE_SETTINGS'; settings: PersistedTypegenSettings }
+  | { type: 'SAVE_BOARD_SPACING'; boardId: string; spacing: BoardSpacingSettings }
+  | { type: 'REQUEST_BOARD_SETTINGS_SOURCES' }
   | { type: 'RESET_SETTINGS' };
 
 export type PluginToUiMessage =
@@ -50,6 +58,10 @@ export type PluginToUiMessage =
   | {
       type: 'ALL_GLYPH_BOARDS_SCANNED';
       boards: BoardScanResult[];
+    }
+  | {
+      type: 'BOARD_SETTINGS_SOURCES';
+      sources: BoardSettingsSource[];
     }
   | {
       type: 'VALIDATION_ERROR';

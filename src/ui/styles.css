@@ -134,6 +134,11 @@ button:disabled:not(.primary-action) {
   flex: 0 0 auto;
 }
 
+#update-board {
+  width: auto;
+  flex: 0 0 auto;
+}
+
 #generate-starters {
   width: 125px;
   flex: 0 0 125px;
@@ -296,7 +301,7 @@ button:disabled:not(.primary-action) {
   white-space: nowrap;
 }
 
-.active-action-row #create-board {
+.active-action-row #update-board {
   width: 104px;
 }
 
@@ -402,6 +407,10 @@ h2 {
   height: 28px;
   min-height: 28px;
   padding: 4px 28px 4px 8px;
+}
+
+.board-settings-summary {
+  width: 100%;
 }
 
 .preset-grid {
@@ -809,6 +818,47 @@ h2 {
 
 .recipe-list strong {
   color: #1f1f1f;
+}
+
+.board-creation-overlay {
+  gap: 16px;
+}
+
+.board-creation-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.board-creation-row .primary-action {
+  min-width: 128px;
+  white-space: nowrap;
+}
+
+.import-settings-overlay {
+  gap: 16px;
+}
+
+.checkbox-list {
+  display: grid;
+  gap: 8px;
+}
+
+.checkbox-list label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: #1f1f1f;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.checkbox-list input {
+  width: 14px;
+  height: 14px;
+  min-height: 14px;
 }
 
 .glyph-detail-preview {

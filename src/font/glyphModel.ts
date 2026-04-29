@@ -16,7 +16,7 @@ export {
   glyphNameForChar,
 } from '../shared/types';
 
-import { GLYPH_CHARS, type GlyphChar, type GlyphModel, type KerningPair } from '../shared/types';
+import { GLYPH_CHARS, type BoardSpacingSettings, type GlyphChar, type GlyphModel, type KerningPair } from '../shared/types';
 
 export const FONT_METRICS = {
   unitsPerEm: 1000,
@@ -56,12 +56,7 @@ export type FontVerifiedGlyph = {
   commandCount: number;
 };
 
-export type FontSpacingSettings = {
-  letterSpacing: number;
-  spaceWidth: number;
-  glyphAdvanceOverrides: Partial<Record<GlyphChar, number>>;
-  kerningPairs: KerningPair[];
-};
+export type FontSpacingSettings = BoardSpacingSettings;
 
 export const DEFAULT_SPACING: FontSpacingSettings = {
   letterSpacing: 0,

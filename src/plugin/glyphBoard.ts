@@ -7,7 +7,16 @@ import {
   glyphCharFromName,
   glyphNameForChar,
 } from "./pluginTypes";
-import { glyphLabelForChar, unifiedVisualGuideProfileForChar, type GlyphChar, type SlotGuideProfile } from "../shared/types";
+import {
+  DEFAULT_FONT_WEIGHT_STYLE,
+  FONT_WEIGHT_DEFINITIONS,
+  glyphLabelForChar,
+  isFontWeightStyle,
+  unifiedVisualGuideProfileForChar,
+  type FontWeightStyle,
+  type GlyphChar,
+  type SlotGuideProfile,
+} from "../shared/types";
 
 const GAP = 24;
 const COLUMNS = 6;
@@ -15,7 +24,7 @@ const PADDING = 32;
 const LABEL_FONT: FontName = { family: "Inter", style: "Regular" };
 const BOARD_STYLE_KEY = "typegen-board-style";
 
-export type GlyphBoardStyle = "Regular" | "Bold";
+export type GlyphBoardStyle = FontWeightStyle;
 
 export type GlyphBoardResult = {
   board: FrameNode;
@@ -23,11 +32,13 @@ export type GlyphBoardResult = {
   warnings: string[];
   created: boolean;
   addedSlots: number;
+  duplicatePrevented: boolean;
 };
 
-export async function createGlyphBoard(style: GlyphBoardStyle = "Regular"): Promise<GlyphBoardResult> {
+export async function createGlyphBoard(style: GlyphBoardStyle = DEFAULT_FONT_WEIGHT_STYLE, mode: "new" | "update" = "update"): Promise<GlyphBoardResult> {
   const selectedBoard = findSelectedGlyphBoard();
-  const boardStyle = selectedBoard ? getGlyphBoardStyle(selectedBoard) : sanitizeBoardStyle(style);
+  const requestedStyle = sanitizeBoardStyle(style);
+  const boardStyle = mode === "update" && selectedBoard ? getGlyphBoardStyle(selectedBoard) : requestedStyle;
   const warnings: string[] = [];
   let labelsEnabled = true;
 
@@ -38,7 +49,26 @@ export async function createGlyphBoard(style: GlyphBoardStyle = "Regular"): Prom
     warnings.push("Could not load Inter Regular for board labels. Slots were still created.");
   }
 
-  const existingBoard = selectedBoard ?? findExistingBoard(boardStyle);
+  if (mode === "update" && !selectedBoard) {
+    throw new Error("Select a Typegen glyph board before updating it, or create a new board from the weight picker.");
+  }
+
+  const duplicateBoard = mode === "new" ? findExistingBoard(boardStyle) : null;
+  if (duplicateBoard) {
+    figma.currentPage.selection = [duplicateBoard];
+    figma.viewport.scrollAndZoomIntoView([duplicateBoard]);
+    warnings.push(`A ${boardStyle} board already exists. Typegen allows one board per weight.`);
+    return {
+      board: duplicateBoard,
+      style: boardStyle,
+      warnings,
+      created: false,
+      addedSlots: 0,
+      duplicatePrevented: true,
+    };
+  }
+
+  const existingBoard = mode === "update" ? selectedBoard : null;
   const board = existingBoard ?? createBoardFrame(boardStyle);
   setBoardStyle(board, boardStyle);
   const existingSlotsByChar = collectExistingSlots(board);
@@ -68,11 +98,11 @@ export async function createGlyphBoard(style: GlyphBoardStyle = "Regular"): Prom
   figma.currentPage.selection = [board];
   figma.viewport.scrollAndZoomIntoView([board]);
 
-  return { board, style: boardStyle, warnings, created: !existingBoard, addedSlots };
+  return { board, style: boardStyle, warnings, created: !existingBoard, addedSlots, duplicatePrevented: false };
 }
 
 function sanitizeBoardStyle(style: GlyphBoardStyle): GlyphBoardStyle {
-  return style === "Bold" ? "Bold" : "Regular";
+  return isFontWeightStyle(style) ? style : DEFAULT_FONT_WEIGHT_STYLE;
 }
 
 function collectExistingSlots(board: FrameNode): Map<string, SceneNode> {
@@ -145,34 +175,30 @@ function isGlyphBoardFrameForStyle(node: BaseNode, style: GlyphBoardStyle): node
 function isGlyphBoardFrame(node: BaseNode): node is FrameNode {
   return (
     node.type === "FRAME" &&
-    (node.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_BOARD || node.name === "Font Glyph Board" || node.name.startsWith("Font Glyph Board - Inter "))
+    (node.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_BOARD || node.name === "Font Glyph Board" || node.name.startsWith("Font Glyph Board - "))
   );
 }
 
 export function getGlyphBoardStyle(board: FrameNode): GlyphBoardStyle {
   const style = board.getPluginData(BOARD_STYLE_KEY);
-  if (style === "Bold") {
-    return "Bold";
+  if (isFontWeightStyle(style)) {
+    return style;
   }
 
-  if (style === "Regular") {
-    return "Regular";
-  }
-
-  return board.name.includes("Bold") ? "Bold" : "Regular";
+  const weightByLongestLabel = [...FONT_WEIGHT_DEFINITIONS].sort((a, b) => b.style.length - a.style.length);
+  const boardName = board.name.toLowerCase();
+  return weightByLongestLabel.find((definition) => boardName.includes(definition.style.toLowerCase()))?.style ?? DEFAULT_FONT_WEIGHT_STYLE;
 }
 
 function setBoardStyle(board: FrameNode, style: GlyphBoardStyle): void {
   board.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_BOARD);
   board.setPluginData(BOARD_STYLE_KEY, style);
 
-  if (board.name !== "Font Glyph Board" || style === "Bold") {
-    board.name = boardNameForStyle(style);
-  }
+  board.name = boardNameForStyle(style);
 }
 
 function boardNameForStyle(style: GlyphBoardStyle): string {
-  return `Font Glyph Board - Inter ${style}`;
+  return `Font Glyph Board - ${style}`;
 }
 
 function createBoardFrame(style: GlyphBoardStyle): FrameNode {

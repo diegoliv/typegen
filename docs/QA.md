@@ -69,10 +69,10 @@ Record these before each QA pass:
 16. Confirm mixed-case preview renders A, B, C, b, o, x, 0, 1, and 2 using scanned outlines.
 17. Enter preview text: `bag go ox`.
 18. Confirm `g` descends below the baseline while `a`, `o`, and `x` align around x-height.
-19. Generate both Regular and Bold boards if testing the multi-weight path.
+19. Generate at least two different weight boards if testing the multi-weight path.
 20. Click `Generate font`.
 21. Confirm the ZIP filename is based on `Typegen Demo`.
-22. Confirm the ZIP contains `fonts/Typegen-Demo-Regular.otf`, `fonts/Typegen-Demo-Bold.otf`, and `index.html` when both weights have valid glyphs.
+22. Confirm the ZIP contains one `fonts/Typegen-Demo-{Weight}.otf` file per valid board weight plus `index.html`.
 23. Open the ZIP `index.html` in a browser.
 24. Confirm it shows one row for each generated weight.
 25. Smoke test `ABOPR PRO BAR`, `2024 A10`, `ABC, 123! OK?`, `box`, `go`, `bag`, `go ox`, `ABC box 012`, `type`, `glyph`, `font`, `quick`, `boxing glyph`, `a/b @2+2`, `A+B=C`, `font@example`, and `(quick)`.
@@ -102,11 +102,17 @@ Record these before each QA pass:
 
 ## V4.2 Starter Style Checks
 
-- [ ] Starter style selector offers Inter Regular and Inter Bold.
-- [ ] `Create/update glyph board` creates or updates the board for the selected starter style.
-- [ ] If a Regular board exists, switching to Inter Bold and clicking `Create/update glyph board` creates a separate Bold board.
-- [ ] If a Bold board or one of its slots is selected, `Create/update glyph board` updates the Bold board even if the UI control still says Regular.
-- [ ] If a Bold board or one of its slots is selected, `Generate starter glyphs` fills the Bold board and uses the Bold starter style.
+- [ ] Starter weight selector offers Thin, Extra Light, Light, Regular, Medium, Semi Bold, Bold, Extra Bold, and Black.
+- [ ] New board creation opens a weight select before creating a board.
+- [ ] The settings panel starter row does not include a separate new-board button.
+- [ ] The new-board modal keeps the create action on the same row as the weight select and shows a disabled `Creating...` state until the board is created and selected.
+- [ ] Changing letter spacing, space width, advance overrides, and kerning on one board does not affect another selected board.
+- [ ] Closing and reopening the plugin, then selecting an existing board, restores that board's saved spacing, advance override, and kerning state.
+- [ ] Creating a new board starts with default spacing even if another board has custom spacing.
+- [ ] `Import settings` copies the selected categories from another board into the active board and persists the imported state.
+- [ ] If a Regular board exists, choosing Regular again selects the existing board instead of creating a duplicate.
+- [ ] If a Bold board or one of its slots is selected, `Update board` updates the Bold board even if the UI control still says Regular.
+- [ ] If a Bold board or one of its slots is selected, `Generate starter glyphs` fills the Bold board and uses the Bold starter weight.
 - [ ] After creating or generating into a board, `Scan selected glyphs` scans that active board when no other canvas selection is present.
 - [ ] Generating on a fresh Regular board creates editable regular-weight outlines.
 - [ ] Generating on a fresh Bold board creates editable heavier outlines.
@@ -116,7 +122,7 @@ Record these before each QA pass:
 ## V4.3 Active Board Checks
 
 - [ ] UI shows an active board indicator after creating a board.
-- [ ] UI shows the selected board name and Inter weight after generating starter glyphs.
+- [ ] UI shows the selected board name and weight after generating starter glyphs.
 - [ ] UI updates the active board indicator after scanning a selected board.
 - [ ] Selecting a slot inside a Bold board and scanning updates the active board indicator to the Bold board.
 - [ ] Starter style selector syncs to the active board weight after board, generate, or scan actions.
@@ -128,7 +134,7 @@ Record these before each QA pass:
 - [ ] UI has only one output button: `Generate font`.
 - [ ] `Generate font` downloads a `.zip` file using the sanitized font name.
 - [ ] ZIP contains OTF files only for board weights that scan with at least one valid glyph and verify cleanly.
-- [ ] ZIP `index.html` contains inline `@font-face` CSS with `font-weight: 400` for Regular and `font-weight: 700` for Bold.
+- [ ] ZIP `index.html` contains inline `@font-face` CSS with matching numeric weights, such as `400` for Regular, `700` for Bold, and `900` for Black.
 - [ ] ZIP `index.html` shows one specimen row per generated weight.
 - [ ] WOFF and WOFF2 are not exposed in the UI.
 
@@ -373,6 +379,10 @@ Run these after the main demo flow passes:
 | Case | Expected result |
 | --- | --- |
 | No selection | Clear selection error |
+| Click create board with no board selected | Opens a weight picker before creating a board |
+| Create Regular when Regular exists | Selects the existing Regular board and warns instead of creating a duplicate |
+| Create Bold after Regular exists | Creates a separate Bold board |
+| Update board with no selected board | Shows a selection-required message instead of selecting an existing board |
 | Select one valid slot | One valid glyph, rest missing/unscanned |
 | Select board with empty slots | Empty slots reported clearly |
 | Duplicate `glyph-A` slots | First valid glyph used or duplicate warning shown |

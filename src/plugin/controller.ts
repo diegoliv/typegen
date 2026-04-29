@@ -2,10 +2,18 @@ import { createGlyphBoard, findAllGlyphBoards, findSelectedGlyphBoard, getGlyphB
 import { scanSelectedGlyphs } from "./figmaNodes";
 import { generateStarterGlyphs } from "./starterGlyphs";
 import { ActiveBoardInfo, PersistedTypegenSettings, PluginToUiMessage, UiToPluginMessage } from "./pluginTypes";
+import { GLYPH_CHARS, type BoardSpacingSettings, type GlyphChar, type KerningPair } from "../shared/types";
 
 declare const __html__: string;
 
 const SETTINGS_KEY = "typegen-settings-v1";
+const BOARD_SPACING_KEY = "typegen-board-spacing-v1";
+const DEFAULT_BOARD_SPACING: BoardSpacingSettings = {
+  letterSpacing: 0,
+  spaceWidth: 320,
+  glyphAdvanceOverrides: {},
+  kerningPairs: [],
+};
 let activeBoardId = "";
 
 figma.showUI(__html__, { width: 420, height: 640, themeColors: true });
@@ -23,6 +31,19 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
       return;
     }
 
+    if (message.type === "SAVE_BOARD_SPACING") {
+      await saveBoardSpacing(message.boardId, message.spacing);
+      return;
+    }
+
+    if (message.type === "REQUEST_BOARD_SETTINGS_SOURCES") {
+      postToUi({
+        type: "BOARD_SETTINGS_SOURCES",
+        sources: findAllGlyphBoards().map((board) => ({ activeBoard: createActiveBoardInfo(board) })),
+      });
+      return;
+    }
+
     if (message.type === "RESET_SETTINGS") {
       resetSettings();
       postToUi({ type: "SETTINGS_RESET" });
@@ -35,9 +56,11 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
     }
 
     if (message.type === "CREATE_GLYPH_BOARD") {
-      const result = await createGlyphBoard(message.style);
+      const result = await createGlyphBoard(message.style, message.mode ?? "update");
       activeBoardId = result.board.id;
-      const action = result.created
+      const action = result.duplicatePrevented
+        ? `${result.board.name} already exists. Select it to update or generate starters.`
+        : result.created
         ? `Created ${result.board.name}.`
         : result.addedSlots > 0
           ? `Updated ${result.board.name}: added ${result.addedSlots} missing slots.`
@@ -81,7 +104,7 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
       if (boards.length === 0) {
         postToUi({
           type: "VALIDATION_ERROR",
-          message: "No Typegen glyph boards found. Create Regular and Bold boards before generating the font package.",
+          message: "No Typegen glyph boards found. Create at least one weight board before generating the font package.",
         });
         return;
       }
@@ -182,10 +205,13 @@ function resolveActiveBoardForSelection(selection: readonly SceneNode[]): FrameN
 }
 
 function createActiveBoardInfo(board: FrameNode): ActiveBoardInfo {
+  const boardSpacing = loadBoardSpacing(board);
   return {
     id: board.id,
     name: board.name,
     style: getGlyphBoardStyle(board),
+    spacing: boardSpacing.spacing,
+    hasCustomSpacing: boardSpacing.hasCustomSpacing,
   };
 }
 
@@ -217,6 +243,87 @@ function saveSettings(settings: PersistedTypegenSettings): void {
 
 function resetSettings(): void {
   figma.root.setPluginData(SETTINGS_KEY, "");
+}
+
+async function saveBoardSpacing(boardId: string, spacing: BoardSpacingSettings): Promise<void> {
+  const node = await figma.getNodeByIdAsync(boardId);
+  if (!isFrameNode(node)) {
+    return;
+  }
+
+  node.setPluginData(BOARD_SPACING_KEY, JSON.stringify(sanitizeBoardSpacing(spacing)));
+}
+
+function loadBoardSpacing(board: FrameNode): { spacing: BoardSpacingSettings; hasCustomSpacing: boolean } {
+  const raw = board.getPluginData(BOARD_SPACING_KEY);
+  if (!raw) {
+    return { spacing: cloneDefaultBoardSpacing(), hasCustomSpacing: false };
+  }
+
+  try {
+    return { spacing: sanitizeBoardSpacing(JSON.parse(raw)), hasCustomSpacing: true };
+  } catch {
+    return { spacing: cloneDefaultBoardSpacing(), hasCustomSpacing: false };
+  }
+}
+
+function sanitizeBoardSpacing(value: unknown): BoardSpacingSettings {
+  const candidate = value && typeof value === "object" ? value as Partial<BoardSpacingSettings> : {};
+  return {
+    letterSpacing: clampNumber(candidate.letterSpacing, -120, 300, DEFAULT_BOARD_SPACING.letterSpacing),
+    spaceWidth: clampNumber(candidate.spaceWidth, 120, 900, DEFAULT_BOARD_SPACING.spaceWidth),
+    glyphAdvanceOverrides: sanitizeAdvanceOverrides(candidate.glyphAdvanceOverrides),
+    kerningPairs: sanitizeKerningPairs(candidate.kerningPairs),
+  };
+}
+
+function sanitizeAdvanceOverrides(overrides: BoardSpacingSettings["glyphAdvanceOverrides"] | undefined): BoardSpacingSettings["glyphAdvanceOverrides"] {
+  if (!overrides || typeof overrides !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(overrides)
+      .filter(([char]) => isGlyphChar(char))
+      .map(([char, value]) => [char, clampNumber(value, 120, 1400, 700)]),
+  ) as BoardSpacingSettings["glyphAdvanceOverrides"];
+}
+
+function sanitizeKerningPairs(pairs: BoardSpacingSettings["kerningPairs"] | undefined): BoardSpacingSettings["kerningPairs"] {
+  if (!Array.isArray(pairs)) {
+    return [];
+  }
+
+  return pairs
+    .filter((pair): pair is KerningPair => Boolean(pair && isGlyphChar(pair.left) && isGlyphChar(pair.right)))
+    .map((pair) => ({
+      left: pair.left,
+      right: pair.right,
+      value: clampNumber(pair.value, -300, 300, 0),
+    }))
+    .filter((pair) => pair.value !== 0)
+    .sort((a, b) => `${a.left}${a.right}`.localeCompare(`${b.left}${b.right}`));
+}
+
+function cloneDefaultBoardSpacing(): BoardSpacingSettings {
+  return {
+    letterSpacing: DEFAULT_BOARD_SPACING.letterSpacing,
+    spaceWidth: DEFAULT_BOARD_SPACING.spaceWidth,
+    glyphAdvanceOverrides: {},
+    kerningPairs: [],
+  };
+}
+
+function clampNumber(value: number | undefined, min: number, max: number, fallback: number): number {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.round(Math.min(max, Math.max(min, value as number)));
+}
+
+function isGlyphChar(value: string): value is GlyphChar {
+  return (GLYPH_CHARS as readonly string[]).includes(value);
 }
 
 async function restoreSavedScan(nodeIds: string[]): Promise<void> {
@@ -251,16 +358,14 @@ function isPersistedSettings(value: unknown): value is PersistedTypegenSettings 
     typeof candidate.selectedGlyph === "string" &&
     candidate.selectedGlyph.length === 1 &&
     Array.isArray(candidate.lastScanNodeIds) &&
-    candidate.lastScanNodeIds.every((id) => typeof id === "string") &&
-    Boolean(candidate.spacing) &&
-    typeof candidate.spacing === "object" &&
-    typeof candidate.spacing.letterSpacing === "number" &&
-    typeof candidate.spacing.spaceWidth === "number" &&
-    Boolean(candidate.spacing.glyphAdvanceOverrides) &&
-    typeof candidate.spacing.glyphAdvanceOverrides === "object"
+    candidate.lastScanNodeIds.every((id) => typeof id === "string")
   );
 }
 
 function isSceneNode(node: BaseNode | null): node is SceneNode {
   return Boolean(node && "visible" in node && "absoluteTransform" in node);
+}
+
+function isFrameNode(node: BaseNode | null): node is FrameNode {
+  return Boolean(node && node.type === "FRAME");
 }

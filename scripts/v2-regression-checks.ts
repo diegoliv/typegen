@@ -581,6 +581,7 @@ assert.equal(createSmokeTestDownloadName(" Typegen Demo! "), "Typegen-Demo-smoke
 assert.equal(createPackageDownloadName(" Typegen Demo! "), "Typegen-Demo-web-test.zip");
 assert.equal(createWeightedFontDownloadName(" Typegen Demo! ", "Regular"), "Typegen-Demo-Regular.otf");
 assert.equal(createWeightedFontDownloadName(" Typegen Demo! ", "Bold"), "Typegen-Demo-Bold.otf");
+assert.equal(createWeightedFontDownloadName(" Typegen Demo! ", "Black"), "Typegen-Demo-Black.otf");
 
 const font = buildFont({
   familyName: "Typegen Regression",
@@ -619,6 +620,7 @@ const packageHtml = createFontPackageHtml([
 assert.ok(packageHtml.includes("Typegen Regression weight test"), "package HTML should identify the weight test");
 assert.ok(packageHtml.includes('url("./fonts/Typegen-Regression-Regular.otf")'), "package HTML should reference the Regular OTF");
 assert.ok(packageHtml.includes("font-weight: 400"), "package HTML should map Regular to weight 400");
+assert.ok(createFontPackageHtml([{ result: font, style: "Black" }], "A").includes("font-weight: 900"), "package HTML should map Black to weight 900");
 assert.ok(packageHtml.includes("A Z"), "package HTML should include sample text");
 const packageZip = createFontPackageZip([{ result: font, style: "Regular" }], "A Z");
 assert.equal(packageZip.type, "application/zip", "package ZIP should use the zip MIME type");

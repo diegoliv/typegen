@@ -100,6 +100,21 @@
     { char: "=", name: "glyph-equals", label: "=", defaultAdvanceWidth: 560 },
     { char: "@", name: "glyph-at", label: "@", defaultAdvanceWidth: 760 }
   ];
+  var FONT_WEIGHT_DEFINITIONS = [
+    { style: "Thin", label: "Thin", cssWeight: 100 },
+    { style: "Extra Light", label: "Extra Light", cssWeight: 200 },
+    { style: "Light", label: "Light", cssWeight: 300 },
+    { style: "Regular", label: "Regular", cssWeight: 400 },
+    { style: "Medium", label: "Medium", cssWeight: 500 },
+    { style: "Semi Bold", label: "Semi Bold", cssWeight: 600 },
+    { style: "Bold", label: "Bold", cssWeight: 700 },
+    { style: "Extra Bold", label: "Extra Bold", cssWeight: 800 },
+    { style: "Black", label: "Black", cssWeight: 900 }
+  ];
+  var DEFAULT_FONT_WEIGHT_STYLE = "Regular";
+  function isFontWeightStyle(value) {
+    return FONT_WEIGHT_DEFINITIONS.some((definition) => definition.style === value);
+  }
   var UPPERCASE_GUIDE_PROFILE = {
     name: "uppercase",
     slotWidth: 160,
@@ -197,9 +212,10 @@
   var PADDING = 32;
   var LABEL_FONT = { family: "Inter", style: "Regular" };
   var BOARD_STYLE_KEY = "typegen-board-style";
-  async function createGlyphBoard(style = "Regular") {
+  async function createGlyphBoard(style = DEFAULT_FONT_WEIGHT_STYLE, mode = "update") {
     const selectedBoard = findSelectedGlyphBoard();
-    const boardStyle = selectedBoard ? getGlyphBoardStyle(selectedBoard) : sanitizeBoardStyle(style);
+    const requestedStyle = sanitizeBoardStyle(style);
+    const boardStyle = mode === "update" && selectedBoard ? getGlyphBoardStyle(selectedBoard) : requestedStyle;
     const warnings = [];
     let labelsEnabled = true;
     try {
@@ -208,7 +224,24 @@
       labelsEnabled = false;
       warnings.push("Could not load Inter Regular for board labels. Slots were still created.");
     }
-    const existingBoard = selectedBoard != null ? selectedBoard : findExistingBoard(boardStyle);
+    if (mode === "update" && !selectedBoard) {
+      throw new Error("Select a Typegen glyph board before updating it, or create a new board from the weight picker.");
+    }
+    const duplicateBoard = mode === "new" ? findExistingBoard(boardStyle) : null;
+    if (duplicateBoard) {
+      figma.currentPage.selection = [duplicateBoard];
+      figma.viewport.scrollAndZoomIntoView([duplicateBoard]);
+      warnings.push(`A ${boardStyle} board already exists. Typegen allows one board per weight.`);
+      return {
+        board: duplicateBoard,
+        style: boardStyle,
+        warnings,
+        created: false,
+        addedSlots: 0,
+        duplicatePrevented: true
+      };
+    }
+    const existingBoard = mode === "update" ? selectedBoard : null;
     const board = existingBoard != null ? existingBoard : createBoardFrame(boardStyle);
     setBoardStyle(board, boardStyle);
     const existingSlotsByChar = collectExistingSlots(board);
@@ -231,10 +264,10 @@
     }
     figma.currentPage.selection = [board];
     figma.viewport.scrollAndZoomIntoView([board]);
-    return { board, style: boardStyle, warnings, created: !existingBoard, addedSlots };
+    return { board, style: boardStyle, warnings, created: !existingBoard, addedSlots, duplicatePrevented: false };
   }
   function sanitizeBoardStyle(style) {
-    return style === "Bold" ? "Bold" : "Regular";
+    return isFontWeightStyle(style) ? style : DEFAULT_FONT_WEIGHT_STYLE;
   }
   function collectExistingSlots(board) {
     const slots = /* @__PURE__ */ new Map();
@@ -289,27 +322,25 @@
     return getGlyphBoardStyle(node) === style;
   }
   function isGlyphBoardFrame(node) {
-    return node.type === "FRAME" && (node.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_BOARD || node.name === "Font Glyph Board" || node.name.startsWith("Font Glyph Board - Inter "));
+    return node.type === "FRAME" && (node.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_BOARD || node.name === "Font Glyph Board" || node.name.startsWith("Font Glyph Board - "));
   }
   function getGlyphBoardStyle(board) {
+    var _a, _b;
     const style = board.getPluginData(BOARD_STYLE_KEY);
-    if (style === "Bold") {
-      return "Bold";
+    if (isFontWeightStyle(style)) {
+      return style;
     }
-    if (style === "Regular") {
-      return "Regular";
-    }
-    return board.name.includes("Bold") ? "Bold" : "Regular";
+    const weightByLongestLabel = [...FONT_WEIGHT_DEFINITIONS].sort((a, b) => b.style.length - a.style.length);
+    const boardName = board.name.toLowerCase();
+    return (_b = (_a = weightByLongestLabel.find((definition) => boardName.includes(definition.style.toLowerCase()))) == null ? void 0 : _a.style) != null ? _b : DEFAULT_FONT_WEIGHT_STYLE;
   }
   function setBoardStyle(board, style) {
     board.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_BOARD);
     board.setPluginData(BOARD_STYLE_KEY, style);
-    if (board.name !== "Font Glyph Board" || style === "Bold") {
-      board.name = boardNameForStyle(style);
-    }
+    board.name = boardNameForStyle(style);
   }
   function boardNameForStyle(style) {
-    return `Font Glyph Board - Inter ${style}`;
+    return `Font Glyph Board - ${style}`;
   }
   function createBoardFrame(style) {
     const board = figma.createFrame();
@@ -1033,18 +1064,18 @@
       await figma.loadFontAsync(requestedFont);
       return requestedFont;
     } catch (e) {
-      if (style === "Bold") {
+      if (style !== "Regular") {
         const regularFont = { family: "Inter", style: "Regular" };
         try {
           await figma.loadFontAsync(regularFont);
-          warnings.push("Could not load Inter Bold for starter outlines. Used Inter Regular instead.");
+          warnings.push(`Could not load ${style} for starter outlines. Used Regular instead.`);
           return regularFont;
         } catch (e2) {
-          warnings.push("Could not load Inter Bold or Regular for starter outlines. Used geometric fallback glyphs instead.");
+          warnings.push(`Could not load ${style} or Regular for starter outlines. Used geometric fallback glyphs instead.`);
           return null;
         }
       }
-      warnings.push("Could not load Inter Regular for starter outlines. Used geometric fallback glyphs instead.");
+      warnings.push("Could not load Regular for starter outlines. Used geometric fallback glyphs instead.");
       return null;
     }
   }
@@ -1078,7 +1109,7 @@
         createInterStarterOutline(slot, char, starterFont);
         return;
       } catch (e) {
-        warnings.push(`${glyphNameForChar2(char)} could not be generated, merged, and flattened from Inter. Used geometric fallback for that slot.`);
+        warnings.push(`${glyphNameForChar2(char)} could not be generated, merged, and flattened from the starter font. Used geometric fallback for that slot.`);
       }
     }
     const vector = createStarterVector(char);
@@ -1533,6 +1564,13 @@
 
   // src/plugin/controller.ts
   var SETTINGS_KEY = "typegen-settings-v1";
+  var BOARD_SPACING_KEY = "typegen-board-spacing-v1";
+  var DEFAULT_BOARD_SPACING = {
+    letterSpacing: 0,
+    spaceWidth: 320,
+    glyphAdvanceOverrides: {},
+    kerningPairs: []
+  };
   var activeBoardId = "";
   figma.showUI(__html__, { width: 420, height: 640, themeColors: true });
   postToUi({ type: "PLUGIN_READY" });
@@ -1541,9 +1579,21 @@
     void scanCurrentSelection({ silent: true, useLastActiveFallback: false });
   });
   figma.ui.onmessage = async (message) => {
+    var _a;
     try {
       if (message.type === "SAVE_SETTINGS") {
         saveSettings(message.settings);
+        return;
+      }
+      if (message.type === "SAVE_BOARD_SPACING") {
+        await saveBoardSpacing(message.boardId, message.spacing);
+        return;
+      }
+      if (message.type === "REQUEST_BOARD_SETTINGS_SOURCES") {
+        postToUi({
+          type: "BOARD_SETTINGS_SOURCES",
+          sources: findAllGlyphBoards().map((board) => ({ activeBoard: createActiveBoardInfo(board) }))
+        });
         return;
       }
       if (message.type === "RESET_SETTINGS") {
@@ -1556,9 +1606,9 @@
         return;
       }
       if (message.type === "CREATE_GLYPH_BOARD") {
-        const result = await createGlyphBoard(message.style);
+        const result = await createGlyphBoard(message.style, (_a = message.mode) != null ? _a : "update");
         activeBoardId = result.board.id;
-        const action = result.created ? `Created ${result.board.name}.` : result.addedSlots > 0 ? `Updated ${result.board.name}: added ${result.addedSlots} missing slots.` : `${result.board.name} is already up to date.`;
+        const action = result.duplicatePrevented ? `${result.board.name} already exists. Select it to update or generate starters.` : result.created ? `Created ${result.board.name}.` : result.addedSlots > 0 ? `Updated ${result.board.name}: added ${result.addedSlots} missing slots.` : `${result.board.name} is already up to date.`;
         postToUi({
           type: "GLYPH_BOARD_CREATED",
           message: action,
@@ -1592,7 +1642,7 @@
         if (boards.length === 0) {
           postToUi({
             type: "VALIDATION_ERROR",
-            message: "No Typegen glyph boards found. Create Regular and Bold boards before generating the font package."
+            message: "No Typegen glyph boards found. Create at least one weight board before generating the font package."
           });
           return;
         }
@@ -1678,10 +1728,13 @@
     return null;
   }
   function createActiveBoardInfo(board) {
+    const boardSpacing = loadBoardSpacing(board);
     return {
       id: board.id,
       name: board.name,
-      style: getGlyphBoardStyle(board)
+      style: getGlyphBoardStyle(board),
+      spacing: boardSpacing.spacing,
+      hasCustomSpacing: boardSpacing.hasCustomSpacing
     };
   }
   function postToUi(message) {
@@ -1708,6 +1761,68 @@
   function resetSettings() {
     figma.root.setPluginData(SETTINGS_KEY, "");
   }
+  async function saveBoardSpacing(boardId, spacing) {
+    const node = await figma.getNodeByIdAsync(boardId);
+    if (!isFrameNode(node)) {
+      return;
+    }
+    node.setPluginData(BOARD_SPACING_KEY, JSON.stringify(sanitizeBoardSpacing(spacing)));
+  }
+  function loadBoardSpacing(board) {
+    const raw = board.getPluginData(BOARD_SPACING_KEY);
+    if (!raw) {
+      return { spacing: cloneDefaultBoardSpacing(), hasCustomSpacing: false };
+    }
+    try {
+      return { spacing: sanitizeBoardSpacing(JSON.parse(raw)), hasCustomSpacing: true };
+    } catch (e) {
+      return { spacing: cloneDefaultBoardSpacing(), hasCustomSpacing: false };
+    }
+  }
+  function sanitizeBoardSpacing(value) {
+    const candidate = value && typeof value === "object" ? value : {};
+    return {
+      letterSpacing: clampNumber(candidate.letterSpacing, -120, 300, DEFAULT_BOARD_SPACING.letterSpacing),
+      spaceWidth: clampNumber(candidate.spaceWidth, 120, 900, DEFAULT_BOARD_SPACING.spaceWidth),
+      glyphAdvanceOverrides: sanitizeAdvanceOverrides(candidate.glyphAdvanceOverrides),
+      kerningPairs: sanitizeKerningPairs(candidate.kerningPairs)
+    };
+  }
+  function sanitizeAdvanceOverrides(overrides) {
+    if (!overrides || typeof overrides !== "object") {
+      return {};
+    }
+    return Object.fromEntries(
+      Object.entries(overrides).filter(([char]) => isGlyphChar(char)).map(([char, value]) => [char, clampNumber(value, 120, 1400, 700)])
+    );
+  }
+  function sanitizeKerningPairs(pairs) {
+    if (!Array.isArray(pairs)) {
+      return [];
+    }
+    return pairs.filter((pair) => Boolean(pair && isGlyphChar(pair.left) && isGlyphChar(pair.right))).map((pair) => ({
+      left: pair.left,
+      right: pair.right,
+      value: clampNumber(pair.value, -300, 300, 0)
+    })).filter((pair) => pair.value !== 0).sort((a, b) => `${a.left}${a.right}`.localeCompare(`${b.left}${b.right}`));
+  }
+  function cloneDefaultBoardSpacing() {
+    return {
+      letterSpacing: DEFAULT_BOARD_SPACING.letterSpacing,
+      spaceWidth: DEFAULT_BOARD_SPACING.spaceWidth,
+      glyphAdvanceOverrides: {},
+      kerningPairs: []
+    };
+  }
+  function clampNumber(value, min, max, fallback) {
+    if (!Number.isFinite(value)) {
+      return fallback;
+    }
+    return Math.round(Math.min(max, Math.max(min, value)));
+  }
+  function isGlyphChar(value) {
+    return GLYPH_CHARS.includes(value);
+  }
   async function restoreSavedScan(nodeIds) {
     const nodes = await Promise.all([...new Set(nodeIds)].map((id) => figma.getNodeByIdAsync(id)));
     const sceneNodes = nodes.filter(isSceneNode);
@@ -1730,9 +1845,12 @@
       return false;
     }
     const candidate = value;
-    return typeof candidate.fontName === "string" && typeof candidate.previewText === "string" && typeof candidate.selectedGlyph === "string" && candidate.selectedGlyph.length === 1 && Array.isArray(candidate.lastScanNodeIds) && candidate.lastScanNodeIds.every((id) => typeof id === "string") && Boolean(candidate.spacing) && typeof candidate.spacing === "object" && typeof candidate.spacing.letterSpacing === "number" && typeof candidate.spacing.spaceWidth === "number" && Boolean(candidate.spacing.glyphAdvanceOverrides) && typeof candidate.spacing.glyphAdvanceOverrides === "object";
+    return typeof candidate.fontName === "string" && typeof candidate.previewText === "string" && typeof candidate.selectedGlyph === "string" && candidate.selectedGlyph.length === 1 && Array.isArray(candidate.lastScanNodeIds) && candidate.lastScanNodeIds.every((id) => typeof id === "string");
   }
   function isSceneNode(node) {
     return Boolean(node && "visible" in node && "absoluteTransform" in node);
+  }
+  function isFrameNode(node) {
+    return Boolean(node && node.type === "FRAME");
   }
 })();

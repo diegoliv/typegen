@@ -9,6 +9,11 @@ Typegen V7.0 alpha manual kerning.
 - Manual kerning pairs in the glyph detail overlay.
 - `Glyph` and `Kerning` tabs for the selected glyph.
 - Kerning pair glyph input, kerning amount slider/number input, reset action, and pair preview.
+- Explicit new-board weight picker that uses a common weight select and prevents duplicate boards for the same weight.
+- New-board modal keeps its create action next to the weight select and shows a `Creating...` state until the board is selected.
+- Board-specific spacing settings for letter spacing, space width, advance overrides, and kerning pairs, restored when an existing board is selected.
+- Import settings overlay for copying spacing, advance overrides, and kerning pairs from another Typegen board.
+- Selection-based board update behavior so updating does not silently reuse an existing board when nothing is selected.
 - SVG preview layout now applies active kerning pairs.
 - Exported OTF files now include minimal legacy `kern` and GPOS `kern` feature data for valid manual pairs.
 - Generated-font verification now parses kerning pairs back from the exported OTF.

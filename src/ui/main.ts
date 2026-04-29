@@ -21,8 +21,16 @@ import {
   type GlyphChar,
   type GlyphModel,
 } from '../font/glyphModel';
-import { postToPlugin, isPluginMessage, type ActiveBoardInfo, type BoardScanResult, type PluginToUiMessage } from '../shared/messages';
-import { unifiedVisualGuideProfileForChar, type GlyphScanResult, type PersistedTypegenSettings } from '../shared/types';
+import { postToPlugin, isPluginMessage, type ActiveBoardInfo, type BoardScanResult, type BoardSettingsSource, type PluginToUiMessage } from '../shared/messages';
+import {
+  DEFAULT_FONT_WEIGHT_STYLE,
+  FONT_WEIGHT_DEFINITIONS,
+  isFontWeightStyle,
+  unifiedVisualGuideProfileForChar,
+  type FontWeightStyle,
+  type GlyphScanResult,
+  type PersistedTypegenSettings,
+} from '../shared/types';
 import { glyphToSvgPathData, layoutPreviewText, renderPreviewMarkup } from './preview/renderGlyphPreview';
 import './styles.css';
 
@@ -36,7 +44,7 @@ type UiState = {
   glyphDetailTab: GlyphDetailTab;
   kerningPairRight: GlyphChar;
   kerningPairInput: string;
-  starterStyle: 'Regular' | 'Bold';
+  starterStyle: FontWeightStyle;
   glyphs: GlyphScanResult[];
   selectedGlyph: GlyphChar;
   activeBoard: ActiveBoardInfo | null;
@@ -45,6 +53,15 @@ type UiState = {
   generatedFont: FontBuildResult | null;
   spacing: FontSpacingSettings;
   showRecipeOverlay: boolean;
+  boardCreationOverlayOpen: boolean;
+  boardCreationStyle: FontWeightStyle;
+  isCreatingBoard: boolean;
+  importSettingsOverlayOpen: boolean;
+  boardSettingsSources: BoardSettingsSource[];
+  importSourceBoardId: string;
+  importSpacingBasics: boolean;
+  importAdvanceOverrides: boolean;
+  importKerningPairs: boolean;
   glyphOverlayOpen: boolean;
   previewCollapsed: boolean;
   healthCollapsed: boolean;
@@ -97,7 +114,7 @@ const state: UiState = {
   glyphDetailTab: 'glyph',
   kerningPairRight: 'V',
   kerningPairInput: 'V',
-  starterStyle: 'Regular',
+  starterStyle: DEFAULT_FONT_WEIGHT_STYLE,
   glyphs: [],
   selectedGlyph: 'A',
   activeBoard: null,
@@ -106,6 +123,15 @@ const state: UiState = {
   generatedFont: null,
   spacing: { ...DEFAULT_SPACING, glyphAdvanceOverrides: {}, kerningPairs: [] },
   showRecipeOverlay: false,
+  boardCreationOverlayOpen: false,
+  boardCreationStyle: DEFAULT_FONT_WEIGHT_STYLE,
+  isCreatingBoard: false,
+  importSettingsOverlayOpen: false,
+  boardSettingsSources: [],
+  importSourceBoardId: '',
+  importSpacingBasics: true,
+  importAdvanceOverrides: true,
+  importKerningPairs: true,
   glyphOverlayOpen: false,
   previewCollapsed: false,
   healthCollapsed: false,
@@ -146,6 +172,8 @@ function render() {
       ${state.activeBoard ? renderTabbedPanel(rows, diagnostics) : renderEmptyPanel()}
       ${SHOW_DEBUG_CONTENT ? renderGeneratedPanel() : ''}
       ${state.showRecipeOverlay ? renderRecipeOverlay() : ''}
+      ${state.boardCreationOverlayOpen ? renderBoardCreationOverlay() : ''}
+      ${state.importSettingsOverlayOpen ? renderImportSettingsOverlay() : ''}
       ${state.glyphOverlayOpen ? renderGlyphOverlay(selectedGlyph) : ''}
     </section>
   `;
@@ -164,7 +192,7 @@ function renderEmptyPanel(): string {
           <p>Select a Typegen board to auto-scan status, weight, and preview data.</p>
         </div>
         <div class="empty-actions">
-          <button id="create-board">Create board</button>
+          <button id="open-board-creation">Create board</button>
           <button id="open-recipe" class="tertiary-action">Recipe</button>
         </div>
       </div>
@@ -201,7 +229,7 @@ function renderTopHeader(showBoardControls: boolean): string {
                   <span>Active board</span>
                   <strong>${escapeHtml(state.activeBoard?.name ?? 'None selected')}</strong>
                 </div>
-                <button id="create-board">Update board</button>
+                <button id="update-board">Update board</button>
               </div>`
             : ''
         }
@@ -335,6 +363,17 @@ function renderSettingsTab(): string {
             </label>`
       }
     </section>
+    <section class="panel settings-panel">
+      <div class="section-head">
+        <h2>Board Spacing</h2>
+        <button id="open-import-settings" ${state.activeBoard ? '' : 'disabled'}>Import settings</button>
+      </div>
+      <p class="status">Spacing, advance overrides, space width, and kerning apply to the selected board only.</p>
+      <div class="active-board board-settings-summary">
+        <span>Selected</span>
+        <strong>${escapeHtml(state.activeBoard?.name ?? 'No board selected')}</strong>
+      </div>
+    </section>
     <section class="panel settings-panel ${state.starterSettingsCollapsed ? 'collapsed' : ''}">
       <div class="section-head">
         <h2>Starter Glyphs</h2>
@@ -347,8 +386,7 @@ function renderSettingsTab(): string {
               <label class="field starter-settings-field">
                 <span>Generate starter glyphs on the selected board</span>
                 <select id="starter-style">
-                  <option value="Regular" ${state.starterStyle === 'Regular' ? 'selected' : ''}>Inter Regular</option>
-                  <option value="Bold" ${state.starterStyle === 'Bold' ? 'selected' : ''}>Inter Bold</option>
+                  ${renderWeightOptions(state.starterStyle)}
                 </select>
               </label>
               <button id="generate-starters">Generate starters</button>
@@ -518,6 +556,85 @@ function renderRecipeOverlay(): string {
           <li>Avoid images, effects, gradients, masks, booleans, and live shape layers.</li>
         </ol>
         <p class="status">V7 supports manual pair kerning for scanned glyphs. Variable fonts, AI generation, and broader symbol coverage remain outside this MVP.</p>
+      </section>
+    </div>
+  `;
+}
+
+function renderWeightOptions(selectedStyle: FontWeightStyle): string {
+  return FONT_WEIGHT_DEFINITIONS.map(
+    (definition) => `<option value="${escapeAttr(definition.style)}" ${selectedStyle === definition.style ? 'selected' : ''}>${escapeHtml(definition.label)}</option>`,
+  ).join('');
+}
+
+function renderBoardCreationOverlay(): string {
+  const isCreating = state.isCreatingBoard;
+  return `
+    <div class="overlay-backdrop" role="dialog" aria-modal="true" aria-label="Create glyph board">
+      <section class="overlay-card board-creation-overlay">
+        <div class="overlay-head">
+          <div>
+            <p class="eyebrow">New board</p>
+            <h2>Choose a weight</h2>
+          </div>
+          <button id="close-board-creation" class="icon-button" aria-label="Close board creation" ${isCreating ? 'disabled' : ''}>Close</button>
+        </div>
+        <p class="status">Typegen creates one board per weight. If that weight already exists, the existing board will be selected instead of creating a duplicate.</p>
+        <div class="board-creation-row">
+          <label class="field">
+            <span>Weight</span>
+            <select id="board-creation-style" ${isCreating ? 'disabled' : ''}>
+              ${renderWeightOptions(state.boardCreationStyle)}
+            </select>
+          </label>
+          <button id="confirm-board-creation" class="primary-action" ${isCreating ? 'disabled' : ''}>${isCreating ? 'Creating...' : `Create ${state.boardCreationStyle} board`}</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function renderImportSettingsOverlay(): string {
+  const sources = state.boardSettingsSources.filter((source) => source.activeBoard.id !== state.activeBoard?.id);
+  const selectedSource = sources.find((source) => source.activeBoard.id === state.importSourceBoardId) ?? sources[0];
+  const canImport = Boolean(
+    selectedSource?.activeBoard.hasCustomSpacing &&
+      (state.importSpacingBasics || state.importAdvanceOverrides || state.importKerningPairs),
+  );
+
+  return `
+    <div class="overlay-backdrop" role="dialog" aria-modal="true" aria-label="Import board settings">
+      <section class="overlay-card import-settings-overlay">
+        <div class="overlay-head">
+          <div>
+            <p class="eyebrow">Board spacing</p>
+            <h2>Import settings</h2>
+          </div>
+          <button id="close-import-settings" class="icon-button" aria-label="Close import settings">Close</button>
+        </div>
+        <label class="field">
+          <span>Source board</span>
+          <select id="import-settings-source" ${sources.length ? '' : 'disabled'}>
+            ${
+              sources.length
+                ? sources.map((source) => `<option value="${escapeAttr(source.activeBoard.id)}" ${selectedSource?.activeBoard.id === source.activeBoard.id ? 'selected' : ''}>${escapeHtml(source.activeBoard.name)}</option>`).join('')
+                : '<option>No other Typegen boards found</option>'
+            }
+          </select>
+        </label>
+        ${
+          selectedSource && !selectedSource.activeBoard.hasCustomSpacing
+            ? '<p class="warning">That board is still using default spacing settings.</p>'
+            : '<p class="status">Choose which board-specific settings to copy into the current board.</p>'
+        }
+        <div class="checkbox-list">
+          <label><input id="import-spacing-basics" type="checkbox" ${state.importSpacingBasics ? 'checked' : ''} /> Spacing and space width</label>
+          <label><input id="import-advance-overrides" type="checkbox" ${state.importAdvanceOverrides ? 'checked' : ''} /> Advance overrides</label>
+          <label><input id="import-kerning-pairs" type="checkbox" ${state.importKerningPairs ? 'checked' : ''} /> Kerning pairs</label>
+        </div>
+        <div class="actions overlay-actions">
+          <button id="confirm-import-settings" class="primary-action" ${canImport ? '' : 'disabled'}>Import</button>
+        </div>
       </section>
     </div>
   `;
@@ -798,6 +915,103 @@ function bindEvents() {
     render();
   });
 
+  document.querySelectorAll<HTMLButtonElement>('#open-board-creation').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.boardCreationStyle = state.starterStyle;
+      state.boardCreationOverlayOpen = true;
+      state.isCreatingBoard = false;
+      render();
+    });
+  });
+
+  document.querySelector<HTMLButtonElement>('#close-board-creation')?.addEventListener('click', () => {
+    if (state.isCreatingBoard) {
+      return;
+    }
+    state.boardCreationOverlayOpen = false;
+    render();
+  });
+
+  document.querySelector<HTMLButtonElement>('#open-import-settings')?.addEventListener('click', () => {
+    state.importSettingsOverlayOpen = true;
+    state.boardSettingsSources = [];
+    state.importSourceBoardId = '';
+    state.importSpacingBasics = true;
+    state.importAdvanceOverrides = true;
+    state.importKerningPairs = true;
+    postToPlugin({ type: 'REQUEST_BOARD_SETTINGS_SOURCES' });
+    render();
+  });
+
+  document.querySelector<HTMLButtonElement>('#close-import-settings')?.addEventListener('click', () => {
+    state.importSettingsOverlayOpen = false;
+    render();
+  });
+
+  document.querySelector<HTMLSelectElement>('#import-settings-source')?.addEventListener('change', (event) => {
+    state.importSourceBoardId = (event.target as HTMLSelectElement).value;
+    render();
+  });
+
+  document.querySelector<HTMLInputElement>('#import-spacing-basics')?.addEventListener('change', (event) => {
+    state.importSpacingBasics = (event.target as HTMLInputElement).checked;
+    render();
+  });
+
+  document.querySelector<HTMLInputElement>('#import-advance-overrides')?.addEventListener('change', (event) => {
+    state.importAdvanceOverrides = (event.target as HTMLInputElement).checked;
+    render();
+  });
+
+  document.querySelector<HTMLInputElement>('#import-kerning-pairs')?.addEventListener('change', (event) => {
+    state.importKerningPairs = (event.target as HTMLInputElement).checked;
+    render();
+  });
+
+  document.querySelector<HTMLButtonElement>('#confirm-import-settings')?.addEventListener('click', () => {
+    const sources = state.boardSettingsSources.filter((source) => source.activeBoard.id !== state.activeBoard?.id);
+    const source = sources.find((item) => item.activeBoard.id === state.importSourceBoardId) ?? sources[0];
+    if (!source || !source.activeBoard.hasCustomSpacing) {
+      return;
+    }
+
+    const nextSpacing = cloneSpacingSettings(state.spacing);
+    if (state.importSpacingBasics) {
+      nextSpacing.letterSpacing = source.activeBoard.spacing.letterSpacing;
+      nextSpacing.spaceWidth = source.activeBoard.spacing.spaceWidth;
+    }
+    if (state.importAdvanceOverrides) {
+      nextSpacing.glyphAdvanceOverrides = { ...source.activeBoard.spacing.glyphAdvanceOverrides };
+    }
+    if (state.importKerningPairs) {
+      nextSpacing.kerningPairs = source.activeBoard.spacing.kerningPairs.map((pair) => ({ ...pair }));
+    }
+
+    state.spacing = nextSpacing;
+    state.generatedFont = null;
+    state.importSettingsOverlayOpen = false;
+    state.statusMessage = `Imported board settings from ${source.activeBoard.name}.`;
+    persistActiveBoardSpacing();
+    render();
+  });
+
+  document.querySelector<HTMLSelectElement>('#board-creation-style')?.addEventListener('change', (event) => {
+    const value = (event.target as HTMLSelectElement).value;
+    state.boardCreationStyle = isFontWeightStyle(value) ? value : DEFAULT_FONT_WEIGHT_STYLE;
+    render();
+  });
+
+  document.querySelector<HTMLButtonElement>('#confirm-board-creation')?.addEventListener('click', () => {
+    if (state.isCreatingBoard) {
+      return;
+    }
+    state.starterStyle = state.boardCreationStyle;
+    state.statusMessage = `Creating ${state.boardCreationStyle} glyph board...`;
+    state.isCreatingBoard = true;
+    postToPlugin({ type: 'CREATE_GLYPH_BOARD', style: state.boardCreationStyle, mode: 'new' });
+    render();
+  });
+
   document.querySelector<HTMLButtonElement>('#close-glyph-overlay')?.addEventListener('click', () => {
     state.glyphOverlayOpen = false;
     render();
@@ -825,8 +1039,8 @@ function bindEvents() {
 
   document.querySelector<HTMLSelectElement>('#starter-style')?.addEventListener('change', (event) => {
     const value = (event.target as HTMLSelectElement).value;
-    state.starterStyle = value === 'Bold' ? 'Bold' : 'Regular';
-    state.statusMessage = `Starter style set to Inter ${state.starterStyle}.`;
+    state.starterStyle = isFontWeightStyle(value) ? value : DEFAULT_FONT_WEIGHT_STYLE;
+    state.statusMessage = `Starter weight set to ${state.starterStyle}.`;
     render();
   });
 
@@ -853,21 +1067,21 @@ function bindEvents() {
   bindMetricInputs('letter-spacing', -120, 300, (value) => {
     state.spacing.letterSpacing = value;
     state.generatedFont = null;
-  });
+  }, persistActiveBoardSpacing);
 
   bindMetricInputs('space-width', 120, 900, (value) => {
     state.spacing.spaceWidth = value;
     state.generatedFont = null;
-  });
+  }, persistActiveBoardSpacing);
 
   bindMetricInputs('preview-font-size', 12, 96, (value) => {
     state.previewFontSize = value;
-  });
+  }, persistSettings);
 
   bindMetricInputs('advance-override', 120, 1400, (value) => {
     state.spacing.glyphAdvanceOverrides[state.selectedGlyph] = value;
     state.generatedFont = null;
-  });
+  }, persistActiveBoardSpacing);
 
   bindMetricInputs('kerning-value', -300, 300, (value) => {
     const right = getKerningPairRight();
@@ -883,7 +1097,7 @@ function bindEvents() {
     );
     state.kerningPairRight = right;
     state.generatedFont = null;
-  });
+  }, persistActiveBoardSpacing);
 
   document.querySelector<HTMLInputElement>('#kerning-right-glyph')?.addEventListener('input', (event) => {
     const input = event.target as HTMLInputElement;
@@ -893,7 +1107,6 @@ function bindEvents() {
     if (isGlyphChar(next)) {
       state.kerningPairRight = next;
       state.generatedFont = null;
-      persistSettings();
     }
 
     render();
@@ -908,18 +1121,18 @@ function bindEvents() {
     state.spacing.kerningPairs = removeKerningPair(state.spacing.kerningPairs, state.selectedGlyph, right);
     state.kerningPairRight = right;
     state.generatedFont = null;
-    persistSettings();
+    persistActiveBoardSpacing();
     render();
   });
 
-  document.querySelector<HTMLButtonElement>('#create-board')?.addEventListener('click', () => {
-    state.statusMessage = `Creating/updating Inter ${state.starterStyle} glyph board...`;
-    postToPlugin({ type: 'CREATE_GLYPH_BOARD', style: state.starterStyle });
+  document.querySelector<HTMLButtonElement>('#update-board')?.addEventListener('click', () => {
+    state.statusMessage = `Updating ${state.activeBoard?.name ?? 'selected Typegen board'}...`;
+    postToPlugin({ type: 'CREATE_GLYPH_BOARD', style: state.starterStyle, mode: 'update' });
     render();
   });
 
   document.querySelector<HTMLButtonElement>('#generate-starters')?.addEventListener('click', () => {
-    state.statusMessage = `Generating Inter ${state.starterStyle} starter glyphs in empty slots...`;
+    state.statusMessage = `Generating ${state.starterStyle} starter glyphs in empty slots...`;
     state.generatedFont = null;
     postToPlugin({ type: 'GENERATE_STARTER_GLYPHS', style: state.starterStyle });
     render();
@@ -934,7 +1147,7 @@ function bindEvents() {
   });
 }
 
-function bindMetricInputs(metric: string, min: number, max: number, applyValue: (value: number) => void): void {
+function bindMetricInputs(metric: string, min: number, max: number, applyValue: (value: number) => void, persistValue = persistSettings): void {
   const inputs = Array.from(document.querySelectorAll<HTMLInputElement>(`[data-metric="${metric}"]`));
   const ranges = inputs.filter((input) => input.type === 'range');
   const numbers = inputs.filter((input) => input.type === 'number');
@@ -951,13 +1164,13 @@ function bindMetricInputs(metric: string, min: number, max: number, applyValue: 
         return;
       }
 
-      persistSettings();
+      persistValue();
       render();
     });
 
     if (input.type === 'range') {
       input.addEventListener('change', () => {
-        persistSettings();
+        persistValue();
         render();
       });
     }
@@ -1046,23 +1259,23 @@ window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginToUiMessage }>) 
   }
 
   if (message.type === 'GLYPH_BOARD_CREATED') {
-    state.activeBoard = message.activeBoard;
-    state.starterStyle = message.activeBoard.style;
+    applyActiveBoard(message.activeBoard);
+    state.boardCreationStyle = message.activeBoard.style;
+    state.boardCreationOverlayOpen = false;
+    state.isCreatingBoard = false;
     state.generatedFont = null;
     state.statusMessage = message.message;
   }
 
   if (message.type === 'STARTER_GLYPHS_GENERATED') {
-    state.activeBoard = message.activeBoard;
-    state.starterStyle = message.activeBoard.style;
+    applyActiveBoard(message.activeBoard);
     state.generatedFont = null;
     state.statusMessage = [message.message, ...message.warnings].join(' ');
   }
 
   if (message.type === 'GLYPHS_SCANNED') {
     if (message.activeBoard) {
-      state.activeBoard = message.activeBoard;
-      state.starterStyle = message.activeBoard.style;
+      applyActiveBoard(message.activeBoard);
     }
     state.glyphs = message.glyphs;
     state.lastScanNodeIds = collectScanNodeIds(message.glyphs);
@@ -1079,6 +1292,8 @@ window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginToUiMessage }>) 
     state.lastScanNodeIds = [];
     state.generatedFont = null;
     state.glyphOverlayOpen = false;
+    state.spacing = createDefaultSpacing();
+    state.importSettingsOverlayOpen = false;
     state.statusMessage = 'Select a Typegen board to auto-scan status, weight, and preview data.';
   }
 
@@ -1086,9 +1301,18 @@ window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginToUiMessage }>) 
     generateFontPackageFromBoards(message.boards);
   }
 
+  if (message.type === 'BOARD_SETTINGS_SOURCES') {
+    state.boardSettingsSources = message.sources;
+    const sources = message.sources.filter((source) => source.activeBoard.id !== state.activeBoard?.id);
+    if (!state.importSourceBoardId || !sources.some((source) => source.activeBoard.id === state.importSourceBoardId)) {
+      state.importSourceBoardId = sources[0]?.activeBoard.id ?? '';
+    }
+  }
+
   if (message.type === 'VALIDATION_ERROR') {
     state.isScanning = false;
     state.isGenerating = false;
+    state.isCreatingBoard = false;
     state.statusMessage = message.message;
   }
 
@@ -1465,7 +1689,7 @@ function generateFontPackageFromBoards(boards: BoardScanResult[]): void {
         {
           familyName: state.fontName,
           glyphs: validGlyphsForBoard,
-          spacing: state.spacing,
+          spacing: board.activeBoard.spacing,
         },
         {
           styleName: style,
@@ -1516,10 +1740,34 @@ function countAdvanceOverrides(): number {
   return Object.keys(state.spacing.glyphAdvanceOverrides).length;
 }
 
+function applyActiveBoard(activeBoard: ActiveBoardInfo): void {
+  state.activeBoard = activeBoard;
+  state.starterStyle = activeBoard.style;
+  state.spacing = cloneSpacingSettings(activeBoard.spacing);
+}
+
 function persistSettings(): void {
   postToPlugin({
     type: 'SAVE_SETTINGS',
     settings: createPersistedSettings(),
+  });
+}
+
+function persistActiveBoardSpacing(): void {
+  if (!state.activeBoard) {
+    return;
+  }
+
+  const spacing = cloneSpacingSettings(state.spacing);
+  state.activeBoard = {
+    ...state.activeBoard,
+    spacing,
+    hasCustomSpacing: true,
+  };
+  postToPlugin({
+    type: 'SAVE_BOARD_SPACING',
+    boardId: state.activeBoard.id,
+    spacing,
   });
 }
 
@@ -1532,12 +1780,6 @@ function createPersistedSettings(): PersistedTypegenSettings {
     previewFontSize: state.previewFontSize,
     selectedGlyph: state.selectedGlyph,
     lastScanNodeIds: [...state.lastScanNodeIds],
-    spacing: {
-      letterSpacing: state.spacing.letterSpacing,
-      spaceWidth: state.spacing.spaceWidth,
-      glyphAdvanceOverrides: { ...state.spacing.glyphAdvanceOverrides },
-      kerningPairs: [...state.spacing.kerningPairs],
-    },
   };
 }
 
@@ -1555,14 +1797,26 @@ function applyPersistedSettings(settings: PersistedTypegenSettings | null): void
   state.lastScanNodeIds = Array.isArray(settings.lastScanNodeIds)
     ? settings.lastScanNodeIds.filter((id) => typeof id === 'string')
     : [];
-  state.spacing = {
-    letterSpacing: clampNumber(settings.spacing?.letterSpacing, -120, 300, DEFAULT_SPACING.letterSpacing),
-    spaceWidth: clampNumber(settings.spacing?.spaceWidth, 120, 900, DEFAULT_SPACING.spaceWidth),
-    glyphAdvanceOverrides: sanitizeAdvanceOverrides(settings.spacing?.glyphAdvanceOverrides),
-    kerningPairs: sanitizeKerningPairs(settings.spacing?.kerningPairs),
-  };
   state.generatedFont = null;
   state.statusMessage = 'Restored saved Typegen settings from this Figma file.';
+}
+
+function createDefaultSpacing(): FontSpacingSettings {
+  return {
+    letterSpacing: DEFAULT_SPACING.letterSpacing,
+    spaceWidth: DEFAULT_SPACING.spaceWidth,
+    glyphAdvanceOverrides: {},
+    kerningPairs: [],
+  };
+}
+
+function cloneSpacingSettings(spacing: Partial<FontSpacingSettings> | undefined): FontSpacingSettings {
+  return {
+    letterSpacing: clampNumber(spacing?.letterSpacing, -120, 300, DEFAULT_SPACING.letterSpacing),
+    spaceWidth: clampNumber(spacing?.spaceWidth, 120, 900, DEFAULT_SPACING.spaceWidth),
+    glyphAdvanceOverrides: sanitizeAdvanceOverrides(spacing?.glyphAdvanceOverrides),
+    kerningPairs: sanitizeKerningPairs(spacing?.kerningPairs),
+  };
 }
 
 function collectScanNodeIds(glyphs: GlyphScanResult[]): string[] {
@@ -1570,7 +1824,7 @@ function collectScanNodeIds(glyphs: GlyphScanResult[]): string[] {
 }
 
 function sanitizeAdvanceOverrides(
-  overrides: PersistedTypegenSettings['spacing']['glyphAdvanceOverrides'] | undefined,
+  overrides: Partial<Record<GlyphChar, number>> | undefined,
 ): FontSpacingSettings['glyphAdvanceOverrides'] {
   if (!overrides) {
     return {};
@@ -1583,7 +1837,7 @@ function sanitizeAdvanceOverrides(
   ) as FontSpacingSettings['glyphAdvanceOverrides'];
 }
 
-function sanitizeKerningPairs(pairs: PersistedTypegenSettings['spacing']['kerningPairs'] | undefined): FontSpacingSettings['kerningPairs'] {
+function sanitizeKerningPairs(pairs: FontSpacingSettings['kerningPairs'] | undefined): FontSpacingSettings['kerningPairs'] {
   if (!Array.isArray(pairs)) {
     return [];
   }
