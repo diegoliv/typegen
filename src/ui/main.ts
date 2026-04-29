@@ -620,8 +620,13 @@ function renderGlyphOverlayMessage(row: GlyphScanResult): string {
   const windingWarning = createWindingWarning(glyph);
   const warnings = [...row.warnings, ...(glyph?.warnings ?? []), windingWarning].filter(Boolean).filter(uniqueString);
   const detail = warnings[0] ? ` ${warnings[0]}` : '';
+  const tone = row.status === 'unsupported'
+    ? 'issue'
+    : warnings.length > 0 || row.status === 'warning'
+      ? 'warning'
+      : 'valid';
 
-  return `<p class="glyph-message">${escapeHtml(`${row.message}${detail}`)}</p>`;
+  return `<p class="glyph-message ${tone}">${escapeHtml(`${row.message}${detail}`)}</p>`;
 }
 
 function formatStatusLabel(status: GlyphScanResult['status']): string {

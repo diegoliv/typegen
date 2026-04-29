@@ -932,7 +932,23 @@ h2 {
 
 .glyph-message {
   width: 100%;
-  color: #6b6b6b;
+  border: 1px solid #0d99ff;
+  border-radius: 4px;
+  background: #eff8ff;
+  color: #0b6fb7;
   font-size: 11px;
   line-height: 15px;
+  padding: 10px 12px;
+}
+
+.glyph-message.warning {
+  border-color: #f5a623;
+  background: #fff8e6;
+  color: #b86200;
+}
+
+.glyph-message.issue {
+  border-color: #f24822;
+  background: #fff4f2;
+  color: #c9270b;
 }
