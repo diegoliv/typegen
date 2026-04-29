@@ -66,6 +66,8 @@ export function createFontFaceCss(result: FontBuildResult): string {
 
 .typegen-sample {
   font-family: "${cssFamilyName}", system-ui, sans-serif;
+  font-kerning: normal;
+  font-feature-settings: "kern" 1;
 }`;
 }
 
@@ -159,6 +161,8 @@ ${fontFaces}
       background: #fffef9;
       padding: 22px;
       font-size: 64px;
+      font-kerning: normal;
+      font-feature-settings: "kern" 1;
       line-height: 1.12;
       overflow-wrap: anywhere;
     }
@@ -244,6 +248,8 @@ export function createSmokeTestHtml(
       padding: 24px;
       font-family: "${cssFamilyName}", system-ui, sans-serif;
       font-size: 72px;
+      font-kerning: normal;
+      font-feature-settings: "kern" 1;
       line-height: 1.15;
       overflow-wrap: anywhere;
     }

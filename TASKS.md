@@ -1,5 +1,34 @@
 # Typegen MVP Implementation Plan
 
+## 54. V7.0 Manual Kerning
+
+Goal: add constrained manual kerning pairs from the glyph detail overlay while preserving Typegen's scanned glyph -> preview -> exported OTF pipeline.
+
+Completed:
+
+- Created `codex/v7-kerning` from the latest `origin/main`.
+- Added typed manual kerning pairs to saved spacing settings.
+- Added kerning normalization, clamping, lookup, update, removal, sorting, and metric warnings.
+- Applied kerning pairs in the SVG preview layout.
+- Added a minimal exported `kern` table injection step after `opentype.js` font generation so manual kerning survives OTF export.
+- Added a minimal GPOS `kern` feature alongside the legacy `kern` table so browsers apply exported manual kerning reliably.
+- Added explicit `font-kerning: normal` and `"kern" 1` CSS to generated test HTML/CSS.
+- Extended generated-font verification to parse exported kerning pairs back from the OTF.
+- Split the glyph detail overlay into `Glyph` and `Kerning` tabs.
+- Added a kerning pair glyph input, kerning amount slider/number input, reset action, pair preview, and validation message.
+- Refined the pair glyph input so users can clear it with Backspace while editing; the kerning controls disable until the field contains one supported glyph.
+- Added regression coverage for kerning sanitization, preview positioning, and OTF roundtrip kerning.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Remaining:
+
+- Manual Figma QA for pair editing, saved settings restore, and exported web-test package kerning behavior.
+
 ## 53. V6.0 Core UX/UI Direction
 
 Goal: make the stable Typegen workflow feel like a practical Figma-native plugin workspace before adding more feature scope.

@@ -1,5 +1,6 @@
 export type {
   GlyphChar,
+  KerningPair,
   GlyphModel,
   GlyphScanResult,
   NormalizedCommand as NormalizedPathCommand,
@@ -15,7 +16,7 @@ export {
   glyphNameForChar,
 } from '../shared/types';
 
-import { GLYPH_CHARS, type GlyphChar, type GlyphModel } from '../shared/types';
+import { GLYPH_CHARS, type GlyphChar, type GlyphModel, type KerningPair } from '../shared/types';
 
 export const FONT_METRICS = {
   unitsPerEm: 1000,
@@ -44,6 +45,8 @@ export type FontVerificationResult = {
   parsedGlyphCount: number;
   verifiedGlyphs: FontVerifiedGlyph[];
   failedGlyphs: GlyphChar[];
+  verifiedKerningPairs: KerningPair[];
+  failedKerningPairs: KerningPair[];
 };
 
 export type FontVerifiedGlyph = {
@@ -57,19 +60,25 @@ export type FontSpacingSettings = {
   letterSpacing: number;
   spaceWidth: number;
   glyphAdvanceOverrides: Partial<Record<GlyphChar, number>>;
+  kerningPairs: KerningPair[];
 };
 
 export const DEFAULT_SPACING: FontSpacingSettings = {
   letterSpacing: 0,
   spaceWidth: 320,
   glyphAdvanceOverrides: {},
+  kerningPairs: [],
 };
+
+export const KERNING_MIN = -300;
+export const KERNING_MAX = 300;
 
 export function normalizeSpacingSettings(spacing?: Partial<FontSpacingSettings>): FontSpacingSettings {
   return {
     letterSpacing: clampMetric(spacing?.letterSpacing ?? DEFAULT_SPACING.letterSpacing, -120, 300),
     spaceWidth: clampMetric(spacing?.spaceWidth ?? DEFAULT_SPACING.spaceWidth, 120, 900),
     glyphAdvanceOverrides: normalizeGlyphAdvanceOverrides(spacing?.glyphAdvanceOverrides),
+    kerningPairs: normalizeKerningPairs(spacing?.kerningPairs),
   };
 }
 
@@ -107,7 +116,52 @@ export function collectMetricsWarnings(
     }
   }
 
+  for (const pair of normalized.kerningPairs) {
+    if (pair.value <= -220) {
+      warnings.push(`${pair.left}${pair.right} kerning ${pair.value} is very tight.`);
+    } else if (pair.value >= 220) {
+      warnings.push(`${pair.left}${pair.right} kerning ${pair.value} is very loose.`);
+    }
+  }
+
   return warnings;
+}
+
+export function kerningKey(left: GlyphChar, right: GlyphChar): string {
+  return `${left}${right}`;
+}
+
+export function resolveKerningValue(
+  left: GlyphChar | undefined,
+  right: GlyphChar | undefined,
+  spacing?: Partial<FontSpacingSettings>,
+): number {
+  if (!left || !right) {
+    return 0;
+  }
+
+  const normalized = normalizeSpacingSettings(spacing);
+  return normalized.kerningPairs.find((pair) => pair.left === left && pair.right === right)?.value ?? 0;
+}
+
+export function upsertKerningPair(
+  pairs: KerningPair[],
+  left: GlyphChar,
+  right: GlyphChar,
+  value: number,
+): KerningPair[] {
+  const normalizedValue = clampMetric(value, KERNING_MIN, KERNING_MAX);
+  const next = normalizeKerningPairs(pairs).filter((pair) => pair.left !== left || pair.right !== right);
+
+  if (normalizedValue === 0) {
+    return next;
+  }
+
+  return sortKerningPairs([...next, { left, right, value: normalizedValue }]);
+}
+
+export function removeKerningPair(pairs: KerningPair[], left: GlyphChar, right: GlyphChar): KerningPair[] {
+  return normalizeKerningPairs(pairs).filter((pair) => pair.left !== left || pair.right !== right);
 }
 
 export function isGlyphChar(value: string): value is GlyphChar {
@@ -143,4 +197,40 @@ function normalizeGlyphAdvanceOverrides(
       .filter(([char]) => isGlyphChar(char))
       .map(([char, value]) => [char, clampMetric(Number(value), 120, 1400)]),
   ) as Partial<Record<GlyphChar, number>>;
+}
+
+export function normalizeKerningPairs(pairs?: KerningPair[]): KerningPair[] {
+  if (!Array.isArray(pairs)) {
+    return [];
+  }
+
+  const normalized = new Map<string, KerningPair>();
+
+  for (const pair of pairs) {
+    if (!pair || !isGlyphChar(pair.left) || !isGlyphChar(pair.right)) {
+      continue;
+    }
+
+    const value = clampMetric(Number(pair.value), KERNING_MIN, KERNING_MAX);
+    if (value === 0) {
+      continue;
+    }
+
+    normalized.set(kerningKey(pair.left, pair.right), {
+      left: pair.left,
+      right: pair.right,
+      value,
+    });
+  }
+
+  return sortKerningPairs([...normalized.values()]);
+}
+
+function sortKerningPairs(pairs: KerningPair[]): KerningPair[] {
+  const order = new Map<string, number>(GLYPH_CHARS.map((char, index) => [char, index]));
+  return [...pairs].sort((a, b) => {
+    const left = (order.get(a.left) ?? 999) - (order.get(b.left) ?? 999);
+    if (left !== 0) return left;
+    return (order.get(a.right) ?? 999) - (order.get(b.right) ?? 999);
+  });
 }

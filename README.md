@@ -2,14 +2,14 @@
 
 Typegen is a focused Figma plugin MVP for turning glyphs drawn in Figma into a usable static OTF font.
 
-The current V6 alpha keeps the reliable V5 export loop and starts the core UX/UI pass:
+The current V7 alpha keeps the reliable V6 export loop and adds constrained manual kerning:
 
 1. Create a starter A-Z, a-z, 0-9, punctuation, and common-symbol glyph board.
 2. Generate starter glyph outlines in empty slots or draw filled vector glyphs yourself.
 3. Refine the editable vector outlines in Figma.
 4. Select a board and let Typegen auto-scan it.
 5. Preview available glyphs with custom text or quick presets.
-6. Tune spacing.
+6. Tune spacing and optional manual kerning pairs in the glyph detail overlay.
 7. Click `Generate font` to download a ZIP package containing every generated weight and one test HTML file.
 
 The board action is safe to re-run: it updates the selected board when one is active on the canvas, preserves existing glyph artwork, and repositions supported slots into the canonical A-Z, a-z, 0-9, punctuation order. Regular and Bold starter styles use separate boards, so creating a Bold board will not reuse an existing Regular board.
@@ -43,6 +43,7 @@ Supported:
 - Preview presets for mixed, headline, word-list, paragraph-style, and number/symbol samples
 - Global letter spacing and space width
 - Per-glyph advance width overrides
+- Manual kerning pairs from the glyph detail overlay
 - One-click ZIP export from all Typegen glyph boards on the page
 - OTF files for each valid generated board weight
 - Single HTML test page with inline `@font-face` rows for every generated weight
@@ -51,7 +52,6 @@ Supported:
 Not supported in the MVP:
 
 - Symbols beyond the supported common set
-- Kerning
 - Variable fonts
 - AI glyph generation
 - Replacing existing glyph artwork from the starter generator

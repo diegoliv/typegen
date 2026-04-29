@@ -304,6 +304,8 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Generated font includes a real space glyph using the selected `Space width`.
 - [ ] Generated A-Z, 0-9, and supported punctuation glyph advance widths include the selected `Letter spacing`.
 - [ ] Generated A-Z, 0-9, and supported punctuation glyph advance widths use per-glyph overrides where set.
+- [ ] Generated fonts preserve manual kerning pairs for valid scanned glyphs.
+- [ ] Generated-font verification reports verified kerning pair counts when kerning pairs are active.
 - [ ] Period and comma use narrower default advance widths than uppercase letters.
 - [ ] Generation failure displays an actionable error.
 - [ ] Re-scanning after edits updates the generated glyph set on the next generation.
@@ -413,6 +415,11 @@ Run these after the main demo flow passes:
 | Override A advance to `1200` | A creates a visibly wider advance in preview/export |
 | Override A advance to `120` | Diagnostics shows a narrow A advance warning |
 | Reset A override | A returns to automatic advance width |
+| Kerning `AV` to `-80` | Preview and exported smoke test pull V closer to A |
+| Kerning `TA` to `60` | Preview and exported smoke test loosen A after T |
+| Backspace in pair glyph field | Field clears normally and kerning slider disables until one supported glyph is typed |
+| Kerning pair right glyph missing | UI warns that the pair will be ignored until the glyph is valid |
+| Reset `AV` kerning | Pair returns to default spacing |
 | Close/reopen plugin after tuning | Font name, preview text, spacing, selected glyph, and overrides are restored |
 | Close/reopen plugin after scan | Preview restores from saved glyph node ids without manual re-scan |
 | Delete saved board then reopen plugin | Clear restore failure message; user can scan a new board |
@@ -461,9 +468,9 @@ Expected result: supported custom glyphs visibly render with Typegen outlines; u
 ## Known V3 Alpha Limitations To Confirm In UI
 
 - Uppercase A-Z, lowercase a-z, numbers 0-9, six punctuation marks, and nine common symbols are supported.
-- No symbols beyond the supported common set, ligatures, kerning, or variable fonts.
-- Spacing controls are global except for per-glyph advance width overrides.
-- Per-glyph advance width overrides do not include side bearing or kerning editing.
+- No symbols beyond the supported common set, ligatures, auto-kerning, kerning classes, or variable fonts.
+- Spacing controls are global except for per-glyph advance width overrides and manual kerning pairs.
+- Per-glyph advance width overrides do not include side bearing editing.
 - Reset clears document-level saved settings; generated font binaries are still not persisted.
 - The recipe/help panel is informational only; it does not change validation behavior.
 - No AI glyph generation.

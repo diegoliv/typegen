@@ -7,6 +7,7 @@ import {
   type NormalizedPathCommand,
   isGlyphChar,
   normalizeSpacingSettings,
+  resolveKerningValue,
   resolveGlyphAdvance,
 } from "../../font/glyphModel";
 
@@ -77,7 +78,11 @@ export function layoutPreviewText(
   const baselineY = FONT_METRICS.ascender + PREVIEW_TOP_PADDING;
   let cursorX = PREVIEW_SIDE_PADDING;
 
-  for (const char of Array.from(previewText)) {
+  const previewChars = Array.from(previewText);
+
+  for (let index = 0; index < previewChars.length; index++) {
+    const char = previewChars[index];
+    const nextChar = previewChars[index + 1];
     const transform = `translate(${cursorX} ${baselineY}) scale(1 -1)`;
 
     if (char === " ") {
@@ -126,7 +131,7 @@ export function layoutPreviewText(
       transform,
       glyph,
     });
-    cursorX += advanceWidth;
+    cursorX += advanceWidth + (isGlyphChar(nextChar ?? "") ? resolveKerningValue(char, nextChar as GlyphChar, spacing) : 0);
   }
 
   const width = Math.max(

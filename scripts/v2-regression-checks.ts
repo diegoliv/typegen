@@ -8,7 +8,9 @@ import {
   collectMetricsWarnings,
   defaultAdvanceForChar,
   isGlyphChar,
+  normalizeKerningPairs,
   normalizeSpacingSettings,
+  resolveKerningValue,
   resolveGlyphAdvance,
   type GlyphModel,
 } from "../src/font/glyphModel";
@@ -373,6 +375,24 @@ assert.equal(
   900,
   "per-glyph override should replace automatic advance",
 );
+assert.deepEqual(
+  normalizeKerningPairs([
+    { left: "A", right: "V", value: -80 },
+    { left: "A", right: "V", value: -90 },
+    { left: "A", right: "#", value: -80 } as never,
+    { left: "T", right: "A", value: 999 },
+  ]),
+  [
+    { left: "A", right: "V", value: -90 },
+    { left: "T", right: "A", value: 300 },
+  ],
+  "kerning pairs should sanitize, dedupe, clamp, and sort",
+);
+assert.equal(
+  resolveKerningValue("A", "V", { ...DEFAULT_SPACING, kerningPairs: [{ left: "A", right: "V", value: -80 }] }),
+  -80,
+  "kerning lookup should return the configured pair value",
+);
 
 const tightMetricsWarnings = collectMetricsWarnings([glyphA], {
   ...DEFAULT_SPACING,
@@ -421,6 +441,10 @@ const wideOverridePreview = layoutPreviewText("AA", [glyphA], {
   ...DEFAULT_SPACING,
   glyphAdvanceOverrides: { A: 1000 },
 });
+const kernedPreview = layoutPreviewText("AA", [glyphA], {
+  ...DEFAULT_SPACING,
+  kerningPairs: [{ left: "A", right: "A", value: -80 }],
+});
 assert.equal(
   defaultOverridePreview.items[1]?.transform,
   "translate(740 830) scale(1 -1)",
@@ -430,6 +454,11 @@ assert.equal(
   wideOverridePreview.items[1]?.transform,
   "translate(1040 830) scale(1 -1)",
   "preview layout should position repeated glyphs using the per-glyph advance override",
+);
+assert.equal(
+  kernedPreview.items[1]?.transform,
+  "translate(660 830) scale(1 -1)",
+  "preview layout should apply kerning between adjacent glyphs",
 );
 
 const lowercasePreview = layoutPreviewText("Aa", [glyphA, glyphLowerA], DEFAULT_SPACING);
@@ -583,6 +612,7 @@ assert.ok(fontFaceCss.includes('@font-face'), "CSS helper should include @font-f
 assert.ok(fontFaceCss.includes('font-family: "Typegen Regression"'), "CSS helper should include the generated family name");
 assert.ok(fontFaceCss.includes('url("./Typegen-Regression.otf")'), "CSS helper should reference the exported OTF filename");
 assert.ok(fontFaceCss.includes('font-display: swap'), "CSS helper should include font-display");
+assert.ok(fontFaceCss.includes('font-kerning: normal'), "CSS helper should explicitly enable kerning");
 const packageHtml = createFontPackageHtml([
   { result: font, style: "Regular" },
 ], "A Z");
@@ -644,6 +674,21 @@ const numericFont = buildFont({
 assert.equal(numericFont.glyphCount, 2, "numeric fixture should include A and 2 glyphs");
 assert.equal(numericFont.verification.failedGlyphs.length, 0, "numeric fixture should verify cleanly");
 assertRoundTripGlyph(numericFont.arrayBuffer, "2", 680, "numeric fixture should preserve 2");
+
+const kerningFont = buildFont({
+  familyName: "Typegen Kerning Regression",
+  glyphs: [glyphA, makeRectGlyph("V", 86, "glyph-V", 40, 0, 650, 700)],
+  spacing: {
+    ...DEFAULT_SPACING,
+    kerningPairs: [{ left: "A", right: "V", value: -80 }],
+  },
+});
+
+assert.equal(kerningFont.verification.failedKerningPairs.length, 0, "kerning fixture should verify kern pairs");
+assert.equal(kerningFont.verification.verifiedKerningPairs.length, 1, "kerning fixture should verify one pair");
+assertRoundTripKerning(kerningFont.arrayBuffer, "A", "V", -80, "kerning fixture should preserve AV pair");
+assertTableExists(kerningFont.arrayBuffer, "kern", "kerning fixture should include legacy kern table");
+assertTableExists(kerningFont.arrayBuffer, "GPOS", "kerning fixture should include GPOS table for browser shaping");
 
 const punctuationFont = buildFont({
   familyName: "Typegen Punctuation Regression",
@@ -729,6 +774,35 @@ function assertRoundTripGlyph(
   assert.equal(glyph.unicode, char.charCodeAt(0), `${message}: unicode should survive font parse`);
   assert.equal(glyph.advanceWidth, expectedAdvanceWidth, `${message}: advance width should survive font parse`);
   assert.ok(glyph.path.commands.length > 0, `${message}: outline commands should survive font parse`);
+}
+
+function assertRoundTripKerning(
+  buffer: ArrayBuffer,
+  left: string,
+  right: string,
+  expectedValue: number,
+  message: string,
+): void {
+  const parsed = opentype.parse(buffer);
+  const value = parsed.getKerningValue(parsed.charToGlyph(left), parsed.charToGlyph(right));
+  assert.equal(value, expectedValue, message);
+}
+
+function assertTableExists(buffer: ArrayBuffer, tag: string, message: string): void {
+  const bytes = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+  const tableCount = view.getUint16(4);
+
+  for (let index = 0; index < tableCount; index++) {
+    const offset = 12 + index * 16;
+    const tableTag = String.fromCharCode(...bytes.slice(offset, offset + 4));
+    if (tableTag === tag) {
+      assert.ok(view.getUint32(offset + 12) > 0, message);
+      return;
+    }
+  }
+
+  assert.fail(message);
 }
 
 function collectParsedGlyphContourAreas(buffer: ArrayBuffer, char: string): number[] {

@@ -193,6 +193,12 @@ export type GlyphModel = {
   warnings: string[];
 };
 
+export type KerningPair = {
+  left: GlyphChar;
+  right: GlyphChar;
+  value: number;
+};
+
 export type GlyphScanResult = {
   char: GlyphChar;
   name: string;
@@ -230,5 +236,6 @@ export type PersistedTypegenSettings = {
     letterSpacing: number;
     spaceWidth: number;
     glyphAdvanceOverrides: Partial<Record<GlyphChar, number>>;
+    kerningPairs?: KerningPair[];
   };
 };

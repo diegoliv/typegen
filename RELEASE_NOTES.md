@@ -1,5 +1,25 @@
 # Release Notes
 
+## 7.0.0-alpha.1
+
+Typegen V7.0 alpha manual kerning.
+
+### Added
+
+- Manual kerning pairs in the glyph detail overlay.
+- `Glyph` and `Kerning` tabs for the selected glyph.
+- Kerning pair glyph input, kerning amount slider/number input, reset action, and pair preview.
+- SVG preview layout now applies active kerning pairs.
+- Exported OTF files now include minimal legacy `kern` and GPOS `kern` feature data for valid manual pairs.
+- Generated-font verification now parses kerning pairs back from the exported OTF.
+
+### Still Out Of Scope
+
+- Auto-kerning.
+- Kerning classes.
+- OpenType feature editing.
+- Variable fonts, AI generation, WOFF, or WOFF2 export.
+
 ## 6.0.0-alpha.1
 
 Typegen V6.0 alpha core UX/UI direction.

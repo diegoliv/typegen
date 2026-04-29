@@ -12,6 +12,10 @@ import {
   glyphLabelForChar,
   glyphNameForChar,
   isGlyphChar,
+  normalizeKerningPairs,
+  removeKerningPair,
+  resolveKerningValue,
+  upsertKerningPair,
   type FontBuildResult,
   type FontSpacingSettings,
   type GlyphChar,
@@ -29,6 +33,9 @@ type UiState = {
   previewText: string;
   previewFontSize: number;
   activeTab: UiTab;
+  glyphDetailTab: GlyphDetailTab;
+  kerningPairRight: GlyphChar;
+  kerningPairInput: string;
   starterStyle: 'Regular' | 'Bold';
   glyphs: GlyphScanResult[];
   selectedGlyph: GlyphChar;
@@ -48,6 +55,7 @@ type UiState = {
 };
 
 type UiTab = 'glyphs' | 'preview' | 'settings';
+type GlyphDetailTab = 'glyph' | 'kerning';
 
 type ExportDiagnostics = {
   status: 'ready' | 'blocked' | 'needs-scan';
@@ -86,6 +94,9 @@ const state: UiState = {
   previewText: "ABC box @2+2",
   previewFontSize: 24,
   activeTab: 'glyphs',
+  glyphDetailTab: 'glyph',
+  kerningPairRight: 'V',
+  kerningPairInput: 'V',
   starterStyle: 'Regular',
   glyphs: [],
   selectedGlyph: 'A',
@@ -93,7 +104,7 @@ const state: UiState = {
   lastScanNodeIds: [],
   statusMessage: 'Select a Typegen glyph board to auto-scan, or create a starter board.',
   generatedFont: null,
-  spacing: { ...DEFAULT_SPACING, glyphAdvanceOverrides: {} },
+  spacing: { ...DEFAULT_SPACING, glyphAdvanceOverrides: {}, kerningPairs: [] },
   showRecipeOverlay: false,
   glyphOverlayOpen: false,
   previewCollapsed: false,
@@ -358,7 +369,7 @@ function renderGeneratedPanel(): string {
     <section class="panel compact-panel">
       ${
         state.generatedFont
-          ? `<p class="status">Font generated with ${state.generatedFont.glyphCount}/${GLYPH_CHARS.length} glyphs. Export includes: ${escapeHtml(exportedChars().join(', ') || 'none')}. Letter spacing: ${state.spacing.letterSpacing}, space width: ${state.spacing.spaceWidth}, overrides: ${countAdvanceOverrides()}.</p>`
+          ? `<p class="status">Font generated with ${state.generatedFont.glyphCount}/${GLYPH_CHARS.length} glyphs. Export includes: ${escapeHtml(exportedChars().join(', ') || 'none')}. Letter spacing: ${state.spacing.letterSpacing}, space width: ${state.spacing.spaceWidth}, overrides: ${countAdvanceOverrides()}, kerning pairs: ${state.spacing.kerningPairs.length}.</p>`
           : ''
       }
       ${state.generatedFont ? renderFontVerification(state.generatedFont) : ''}
@@ -506,7 +517,7 @@ function renderRecipeOverlay(): string {
           <li>Convert text and strokes to outlines before scanning.</li>
           <li>Avoid images, effects, gradients, masks, booleans, and live shape layers.</li>
         </ol>
-        <p class="status">Kerning, variable fonts, AI generation, and broader symbol coverage remain outside this MVP.</p>
+        <p class="status">V7 supports manual pair kerning for scanned glyphs. Variable fonts, AI generation, and broader symbol coverage remain outside this MVP.</p>
       </section>
     </div>
   `;
@@ -517,30 +528,116 @@ function renderGlyphOverlay(row: GlyphScanResult): string {
   const advanceOverride = state.spacing.glyphAdvanceOverrides[row.char];
   const overrideValue = advanceOverride ?? glyph?.advanceWidth ?? 700;
   const canOverride = row.status === 'valid' && Boolean(glyph);
+  const tabs: Array<{ id: GlyphDetailTab; label: string }> = [
+    { id: 'glyph', label: 'Glyph' },
+    { id: 'kerning', label: 'Kerning' },
+  ];
 
   return `
     <div class="overlay-backdrop" role="dialog" aria-modal="true" aria-label="Glyph details">
       <section class="overlay-card glyph-overlay">
         <div class="overlay-head">
           <p class="eyebrow">Glyph ${escapeHtml(row.char)}</p>
+          <div class="glyph-detail-tabs" role="tablist" aria-label="Glyph detail sections">
+            ${tabs
+              .map(
+                (tab) => `
+                  <button class="detail-tab ${state.glyphDetailTab === tab.id ? 'active' : ''}" type="button" role="tab" aria-selected="${state.glyphDetailTab === tab.id}" data-glyph-detail-tab="${tab.id}">
+                    ${escapeHtml(tab.label)}
+                  </button>
+                `,
+              )
+              .join('')}
+          </div>
           <button id="close-glyph-overlay" class="icon-button" aria-label="Close glyph details">Close</button>
         </div>
-        ${renderGlyphSpecimen(row, overrideValue)}
-        <div class="glyph-detail-stats">
-          <div>
-            <span>Status</span>
-            <strong class="${row.status === 'valid' ? '' : 'issue-count'}">${escapeHtml(formatStatusLabel(row.status))}</strong>
-          </div>
-          <div>
-            <span>Unicode</span>
-            <strong>U+${row.char.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}</strong>
-          </div>
-        </div>
-        ${renderMetricSlider('advance-override', 'Advance width override', overrideValue, 120, 1400, 10, !canOverride)}
-        ${renderGlyphOverlayMessage(row)}
+        ${state.glyphDetailTab === 'glyph' ? renderGlyphDetailTab(row, overrideValue, canOverride) : renderKerningDetailTab(row)}
       </section>
     </div>
   `;
+}
+
+function renderGlyphDetailTab(row: GlyphScanResult, overrideValue: number, canOverride: boolean): string {
+  return `
+    ${renderGlyphSpecimen(row, overrideValue)}
+    <div class="glyph-detail-stats">
+      <div>
+        <span>Status</span>
+        <strong class="${row.status === 'valid' ? '' : 'issue-count'}">${escapeHtml(formatStatusLabel(row.status))}</strong>
+      </div>
+      <div>
+        <span>Unicode</span>
+        <strong>U+${row.char.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}</strong>
+      </div>
+    </div>
+    ${renderMetricSlider('advance-override', 'Advance width override', overrideValue, 120, 1400, 10, !canOverride)}
+    ${renderGlyphOverlayMessage(row)}
+  `;
+}
+
+function renderKerningDetailTab(row: GlyphScanResult): string {
+  const right = getKerningPairRight();
+  const canKern = row.status === 'valid' && Boolean(row.glyph);
+  const hasInput = state.kerningPairInput.trim().length > 0;
+  const rightIsExportable = Boolean(right && validGlyphs().some((glyph) => glyph.char === right));
+  const value = right ? resolveKerningValue(row.char, right, state.spacing) : 0;
+  const pairLabel = right ? `${glyphLabelForChar(row.char)}${glyphLabelForChar(right)}` : glyphLabelForChar(row.char);
+  const message = !canKern
+    ? 'Kerning is available after this glyph scans as valid.'
+    : !hasInput
+      ? 'Type one supported glyph to choose the right side of this kerning pair.'
+      : !right
+        ? `${state.kerningPairInput} is not a supported glyph in this font.`
+    : !rightIsExportable
+      ? `${glyphLabelForChar(right)} is not valid in the current scan; this pair will be ignored on export until that glyph is ready.`
+      : value === 0
+        ? `${pairLabel} uses default spacing. Add a value to create a kerning pair.`
+        : `${pairLabel} kerning ${value} will preview and export.`;
+  const tone = !canKern || !right || !rightIsExportable ? 'warning' : 'valid';
+
+  return `
+    ${renderKerningPairPreview(row, right)}
+    <div class="kerning-fields">
+      <label class="field compact">
+        <span>Pair glyph</span>
+        <input id="kerning-right-glyph" maxlength="1" value="${escapeAttr(state.kerningPairInput)}" placeholder="V" ${canKern ? '' : 'disabled'} />
+      </label>
+      <div class="kerning-amount-row">
+        ${renderMetricSlider('kerning-value', 'Kerning amount', value, -300, 300, 10, !canKern || !right)}
+        <button id="reset-kerning-pair" ${right && value !== 0 ? '' : 'disabled'}>Reset pair</button>
+      </div>
+    </div>
+    <p class="glyph-message ${tone}">${escapeHtml(message)}</p>
+  `;
+}
+
+function renderKerningPairPreview(row: GlyphScanResult, right: GlyphChar | null): string {
+  const rightGlyph = right ? state.glyphs.find((glyph) => glyph.char === right)?.glyph : null;
+  const glyphs = [row.glyph, rightGlyph].filter((glyph): glyph is GlyphModel => Boolean(glyph));
+  const previewText = `${row.char}${right ?? ''}`;
+  const layout = layoutPreviewText(previewText, glyphs, state.spacing);
+  const width = Math.max(layout.width, 1180);
+  const viewBox = `0 0 ${width} ${layout.height}`;
+  const items = layout.items
+    .map((item) => {
+      if (item.kind !== 'glyph') {
+        return '';
+      }
+
+      return `<path d="${escapeAttr(item.pathData)}" transform="${escapeAttr(item.transform)}" />`;
+    })
+    .join('');
+
+  return `
+    <div class="glyph-detail-preview kerning-preview" aria-hidden="true">
+      <svg class="glyph-specimen-svg" viewBox="${escapeAttr(viewBox)}">${items || `<text x="48" y="120">${escapeHtml(previewText || row.char)}</text>`}</svg>
+    </div>
+  `;
+}
+
+function getKerningPairRight(): GlyphChar | null {
+  const [char] = Array.from(state.kerningPairInput);
+  return char && isGlyphChar(char) ? char : null;
 }
 
 function renderGlyphSpecimen(row: GlyphScanResult, advanceWidth: number): string {
@@ -669,6 +766,16 @@ function bindEvents() {
     });
   });
 
+  document.querySelectorAll<HTMLButtonElement>('[data-glyph-detail-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const tab = button.dataset.glyphDetailTab;
+      if (tab === 'glyph' || tab === 'kerning') {
+        state.glyphDetailTab = tab;
+        render();
+      }
+    });
+  });
+
   document.querySelectorAll<HTMLButtonElement>('[data-glyph]').forEach((button) => {
     button.addEventListener('click', () => {
       const glyph = button.dataset.glyph;
@@ -762,6 +869,49 @@ function bindEvents() {
     state.generatedFont = null;
   });
 
+  bindMetricInputs('kerning-value', -300, 300, (value) => {
+    const right = getKerningPairRight();
+    if (!right) {
+      return;
+    }
+
+    state.spacing.kerningPairs = upsertKerningPair(
+      state.spacing.kerningPairs,
+      state.selectedGlyph,
+      right,
+      value,
+    );
+    state.kerningPairRight = right;
+    state.generatedFont = null;
+  });
+
+  document.querySelector<HTMLInputElement>('#kerning-right-glyph')?.addEventListener('input', (event) => {
+    const input = event.target as HTMLInputElement;
+    const next = Array.from(input.value)[0] ?? '';
+    state.kerningPairInput = next;
+
+    if (isGlyphChar(next)) {
+      state.kerningPairRight = next;
+      state.generatedFont = null;
+      persistSettings();
+    }
+
+    render();
+  });
+
+  document.querySelector<HTMLButtonElement>('#reset-kerning-pair')?.addEventListener('click', () => {
+    const right = getKerningPairRight();
+    if (!right) {
+      return;
+    }
+
+    state.spacing.kerningPairs = removeKerningPair(state.spacing.kerningPairs, state.selectedGlyph, right);
+    state.kerningPairRight = right;
+    state.generatedFont = null;
+    persistSettings();
+    render();
+  });
+
   document.querySelector<HTMLButtonElement>('#create-board')?.addEventListener('click', () => {
     state.statusMessage = `Creating/updating Inter ${state.starterStyle} glyph board...`;
     postToPlugin({ type: 'CREATE_GLYPH_BOARD', style: state.starterStyle });
@@ -843,7 +993,11 @@ function updateLiveMetricPreview(metric: string): void {
     refreshGlyphSpecimen(value);
   }
 
-  if (metric === 'letter-spacing' || metric === 'space-width' || metric === 'advance-override') {
+  if (metric === 'kerning-value') {
+    refreshKerningSpecimen();
+  }
+
+  if (metric === 'letter-spacing' || metric === 'space-width' || metric === 'advance-override' || metric === 'kerning-value') {
     refreshPreviewMarkup();
   }
 }
@@ -863,6 +1017,16 @@ function refreshGlyphSpecimen(advanceWidth: number): void {
   if (!row) return;
 
   preview.outerHTML = renderGlyphSpecimen(row, advanceWidth);
+}
+
+function refreshKerningSpecimen(): void {
+  const preview = document.querySelector<HTMLElement>('.kerning-preview');
+  if (!preview) return;
+
+  const row = state.glyphs.find((glyph) => glyph.char === state.selectedGlyph);
+  if (!row) return;
+
+  preview.outerHTML = renderKerningPairPreview(row, getKerningPairRight());
 }
 
 window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginToUiMessage }>) => {
@@ -1094,6 +1258,10 @@ function createExportDiagnostics(): ExportDiagnostics {
     details.push(`${overrideCount} advance width overrides are active.`);
   }
 
+  if (state.spacing.kerningPairs.length > 0) {
+    details.push(`${state.spacing.kerningPairs.length} kerning pairs are active.`);
+  }
+
   details.push(
     state.lastScanNodeIds.length > 0
       ? `Saved scan references ${state.lastScanNodeIds.length} Figma nodes.`
@@ -1213,6 +1381,7 @@ function isGeneratedFontVerified(result = state.generatedFont): boolean {
   return Boolean(
     result &&
       result.verification.failedGlyphs.length === 0 &&
+      result.verification.failedKerningPairs.length === 0 &&
       result.verification.verifiedGlyphs.length === result.glyphCount,
   );
 }
@@ -1255,10 +1424,16 @@ function renderFontVerification(result: FontBuildResult): string {
         <span>Sample</span>
         <strong>${escapeHtml(sample || 'none')}</strong>
       </div>
+      <div>
+        <span>Kerning</span>
+        <strong>${result.verification.verifiedKerningPairs.length}/${result.verification.verifiedKerningPairs.length + result.verification.failedKerningPairs.length}</strong>
+      </div>
     </div>
     ${
       failedChars.length
         ? `<p class="warning">Generated font parsed, but these glyphs did not verify cleanly: ${escapeHtml(failedChars.join(', '))}.</p>`
+        : result.verification.failedKerningPairs.length
+          ? `<p class="warning">Generated font parsed, but these kerning pairs did not verify cleanly: ${escapeHtml(result.verification.failedKerningPairs.map((pair) => `${pair.left}${pair.right}`).join(', '))}.</p>`
         : '<p class="status">Generated font parsed back successfully with matching unicode, advance width, and outline data.</p>'
     }
   `;
@@ -1361,6 +1536,7 @@ function createPersistedSettings(): PersistedTypegenSettings {
       letterSpacing: state.spacing.letterSpacing,
       spaceWidth: state.spacing.spaceWidth,
       glyphAdvanceOverrides: { ...state.spacing.glyphAdvanceOverrides },
+      kerningPairs: [...state.spacing.kerningPairs],
     },
   };
 }
@@ -1383,6 +1559,7 @@ function applyPersistedSettings(settings: PersistedTypegenSettings | null): void
     letterSpacing: clampNumber(settings.spacing?.letterSpacing, -120, 300, DEFAULT_SPACING.letterSpacing),
     spaceWidth: clampNumber(settings.spacing?.spaceWidth, 120, 900, DEFAULT_SPACING.spaceWidth),
     glyphAdvanceOverrides: sanitizeAdvanceOverrides(settings.spacing?.glyphAdvanceOverrides),
+    kerningPairs: sanitizeKerningPairs(settings.spacing?.kerningPairs),
   };
   state.generatedFont = null;
   state.statusMessage = 'Restored saved Typegen settings from this Figma file.';
@@ -1404,6 +1581,21 @@ function sanitizeAdvanceOverrides(
       .filter(([char]) => isGlyphChar(char))
       .map(([char, value]) => [char, clampNumber(value, 120, 1400, 700)]),
   ) as FontSpacingSettings['glyphAdvanceOverrides'];
+}
+
+function sanitizeKerningPairs(pairs: PersistedTypegenSettings['spacing']['kerningPairs'] | undefined): FontSpacingSettings['kerningPairs'] {
+  if (!Array.isArray(pairs)) {
+    return [];
+  }
+
+  return normalizeKerningPairs(pairs
+    .filter((pair) => pair && isGlyphChar(pair.left) && isGlyphChar(pair.right))
+    .map((pair) => ({
+      left: pair.left,
+      right: pair.right,
+      value: clampNumber(pair.value, -300, 300, 0),
+    }))
+    .filter((pair) => pair.value !== 0));
 }
 
 function clampNumber(value: number | undefined, min: number, max: number, fallback: number): number {
