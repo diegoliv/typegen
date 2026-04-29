@@ -225,7 +225,7 @@ function renderTabs(): string {
 function renderGlyphsTab(rows: GlyphScanResult[], diagnostics: ExportDiagnostics): string {
   const scanWarning = createScanExportWarning();
   const missingTotal = diagnostics.emptyCount + diagnostics.missingCount;
-  const issueTotal = diagnostics.unsupportedCount + diagnostics.warningCount;
+  const issueTotal = diagnostics.unsupportedCount;
 
   return `
     <section class="panel diagnostics-panel ${diagnostics.status} ${state.healthCollapsed ? 'collapsed' : ''}">
@@ -248,6 +248,10 @@ function renderGlyphsTab(rows: GlyphScanResult[], diagnostics: ExportDiagnostics
               <div>
                 <span>Issues</span>
                 <strong class="${issueTotal ? 'issue-count' : ''}">${issueTotal}</strong>
+              </div>
+              <div>
+                <span>Warnings</span>
+                <strong class="${diagnostics.warningCount ? 'warning-count' : ''}">${diagnostics.warningCount}</strong>
               </div>
             </div>
             ${
@@ -408,6 +412,7 @@ function restoreRenderInteraction(interaction: RenderInteraction): void {
 
 function renderGlyphTile(row: GlyphScanResult): string {
   const isSelected = row.char === state.selectedGlyph;
+  const hasWarning = hasGlyphTileWarning(row);
   const hasIssue = hasGlyphTileIssue(row);
   const label = glyphLabelForChar(row.char);
   const glyphMarkup = row.glyph
@@ -418,7 +423,7 @@ function renderGlyphTile(row: GlyphScanResult): string {
     : row.message;
 
   return `
-    <button class="glyph-tile ${row.status} ${hasIssue ? 'has-issue' : ''} ${isSelected ? 'selected' : ''}" role="listitem" data-glyph="${escapeAttr(row.char)}" title="${escapeAttr(title)}">
+    <button class="glyph-tile ${row.status} ${hasIssue ? 'has-issue' : ''} ${hasWarning ? 'has-warning' : ''} ${isSelected ? 'selected' : ''}" role="listitem" data-glyph="${escapeAttr(row.char)}" title="${escapeAttr(title)}">
       <em>${escapeHtml(label)}</em>
       <strong>${glyphMarkup}</strong>
     </button>
@@ -426,7 +431,11 @@ function renderGlyphTile(row: GlyphScanResult): string {
 }
 
 function hasGlyphTileIssue(row: GlyphScanResult): boolean {
-  return glyphTileIssueMessages(row).length > 0 || row.status === 'unsupported' || row.status === 'warning';
+  return row.status === 'unsupported';
+}
+
+function hasGlyphTileWarning(row: GlyphScanResult): boolean {
+  return row.status === 'warning' || glyphTileIssueMessages(row).length > 0;
 }
 
 function glyphTileIssueMessages(row: GlyphScanResult): string[] {

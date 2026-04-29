@@ -526,7 +526,7 @@ h2 {
 
 .diagnostic-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
 }
 
@@ -560,6 +560,11 @@ h2 {
 
 .issue-count {
   color: #f24822;
+}
+
+.diagnostic-grid .warning-count,
+.warning-count {
+  color: #b86200;
 }
 
 .diagnostic-details {
@@ -643,12 +648,17 @@ h2 {
   color: #b3b3b3;
 }
 
-.glyph-tile.unsupported,
-.glyph-tile.warning,
 .glyph-tile.has-issue {
   border-color: #f24822;
   background: #fff4f2;
   color: #f24822;
+}
+
+.glyph-tile.warning,
+.glyph-tile.has-warning {
+  border-color: #f5a623;
+  background: #fff8e6;
+  color: #b86200;
 }
 
 .glyph-tile.selected {
