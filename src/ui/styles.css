@@ -808,7 +808,7 @@ h2 {
 }
 
 .glyph-specimen-svg .specimen-guides {
-  color: #4c7dff;
+  color: #f24822;
 }
 
 .glyph-specimen-svg .specimen-guides line {
@@ -816,11 +816,7 @@ h2 {
   fill: none;
   stroke: currentColor;
   stroke-width: 1;
-  stroke-opacity: 0.28;
-}
-
-.glyph-specimen-svg .specimen-guides .specimen-side-guide {
-  stroke-opacity: 0.52;
+  stroke-opacity: 0.16;
 }
 
 .glyph-specimen {

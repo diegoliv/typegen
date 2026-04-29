@@ -548,8 +548,9 @@ function renderGlyphSpecimenSvg(char: GlyphChar, glyph: GlyphModel, advanceWidth
   const middleOrigin = middleGlyph ? previewTransformX(middleGlyph.transform) : 0;
   const middleCenter = middleOrigin + glyph.bounds.xMin + (glyph.bounds.xMax - glyph.bounds.xMin) / 2;
   const viewBoxWidth = 2930;
-  const viewBox = `${Math.round(middleCenter - viewBoxWidth / 2)} -240 ${viewBoxWidth} 1080`;
-  const guides = renderGlyphSpecimenGuides(char, middleOrigin, advanceWidth);
+  const viewBoxX = Math.round(middleCenter - viewBoxWidth / 2);
+  const viewBox = `${viewBoxX} -240 ${viewBoxWidth} 1080`;
+  const guides = renderGlyphSpecimenGuides(char, viewBoxX, viewBoxX + viewBoxWidth);
   const paths = layout.items
     .map((item, index) => {
       if (item.kind !== 'glyph') {
@@ -565,24 +566,17 @@ function renderGlyphSpecimenSvg(char: GlyphChar, glyph: GlyphModel, advanceWidth
   return `<svg class="glyph-specimen-svg" viewBox="${escapeAttr(viewBox)}" aria-hidden="true">${guides}${paths}</svg>`;
 }
 
-function renderGlyphSpecimenGuides(char: GlyphChar, originX: number, advanceWidth: number): string {
+function renderGlyphSpecimenGuides(char: GlyphChar, xMin: number, xMax: number): string {
   const profile = unifiedVisualGuideProfileForChar(char);
   const designHeight = Math.max(1, profile.baselineY - profile.ascenderY);
-  const scale = profile.ascenderUnits / designHeight;
-  const guideWidth = (profile.rightBoundaryX - profile.leftBoundaryX) * scale;
-  const centerX = originX + advanceWidth / 2;
-  const xMin = centerX - guideWidth / 2;
-  const xMax = centerX + guideWidth / 2;
   const ascenderY = profile.ascenderUnits;
   const xHeightY = ((profile.baselineY - (profile.xHeightY ?? profile.ascenderY)) / designHeight) * profile.ascenderUnits;
   const baselineY = 0;
   const descenderY = ((profile.baselineY - (profile.descenderY ?? profile.baselineY)) / designHeight) * profile.ascenderUnits;
-  const transform = `translate(0 ${FONT_METRICS.ascender}) scale(1 -1)`;
+  const transform = 'translate(0 700) scale(1 -1)';
 
   return `
     <g class="specimen-guides" transform="${escapeAttr(transform)}">
-      <line class="specimen-side-guide" x1="${roundSvg(xMin)}" y1="${roundSvg(descenderY)}" x2="${roundSvg(xMin)}" y2="${roundSvg(ascenderY)}" />
-      <line class="specimen-side-guide" x1="${roundSvg(xMax)}" y1="${roundSvg(descenderY)}" x2="${roundSvg(xMax)}" y2="${roundSvg(ascenderY)}" />
       <line x1="${roundSvg(xMin)}" y1="${roundSvg(ascenderY)}" x2="${roundSvg(xMax)}" y2="${roundSvg(ascenderY)}" />
       <line x1="${roundSvg(xMin)}" y1="${roundSvg(xHeightY)}" x2="${roundSvg(xMax)}" y2="${roundSvg(xHeightY)}" />
       <line x1="${roundSvg(xMin)}" y1="${roundSvg(baselineY)}" x2="${roundSvg(xMax)}" y2="${roundSvg(baselineY)}" />
