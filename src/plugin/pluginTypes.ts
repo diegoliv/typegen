@@ -57,7 +57,10 @@ export type GlyphScanSummary = {
 
 export type PersistedTypegenSettings = {
   fontName: string;
+  fontVersion?: string;
+  fontAuthor?: string;
   previewText: string;
+  previewFontSize?: number;
   selectedGlyph: string;
   lastScanNodeIds: string[];
   spacing: {
@@ -101,6 +104,9 @@ export type PluginToUiMessage =
       glyphs: GlyphScanResult[];
       summary: GlyphScanSummary;
       activeBoard?: ActiveBoardInfo;
+    }
+  | {
+      type: "BOARD_SELECTION_CLEARED";
     }
   | {
       type: "ALL_GLYPH_BOARDS_SCANNED";

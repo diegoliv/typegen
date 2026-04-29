@@ -12,6 +12,10 @@ figma.showUI(__html__, { width: 420, height: 640, themeColors: true });
 postToUi({ type: "PLUGIN_READY" });
 postToUi({ type: "SETTINGS_LOADED", settings: loadSettings() });
 
+figma.on("selectionchange", () => {
+  void scanCurrentSelection({ silent: true, useLastActiveFallback: false });
+});
+
 figma.ui.onmessage = async (message: UiToPluginMessage) => {
   try {
     if (message.type === "SAVE_SETTINGS") {
@@ -45,6 +49,7 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
         activeBoard: createActiveBoardInfo(result.board),
       });
       figma.notify(action);
+      postScanResult([result.board], { silent: true });
       return;
     }
 
@@ -62,32 +67,12 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
         activeBoard: createActiveBoardInfo(result.board),
       });
       figma.notify(action);
+      postScanResult([result.board], { silent: true });
       return;
     }
 
     if (message.type === "SCAN_SELECTED_GLYPHS") {
-      const scanSelection = await resolveScanSelection();
-      if (scanSelection.length === 0) {
-        postToUi({
-          type: "VALIDATION_ERROR",
-          message: "No glyph nodes found. Select the active Font Glyph Board or supported glyph slot frames.",
-        });
-        return;
-      }
-
-      const result = scanSelectedGlyphs(scanSelection);
-      const activeBoard = resolveActiveBoardForSelection(scanSelection);
-      if (activeBoard) {
-        activeBoardId = activeBoard.id;
-      }
-      postToUi({
-        type: "GLYPHS_SCANNED",
-        glyphs: result.glyphs,
-        summary: result.summary,
-        activeBoard: activeBoard ? createActiveBoardInfo(activeBoard) : undefined,
-      });
-
-      figma.notify(`Scanned glyphs: ${result.summary.valid} valid, ${result.summary.empty} empty${activeBoard ? ` from ${activeBoard.name}` : ""}.`);
+      await scanCurrentSelection({ silent: false, useLastActiveFallback: true });
       return;
     }
 
@@ -124,12 +109,56 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
   }
 };
 
-async function resolveScanSelection(): Promise<SceneNode[]> {
+async function scanCurrentSelection(options: { silent: boolean; useLastActiveFallback: boolean }): Promise<void> {
+  const scanSelection = await resolveScanSelection(options);
+  if (scanSelection.length === 0) {
+    if (options.silent) {
+      activeBoardId = "";
+      postToUi({ type: "BOARD_SELECTION_CLEARED" });
+      return;
+    }
+
+    if (!options.silent) {
+      postToUi({
+        type: "VALIDATION_ERROR",
+        message: "No glyph nodes found. Select the active Font Glyph Board or supported glyph slot frames.",
+      });
+    }
+    return;
+  }
+
+  postScanResult(scanSelection, options);
+}
+
+function postScanResult(scanSelection: readonly SceneNode[], options: { silent: boolean }): void {
+  const result = scanSelectedGlyphs(scanSelection);
+  const activeBoard = resolveActiveBoardForSelection(scanSelection);
+  if (activeBoard) {
+    activeBoardId = activeBoard.id;
+  }
+  postToUi({
+    type: "GLYPHS_SCANNED",
+    glyphs: result.glyphs,
+    summary: result.summary,
+    activeBoard: activeBoard ? createActiveBoardInfo(activeBoard) : undefined,
+  });
+
+  if (!options.silent) {
+    figma.notify(`Scanned glyphs: ${result.summary.valid} valid, ${result.summary.empty} empty${activeBoard ? ` from ${activeBoard.name}` : ""}.`);
+  }
+}
+
+async function resolveScanSelection(options: { useLastActiveFallback: boolean }): Promise<SceneNode[]> {
+  const selectedBoard = findSelectedGlyphBoard();
+  if (selectedBoard) {
+    return [selectedBoard];
+  }
+
   if (figma.currentPage.selection.length > 0) {
     return [...figma.currentPage.selection];
   }
 
-  if (!activeBoardId) {
+  if (!options.useLastActiveFallback || !activeBoardId) {
     return [];
   }
 

@@ -1,5 +1,36 @@
 # Release Notes
 
+## 6.0.0-alpha.1
+
+Typegen V6.0 alpha core UX/UI direction.
+
+### Added
+
+- Figma-native UI restyle with compact neutral panels, blue primary action, and red issue states.
+- Automatic glyph board scanning when the Figma selection changes.
+- Automatic scan refresh after board creation and starter glyph generation.
+- Visual glyph status grid with black valid glyphs, muted missing/empty glyphs, and red issue glyphs.
+- Recipe overlay opened from a compact action instead of a permanent panel.
+- Contextual glyph preview/editing overlay opened from the glyph grid.
+- Slider controls with numeric input fallbacks for spacing and glyph advance editing.
+- Tabbed plugin states for Glyphs, Preview, and Settings.
+- Empty panel state when no Typegen board is selected.
+
+### Changed
+
+- Removed the visible manual scan action from the main workflow; selected boards now update status automatically.
+- Removed saved-state and automatic-settings reset controls from the main workflow; settings still persist automatically.
+- Tuned compact native field padding so select and numeric controls do not clip their content.
+- Moved preview higher in the interface so users can inspect output before reading diagnostics.
+- Moved starter glyph controls into Settings while keeping board creation and export in the shared header.
+- Glyph board update now normalizes Typegen-owned slot guides across glyph categories.
+
+### Still Out Of Scope
+
+- New glyph coverage.
+- New font generation behavior.
+- Kerning, variable fonts, AI generation, WOFF, or WOFF2 export.
+
 ## 5.0.0-alpha.1
 
 Typegen V5.0 alpha export package polish.

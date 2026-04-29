@@ -1,5 +1,76 @@
 # Typegen MVP Implementation Plan
 
+## 53. V6.0 Core UX/UI Direction
+
+Goal: make the stable Typegen workflow feel like a practical Figma-native plugin workspace before adding more feature scope.
+
+Completed:
+
+- Generated a visual UI draft for the V6 direction.
+- Shifted the plugin label to `Typegen V6 alpha`.
+- Moved preview higher in the workflow so users see output before diving into diagnostics.
+- Removed saved-state and automatic-settings reset controls from the main UI; settings remain automatic.
+- Replaced the permanent recipe panel with an overlay opened from a `Recipe` button.
+- Removed the visible manual scan action from the main UI.
+- Added plugin-side automatic scanning on Figma selection changes.
+- Auto-scans after board creation and starter glyph generation so active board, weight, glyph status, and preview data stay current.
+- Replaced the text-heavy glyph status table with a visual glyph grid.
+- Status colors now follow the V6 direction: black for valid glyphs, muted gray for missing/empty glyphs, and red for issues.
+- Moved glyph inspection/editing into a contextual overlay opened by clicking a glyph tile.
+- Reworked spacing and glyph advance editing to use sliders with numeric input fallbacks.
+- Restyled the UI toward Figma-native neutrals, compact controls, blue focus/primary action, and red issue states.
+- Pulled the refined `Typegen V6 UI / Main plugin panel` frame from Figma and ported the main UI back into the plugin.
+- Reworked the plugin shell into full-width stacked Figma-style sections instead of separate card blocks.
+- Added a preview font-size slider with numeric fallback for UI-only preview scaling.
+- Simplified glyph health to `Valid`, `Missing`, and `Issues` summary cards.
+- Expanded the glyph grid to show the full supported character set in seven columns.
+- Tuned native select and numeric control padding so compact 28px fields do not clip their content.
+- Widened slider numeric fields so signed spacing values remain readable alongside native steppers.
+- Updated the glyph detail overlay from the refined Figma frame: compact header, specimen preview with guides, status/unicode cards, advance slider, and concise glyph message.
+- Refined the glyph overlay specimen so metric guides represent cap height, x-height, baseline, and descender lines while ghost glyph spacing follows the advance width override.
+- Made the main SVG preview refresh live when spacing sliders or per-glyph advance overrides change, and added a regression for override-based preview glyph positioning.
+- Split the V6 plugin body into Figma-matched `Glyphs`, `Preview`, and `Settings` tabs.
+- Added the Figma empty state when no Typegen board is selected, with create board and recipe actions.
+- Moved starter glyph generation and starter style selection into the Settings tab.
+- Added persisted UI-only font version and author fields for the Settings tab.
+- Clearing the Figma selection now returns the plugin to the empty state instead of falling back to the previous active board.
+- Made the shared top section sticky and fixed-height across empty, Glyphs, Preview, and Settings states.
+- Expanded the empty state body to fill the remaining plugin height and center its helper content vertically.
+- Corrected the empty-state header to hug the font name row while the helper body fills the remaining plugin height.
+- Matched the disabled primary button text color to the Figma disabled primary treatment.
+- Top-aligned tab content panels so Preview and Settings controls keep natural spacing instead of stretching to fill the plugin window.
+- Restored natural shell flow so stacked Settings sections sit together and unused space remains at the bottom of the plugin window.
+- Restored vertical centering for the empty-state helper content while keeping other tab panels top-aligned.
+- Centered glyph overlay artwork by matching the specimen positioning box to the rendered SVG width while keeping ghost glyph spacing driven only by the advance override.
+- Switched the glyph editor specimen to the same preview layout engine used by the Preview tab so per-glyph advance spacing matches between both views.
+- Updated glyph board create/update to re-sync Typegen-owned slot guides so every glyph slot shows ascender, x-height, baseline, and descender guide lines consistently.
+- Updated board slot frame sizing, starter glyph placement, and board-based extraction to use the same unified visual guide profile so the new guides stay inside every glyph frame and remain WYSIWYG.
+- Updated Inter starter glyph fitting to use a shared cap-height reference per starter font style, preventing rounded glyphs like `O` and `Q` from being scaled smaller than neighboring caps like `P`.
+- Corrected starter `Q` fitting so its tail can extend below the cap box, and changed slot extraction to use uniform scaling so preview/export preserves glyph proportions instead of widening outlines.
+- Widened the unified glyph slot/guide proportions and changed Inter starter placement to render text at a consistent size before flattening, so wide caps like `M`/`W`, `Q` tails, and lowercase glyphs keep more natural Inter proportions.
+- Updated glyph grid thumbnails to render against each glyph's advance width and full font ascender/descender box, so narrow, wide, and descender glyphs stay centered and unclipped.
+- Changed slot-based glyph extraction to preserve frame-relative X positions and derive advance width from the slot guide box, so the center of the Figma glyph frame maps to the center of the converted glyph.
+- Refined slot extraction metrics so frame-center alignment is preserved while the exported advance width is derived from glyph ink width plus padding, reducing oversized side bearings for narrow glyphs in preview text.
+- Hid the post-generation debug/verification panel behind a UI flag while keeping the implementation available for later QA.
+- Updated the glyph edit overlay specimen guides to use the same unified guide profile geometry as glyph board slots instead of decorative percentage-based lines.
+
+Out of scope:
+
+- New font generation behavior.
+- New glyph coverage.
+- Kerning, variable fonts, AI generation, or broader export formats.
+- A full visual design system.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run build` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Manual QA target:
+
+- Select Regular and Bold boards in Figma and confirm the plugin auto-updates active board, starter style, glyph grid status, preview data, and contextual glyph overlay without a manual scan button.
+
 ## 52. V5.0 Export Package Polish
 
 Goal: make exported fonts easier to use outside Figma without expanding beyond one static OTF format.

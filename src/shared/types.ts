@@ -119,6 +119,14 @@ export const LOWERCASE_GUIDE_PROFILE: SlotGuideProfile = {
   ascenderUnits: 700,
 };
 
+export const UNIFIED_VISUAL_GUIDE_PROFILE: SlotGuideProfile = {
+  ...LOWERCASE_GUIDE_PROFILE,
+  name: 'lowercase',
+  slotWidth: 220,
+  leftBoundaryX: 25,
+  rightBoundaryX: 195,
+};
+
 export const GUIDE_PROFILES: Record<SlotGuideProfileName, SlotGuideProfile> = {
   uppercase: UPPERCASE_GUIDE_PROFILE,
   lowercase: LOWERCASE_GUIDE_PROFILE,
@@ -147,6 +155,13 @@ export function guideProfileForChar(char: GlyphChar): SlotGuideProfile {
       : 'uppercase';
 
   return GUIDE_PROFILES[profileName];
+}
+
+export function unifiedVisualGuideProfileForChar(char: GlyphChar): SlotGuideProfile {
+  return {
+    ...UNIFIED_VISUAL_GUIDE_PROFILE,
+    name: guideProfileForChar(char).name,
+  };
 }
 
 export type GlyphStatus = 'missing' | 'empty' | 'valid' | 'unsupported' | 'warning';
@@ -205,7 +220,10 @@ export type GeneratedFont = {
 
 export type PersistedTypegenSettings = {
   fontName: string;
+  fontVersion?: string;
+  fontAuthor?: string;
   previewText: string;
+  previewFontSize?: number;
   selectedGlyph: GlyphChar;
   lastScanNodeIds: string[];
   spacing: {

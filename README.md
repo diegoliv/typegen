@@ -2,12 +2,12 @@
 
 Typegen is a focused Figma plugin MVP for turning glyphs drawn in Figma into a usable static OTF font.
 
-The current V5 alpha keeps the reliable V4 loop and adds export package polish:
+The current V6 alpha keeps the reliable V5 export loop and starts the core UX/UI pass:
 
 1. Create a starter A-Z, a-z, 0-9, punctuation, and common-symbol glyph board.
 2. Generate starter glyph outlines in empty slots or draw filled vector glyphs yourself.
 3. Refine the editable vector outlines in Figma.
-4. Scan the selected board.
+4. Select a board and let Typegen auto-scan it.
 5. Preview available glyphs with custom text or quick presets.
 6. Tune spacing.
 7. Click `Generate font` to download a ZIP package containing every generated weight and one test HTML file.
@@ -32,7 +32,12 @@ Supported:
 - Simple filled vector paths
 - Starter glyph board generation
 - Inter-based starter glyph outline generation for empty slots, with Regular and Bold starter styles
+- Figma-native, compact plugin UI direction
+- Automatic board scanning on selection changes
 - Active board/weight indicator for multi-board workflows
+- Visual glyph status grid
+- Contextual glyph preview/editing overlay
+- Recipe overlay for supported glyph constraints
 - Glyph scan and validation
 - SVG preview from extracted outlines
 - Preview presets for mixed, headline, word-list, paragraph-style, and number/symbol samples
@@ -105,4 +110,4 @@ See [docs/QA.md](docs/QA.md) for the manual QA checklist, [docs/SMOKE_TEST.md](d
 
 ## Status
 
-V5.0 alpha export package polish on top of starter glyph generation, style controls, active board clarity, and preview presets. This is intentionally still an MVP with one static OTF export, built to prove and harden the Figma vectors -> glyph model -> preview -> font export workflow before broader export formats.
+V6.0 alpha begins the core UX/UI direction on top of V5 export package polish, starter glyph generation, style controls, active board clarity, and preview presets. This is intentionally still an MVP with one static OTF export path, built to prove and harden the Figma vectors -> glyph model -> preview -> font export workflow before broader export formats.

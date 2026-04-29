@@ -6,7 +6,7 @@ import {
   glyphCharFromName,
   glyphNameForChar,
 } from "./pluginTypes";
-import { glyphLabelForChar, guideProfileForChar, type GlyphChar, type SlotGuideProfile } from "../shared/types";
+import { glyphLabelForChar, unifiedVisualGuideProfileForChar, type GlyphChar, type SlotGuideProfile } from "../shared/types";
 
 type StarterGlyphResult = {
   board: FrameNode;
@@ -34,6 +34,7 @@ type GlyphMetrics = {
 };
 
 const FILL: SolidPaint = { type: "SOLID", color: { r: 0.05, g: 0.06, b: 0.08 } };
+const INTER_STARTER_FONT_SIZE = 178;
 
 export async function generateStarterGlyphs(style: StarterGlyphStyle = "Regular"): Promise<StarterGlyphResult> {
   const boardResult = await createGlyphBoard(style);
@@ -151,7 +152,7 @@ function createInterStarterOutline(slot: FrameNode, char: GlyphChar, starterFont
   try {
     text.name = `tg-inter-source-${safeNodeName(glyphLabelForChar(char))}`;
     text.fontName = starterFont;
-    text.fontSize = 128;
+    text.fontSize = INTER_STARTER_FONT_SIZE;
     text.textAutoResize = "WIDTH_AND_HEIGHT";
     text.characters = char;
     text.fills = [FILL];
@@ -169,7 +170,7 @@ function createInterStarterOutline(slot: FrameNode, char: GlyphChar, starterFont
     finalVector.name = `tg-starter-inter-${starterFont.style.toLowerCase()}-${safeNodeName(glyphLabelForChar(char))}`;
     finalVector.fills = [FILL];
     finalVector.strokes = [];
-    fitStarterVectorToSlot(finalVector, char);
+    fitInterStarterVectorToSlot(finalVector, char);
   } catch (error) {
     if (finalVector?.parent) {
       finalVector.remove();
@@ -235,23 +236,63 @@ function booleanMergeAndFlattenStarter(vector: VectorNode, slot: FrameNode): Vec
   }
 }
 
-function fitStarterVectorToSlot(vector: VectorNode, char: GlyphChar): void {
+function fitInterStarterVectorToSlot(vector: VectorNode, char: GlyphChar): void {
   const target = targetBoundsForChar(char);
+  const metrics = createMetrics(unifiedVisualGuideProfileForChar(char));
   const sourceWidth = Math.max(1, vector.width);
   const sourceHeight = Math.max(1, vector.height);
   const targetWidth = Math.max(1, target.xMax - target.xMin);
   const targetHeight = Math.max(1, target.yMax - target.yMin);
-  const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
+  const scale = interStarterScaleForChar(char, targetWidth, targetHeight, sourceWidth, sourceHeight);
   const nextWidth = sourceWidth * scale;
   const nextHeight = sourceHeight * scale;
 
   vector.resizeWithoutConstraints(nextWidth, nextHeight);
   vector.x = target.xMin + (targetWidth - nextWidth) / 2;
-  vector.y = target.yMin + (targetHeight - nextHeight) / 2;
+  vector.y = interStarterYForChar(char, metrics, target, nextHeight);
+}
+
+function interStarterScaleForChar(
+  char: GlyphChar,
+  targetWidth: number,
+  targetHeight: number,
+  sourceWidth: number,
+  sourceHeight: number,
+): number {
+  if (/[A-Za-z0-9]/.test(char)) {
+    return 1;
+  }
+
+  return Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
+}
+
+function interStarterYForChar(
+  char: GlyphChar,
+  metrics: GlyphMetrics,
+  target: { yMin: number; yMax: number },
+  renderedHeight: number,
+): number {
+  if (/[A-Z0-9]/.test(char)) {
+    return metrics.top;
+  }
+
+  if (/[a-z]/.test(char)) {
+    if ("bdfhkl".includes(char)) {
+      return metrics.top;
+    }
+
+    if ("gjpqy".includes(char)) {
+      return metrics.descender - renderedHeight;
+    }
+
+    return metrics.baseline - renderedHeight;
+  }
+
+  return target.yMin + (target.yMax - target.yMin - renderedHeight) / 2;
 }
 
 function targetBoundsForChar(char: GlyphChar): { xMin: number; yMin: number; xMax: number; yMax: number } {
-  const profile = guideProfileForChar(char);
+  const profile = unifiedVisualGuideProfileForChar(char);
   const metrics = createMetrics(profile);
   const sideInset = defaultSideInset(char, metrics);
   const vertical = verticalBoundsForChar(char, metrics);
@@ -331,7 +372,7 @@ function createStarterVector(char: GlyphChar): VectorNode {
 }
 
 function createStarterShapes(char: GlyphChar): Shape[] {
-  const profile = guideProfileForChar(char);
+  const profile = unifiedVisualGuideProfileForChar(char);
   const metrics = createMetrics(profile);
 
   if (/[a-z]/.test(char)) {
