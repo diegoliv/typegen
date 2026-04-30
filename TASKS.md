@@ -1,5 +1,142 @@
 # Typegen MVP Implementation Plan
 
+## 58. V9.2 Starter Glyph Proportions
+
+Goal: keep generated starter glyphs faithful to Inter proportions across the expanded V9 glyph set, especially compact symbols and standalone marks.
+
+Implementation status:
+
+- Updated Inter starter fitting so outlines can downscale when they overflow a slot, but are no longer upscaled to fill the glyph frame.
+- Added category-aware vertical placement for Latin extended letters and standalone marks so accents, cedillas, and ogoneks avoid generic center alignment.
+- Expanded starter layout classification beyond ASCII checks so accented lowercase letters, ligatures, slash/backslash, and descenders use the correct guide bands.
+- Reworked Inter starter fitting to preserve the source Figma text layout box and ink offset through flattening, avoiding per-glyph ink-box centering for descenders, accents, ligatures, and paired symbols.
+- Split starter fitting by glyph kind: letters use Inter baseline metrics and layout width, while punctuation/symbols use visual ink bounds so they keep preview-like scale.
+- Replaced starter-specific uppercase-accent shrinking with top-padded uppercase-accent slot frames: cap/baseline guide distances stay unchanged, while accented caps get extra frame headroom above the guide box.
+- Raised exported/preview font ascender headroom so scanned accented-cap artwork above cap height is not clipped in SVG preview or font metrics.
+- Tuned starter punctuation classes: tall delimiters and slashes use text-metric placement, comma descends below baseline, and trademark uses a superscript symbol zone.
+- Narrowed delimiter and slash default advances so fitted preview/export spacing better matches text input proportions.
+- Simplified Inter starter generation to position live text once at a shared font size and flatten in place, removing post-flatten per-glyph scale/position exceptions.
+- Changed automatic selection scanning so it runs only when a Typegen board itself is selected, not every time a child frame or glyph element inside the active board is clicked.
+- Added a targeted single-glyph rescan when a glyph tile is opened in the UI, keeping the detail overlay fresh without revalidating the whole board.
+- Cleared the UI scanning state when an active board is deleted during deferred scan validation.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run build` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Remaining:
+
+- Manual Figma QA for compact symbols, math, currency, and standalone marks on a freshly generated starter board.
+
+## 57. V9.1 Performance Audit / Responsiveness
+
+Goal: reduce Figma freezes and plugin latency after the V9 expanded glyph catalog increased board size to 209 slots.
+
+Plan:
+
+- Separate lightweight selection updates from export-grade glyph extraction.
+- Keep full flattening/normalization for explicit scan/export/generate flows, but avoid it on ordinary `selectionchange`.
+- Reduce board creation/update canvas mutation churn by caching layout and avoiding unnecessary helper recreation.
+- Add lightweight timing instrumentation around board creation and scan paths so future slowdowns are easier to locate.
+- Preserve the current output pipeline: Figma vectors -> glyph model -> preview -> OTF/ZIP export.
+
+Implementation status:
+
+- Added debounced lightweight auto-scan for selection changes, avoiding export-grade flattening on ordinary board clicks.
+- Added deferred full scan after lightweight board selection, guarded by scan version and active board id so stale async scans cannot overwrite newer selections.
+- Changed lightweight artwork detection to a quiet pending/empty status instead of warning tiles, so warnings remain reserved for real validation concerns.
+- Reverted per-glyph streamed scanning after manual testing showed message/render overhead made full board validation slower.
+- Added a `GLYPH_SCAN_STARTED` loading state so the Glyph health panel shows `Scanning glyph outlines...` while the deferred full batch scan runs.
+- Kept full glyph extraction for explicit scan and package export flows.
+- Changed post-board-create and post-starter-generation refreshes to lightweight scans so the canvas does not immediately re-flatten the whole board.
+- Reduced board helper churn by replacing six guide rectangles per slot with one guide vector and skipping guide/label recreation when helpers are current.
+- Cached board layout at module load instead of recalculating category layout for every slot.
+- Added plugin-side timing logs for board creation, starter generation, lightweight scans, full scans, and export scans.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run build` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Remaining:
+
+- Manual Figma timing pass for creating a fresh V9 board and selecting existing boards.
+- Decide whether to restore background full validation after lightweight scan, or keep full validation only on explicit scan/export.
+
+## 56. V9.0 Expanded Glyph Support Plan
+
+Goal: expand Typegen from the current compact Latin/basic symbol set to the requested 209 unique glyphs while keeping the board, scan, preview, spacing, kerning, starter, and export pipeline understandable for a designer.
+
+Implementation status:
+
+- Added a shared v9 glyph catalog with 209 unique supported glyphs, category metadata, safe slot names, guide profile hints, and default advance widths.
+- Replaced the fixed flat board layout with category bands and board-level section labels.
+- Updated glyph-name parsing to use generated catalog lookup maps and raw single-character aliases.
+- Added grouped glyph sections, category filters, search, per-section counts, and broader preview presets to the plugin UI.
+- Updated support copy, README, release notes, QA docs, smoke-test docs, and package metadata for V9.
+- Added regression coverage for the requested glyph set, unique slot names, and risky glyph-name parsing.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run check` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Remaining:
+
+- Manual Figma QA for V8 board update -> V9 slot creation, category board usability, starter generation coverage, scan/preview/export across representative glyphs, and standalone mark behavior.
+
+Requested support:
+
+- Basic Latin: A-Z, a-z, 0-9.
+- ASCII punctuation and symbols: `!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~`.
+- Inverted punctuation, quotes, dashes, ellipsis, and single guillemets: `¡¿«»–—…‹›`.
+- Currency, legal, math, measurement, and marks: `€¢£¥₩₹§©®™°±×÷≈≠≤≥µ¶†‡•·¸¨ˆˇ˘¯˙˚˝´˜˛`.
+- Latin extended letters: `ÇçÑñÁÀÂÄÃÅÆÉÈÊËÍÌÎÏÓÒÔÖÕØÚÙÛÜÝŸáàâäãåæéèêëíìîïóòôöõøúùûüýÿŒœŠšŽžÐðÞþŁł`.
+
+UX direction:
+
+- Replace the single uninterrupted glyph grid with grouped glyph sections so the user can scan by mental model instead of hunting through 209 tiles.
+- Recommended sections: Uppercase, Lowercase, Numbers, Core punctuation, Symbols, Currency, Math, Marks/diacritics, Latin extended uppercase, Latin extended lowercase.
+- Keep the Figma canvas board organized into multiple row bands with visible section labels, not one enormous undifferentiated table.
+- Use a compact category filter or segmented section navigation in the plugin Glyphs tab. Default to "All" for health counts, but let users jump to one section quickly.
+- Add search/jump behavior for a typed character or glyph name once the list becomes large enough to make manual scanning tedious.
+- Keep glyph tiles small and consistent; open the existing detail overlay for full specimen, status, spacing, and kerning work.
+- Preserve minimal visible guidance: the UI should say which section is active and how many valid/missing/issue glyphs it contains.
+- For combining accent marks and spacing marks, make the constraints explicit. V9 should support them as standalone glyph slots only, not automatic accent composition.
+
+Implementation plan:
+
+- Add a typed glyph catalog layer in `src/shared/types.ts` with category metadata, stable sort order, Unicode/name labels, default advance widths, and guide profile hints.
+- Expand `GLYPH_DEFINITIONS` to the requested 209 unique characters. Give every glyph a safe Figma slot name such as `glyph-dollar`, `glyph-section`, `glyph-Aacute`, `glyph-aacute`, `glyph-endash`, and `glyph-combining-acute` where direct character names are ambiguous or unsafe.
+- Replace hard-coded alias handling in `src/plugin/pluginTypes.ts` with lookup maps generated from the glyph catalog, while preserving existing names like `glyph-period` and direct legacy aliases where safe.
+- Update board generation in `src/plugin/glyphBoard.ts` to lay out glyphs by category bands and resize the board from category layout data instead of a fixed six-column global grid.
+- Keep slot frames deterministic and update-safe: updating an existing board should add new v9 slots, preserve existing artwork, and avoid moving user-edited slots more than necessary unless the selected board is explicitly updated.
+- Update starter glyph generation in `src/plugin/starterGlyphs.ts` so Inter-generated outlines are attempted for every requested glyph, with fallbacks only for simple symbols where Inter cannot supply a glyph.
+- Update preview presets in `src/ui/main.ts` to include samples for punctuation, currency/math, accents, and Latin extended words without making the Preview tab busy.
+- Update the Glyphs tab in `src/ui/main.ts` and `src/ui/styles.css` for section grouping, category filter/search, per-section health counts, and a scalable grid.
+- Audit spacing and kerning UX for a 209-glyph set: default advance widths need tighter punctuation/currency/math values, and the kerning pair picker must remain usable with a larger supported set.
+- Ensure `buildFont`, verification, smoke-test HTML, preview layout, and persistence continue to rely on the shared glyph catalog rather than duplicated character lists.
+- Update copy in recipe/validation messages from "A-Z, a-z, 0-9, supported punctuation, common symbols" to the actual V9 support language.
+- Update README, release notes, QA docs, and package metadata to V9 alpha.
+
+QA plan:
+
+- Add regression checks that the requested glyph string resolves to 209 unique supported glyphs with no duplicate names.
+- Add regression checks for glyph name parsing for risky characters: quote, apostrophe, backslash, brackets, backtick, braces, currency symbols, dashes, ellipsis, combining marks, and accented letters.
+- Verify board update from a V8 board adds V9 glyph slots without deleting existing user artwork.
+- Verify scan, preview, export, package ZIP, and OTF parse-back for representative glyphs from every category.
+- Manual Figma QA should inspect canvas board usability: section labels, scroll/navigation feel, category filter/search, and glyph detail overlay from a dense section.
+
+Open decisions:
+
+- Whether to split the Figma board into one large categorized board or multiple linked boards/pages. Recommendation: one categorized board for V9 to preserve the existing package and per-weight model.
+- Whether combining marks should use zero advance widths. Recommendation: keep them standalone spacing glyphs for V9 unless font/browser QA proves zero-advance export is reliable.
+- Whether starter generation should fill all 209 slots by default. Recommendation: yes for demo velocity, but show warnings for glyphs Inter cannot flatten cleanly.
+
 ## 55. V8.0 Temporary Slot Flattening
 
 Goal: support glyph artwork built from filled vectors, filled live shapes, and live Figma boolean operations by flattening a temporary slot copy before extraction while preserving the existing scanned glyph -> preview -> exported OTF pipeline.

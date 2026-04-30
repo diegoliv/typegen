@@ -1,5 +1,40 @@
 # Release Notes
 
+## 9.1.0-alpha.1
+
+Typegen V9.1 alpha performance and scan responsiveness.
+
+### Changed
+
+- Board creation is faster after reducing per-slot guide helper nodes and skipping helper recreation when slots are already current.
+- Selecting a board now performs a lightweight immediate scan before deferred full outline validation.
+- Deferred full validation shows a modal scanning overlay while glyph outlines are being validated.
+- Full flattening and normalization remain in the explicit scan/export path so generated fonts keep the same output quality.
+- Added plugin-side timing logs around board creation, starter generation, lightweight scans, full scans, and export scans.
+
+### Still Out Of Scope
+
+- Background worker offloading; Figma plugin work still runs on the plugin main context.
+- Incremental per-glyph streaming in the UI, which was tested and reverted because message/render overhead made full-board validation slower.
+
+## 9.0.0-alpha.1
+
+Typegen V9.0 alpha expanded glyph support.
+
+### Added
+
+- Expanded the supported catalog to 209 unique glyphs across Latin uppercase/lowercase, numbers, ASCII punctuation, inverted punctuation, quotes, dashes, currency, symbols, math operators, standalone marks, and Latin extended letters.
+- Categorized the generated Figma board into labeled bands instead of one long flat table.
+- Added category filtering, search, and grouped glyph sections in the plugin Glyphs tab.
+- Added broader preview presets for accented Latin words, symbols, currency, and math.
+- Added regression coverage for the requested glyph set, unique slot names, and risky glyph-name parsing.
+
+### Still Out Of Scope
+
+- Automatic accent composition.
+- Variable fonts, AI generation, WOFF, or WOFF2 export.
+- Live lines, stroked vectors, text layers, images, gradients, effects, masks, and unsupported live shape layers.
+
 ## 8.0.0-alpha.1
 
 Typegen V8.0 alpha temporary slot flattening.

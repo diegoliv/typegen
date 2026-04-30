@@ -16,6 +16,7 @@ export type UiToPluginMessage =
   | { type: 'CREATE_GLYPH_BOARD'; style?: FontWeightStyle; mode?: 'new' | 'update' }
   | { type: 'GENERATE_STARTER_GLYPHS'; style?: FontWeightStyle }
   | { type: 'SCAN_SELECTED_GLYPHS' }
+  | { type: 'SCAN_GLYPH'; boardId: string; char: string }
   | { type: 'SCAN_ALL_GLYPH_BOARDS' }
   | { type: 'RESTORE_SAVED_SCAN'; nodeIds: string[] }
   | { type: 'SAVE_SETTINGS'; settings: PersistedTypegenSettings }
@@ -50,6 +51,15 @@ export type PluginToUiMessage =
       type: 'GLYPHS_SCANNED';
       glyphs: GlyphScanResult[];
       summary: ScanSummary;
+      activeBoard?: ActiveBoardInfo;
+    }
+  | {
+      type: 'GLYPH_SCAN_STARTED';
+      activeBoard?: ActiveBoardInfo;
+    }
+  | {
+      type: 'GLYPH_SCAN_UPDATED';
+      glyph: GlyphScanResult;
       activeBoard?: ActiveBoardInfo;
     }
   | {

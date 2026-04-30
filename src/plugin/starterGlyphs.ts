@@ -6,7 +6,12 @@ import {
   glyphCharFromName,
   glyphNameForChar,
 } from "./pluginTypes";
-import { glyphLabelForChar, unifiedVisualGuideProfileForChar, type GlyphChar, type SlotGuideProfile } from "../shared/types";
+import {
+  glyphLabelForChar,
+  unifiedVisualGuideProfileForChar,
+  type GlyphChar,
+  type SlotGuideProfile,
+} from "../shared/types";
 
 type StarterGlyphResult = {
   board: FrameNode;
@@ -35,6 +40,8 @@ type GlyphMetrics = {
 
 const FILL: SolidPaint = { type: "SOLID", color: { r: 0.05, g: 0.06, b: 0.08 } };
 const INTER_STARTER_FONT_SIZE = 178;
+const INTER_UNITS_PER_EM = 2048;
+const INTER_ASCENDER_UNITS = 1984;
 
 export async function generateStarterGlyphs(style: StarterGlyphStyle = "Regular"): Promise<StarterGlyphResult> {
   const boardResult = await createGlyphBoard(style);
@@ -160,6 +167,7 @@ function createInterStarterOutline(slot: FrameNode, char: GlyphChar, starterFont
     text.x = 0;
     text.y = 0;
     slot.appendChild(text);
+    positionInterStarterText(text, char);
 
     flattened = figma.flatten([text], slot);
     flattened.name = `tg-starter-inter-raw-${starterFont.style.toLowerCase()}-${safeNodeName(glyphLabelForChar(char))}`;
@@ -170,7 +178,6 @@ function createInterStarterOutline(slot: FrameNode, char: GlyphChar, starterFont
     finalVector.name = `tg-starter-inter-${starterFont.style.toLowerCase()}-${safeNodeName(glyphLabelForChar(char))}`;
     finalVector.fills = [FILL];
     finalVector.strokes = [];
-    fitInterStarterVectorToSlot(finalVector, char);
   } catch (error) {
     if (finalVector?.parent) {
       finalVector.remove();
@@ -183,6 +190,16 @@ function createInterStarterOutline(slot: FrameNode, char: GlyphChar, starterFont
     }
     throw error;
   }
+}
+
+function positionInterStarterText(text: TextNode, char: GlyphChar): void {
+  const metrics = createMetrics(unifiedVisualGuideProfileForChar(char));
+  const textWidth = Math.max(1, text.width);
+  const designWidth = metrics.right - metrics.left;
+  const ascenderPx = (INTER_ASCENDER_UNITS / INTER_UNITS_PER_EM) * INTER_STARTER_FONT_SIZE;
+
+  text.x = metrics.left + (designWidth - textWidth) / 2;
+  text.y = metrics.baseline - ascenderPx;
 }
 
 function booleanMergeAndFlattenStarter(vector: VectorNode, slot: FrameNode): VectorNode {
@@ -234,127 +251,6 @@ function booleanMergeAndFlattenStarter(vector: VectorNode, slot: FrameNode): Vec
     }
     throw error;
   }
-}
-
-function fitInterStarterVectorToSlot(vector: VectorNode, char: GlyphChar): void {
-  const target = targetBoundsForChar(char);
-  const metrics = createMetrics(unifiedVisualGuideProfileForChar(char));
-  const sourceWidth = Math.max(1, vector.width);
-  const sourceHeight = Math.max(1, vector.height);
-  const targetWidth = Math.max(1, target.xMax - target.xMin);
-  const targetHeight = Math.max(1, target.yMax - target.yMin);
-  const scale = interStarterScaleForChar(char, targetWidth, targetHeight, sourceWidth, sourceHeight);
-  const nextWidth = sourceWidth * scale;
-  const nextHeight = sourceHeight * scale;
-
-  vector.resizeWithoutConstraints(nextWidth, nextHeight);
-  vector.x = target.xMin + (targetWidth - nextWidth) / 2;
-  vector.y = interStarterYForChar(char, metrics, target, nextHeight);
-}
-
-function interStarterScaleForChar(
-  char: GlyphChar,
-  targetWidth: number,
-  targetHeight: number,
-  sourceWidth: number,
-  sourceHeight: number,
-): number {
-  if (/[A-Za-z0-9]/.test(char)) {
-    return 1;
-  }
-
-  return Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
-}
-
-function interStarterYForChar(
-  char: GlyphChar,
-  metrics: GlyphMetrics,
-  target: { yMin: number; yMax: number },
-  renderedHeight: number,
-): number {
-  if (/[A-Z0-9]/.test(char)) {
-    return metrics.top;
-  }
-
-  if (/[a-z]/.test(char)) {
-    if ("bdfhkl".includes(char)) {
-      return metrics.top;
-    }
-
-    if ("gjpqy".includes(char)) {
-      return metrics.descender - renderedHeight;
-    }
-
-    return metrics.baseline - renderedHeight;
-  }
-
-  return target.yMin + (target.yMax - target.yMin - renderedHeight) / 2;
-}
-
-function targetBoundsForChar(char: GlyphChar): { xMin: number; yMin: number; xMax: number; yMax: number } {
-  const profile = unifiedVisualGuideProfileForChar(char);
-  const metrics = createMetrics(profile);
-  const sideInset = defaultSideInset(char, metrics);
-  const vertical = verticalBoundsForChar(char, metrics);
-
-  return {
-    xMin: metrics.left + sideInset,
-    yMin: vertical.top,
-    xMax: metrics.right - sideInset,
-    yMax: vertical.bottom,
-  };
-}
-
-function verticalBoundsForChar(char: GlyphChar, metrics: GlyphMetrics): { top: number; bottom: number } {
-  if (/[a-z]/.test(char)) {
-    if ("bdfhkl".includes(char)) {
-      return { top: metrics.top, bottom: metrics.baseline };
-    }
-
-    if ("gjpqy".includes(char)) {
-      return { top: metrics.xHeight, bottom: metrics.descender };
-    }
-
-    if ("it".includes(char)) {
-      return { top: metrics.top + 10, bottom: metrics.baseline };
-    }
-
-    return { top: metrics.xHeight, bottom: metrics.baseline };
-  }
-
-  if (".,".includes(char)) {
-    return { top: metrics.baseline - 28, bottom: metrics.baseline };
-  }
-
-  if ("'\"".includes(char)) {
-    return { top: metrics.top, bottom: metrics.top + 52 };
-  }
-
-  if (":".includes(char)) {
-    return { top: metrics.bodyMid - 36, bottom: metrics.baseline };
-  }
-
-  if ("-+=/".includes(char)) {
-    return { top: metrics.bodyMid - 44, bottom: metrics.bodyMid + 44 };
-  }
-
-  return { top: metrics.top, bottom: metrics.baseline };
-}
-
-function defaultSideInset(char: GlyphChar, metrics: GlyphMetrics): number {
-  if ("ilI1!'\".,:".includes(char)) {
-    return (metrics.right - metrics.left) * 0.28;
-  }
-
-  if ("mwMW@&".includes(char)) {
-    return 0;
-  }
-
-  if ("()+-=/-".includes(char)) {
-    return (metrics.right - metrics.left) * 0.12;
-  }
-
-  return (metrics.right - metrics.left) * 0.06;
 }
 
 function createStarterVector(char: GlyphChar): VectorNode {

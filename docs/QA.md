@@ -1,10 +1,10 @@
-# Typegen V8 Alpha QA Checklist
+# Typegen V9 Alpha QA Checklist
 
 ## QA Goal
 
 Validate that the smallest working Typegen loop remains stable and becomes reliable enough for a repeatable demo:
 
-1. Create an A-Z, a-z, 0-9, punctuation, and common-symbol glyph board in Figma.
+1. Create a categorized 209-glyph board in Figma.
 2. Generate starter glyph outlines in empty slots or draw a few supported vector glyphs.
 3. Refine generated vector outlines as needed.
 4. Scan the selected board or glyph slots.
@@ -13,12 +13,12 @@ Validate that the smallest working Typegen loop remains stable and becomes relia
 7. Click `Generate font` to export the weight ZIP.
 8. Smoke test the exported font in a browser or font viewer.
 
-V8 alpha QA should first re-run the V7 happy path, then focus on temporary slot flattening for filled vectors, live shapes, and booleans: the OTF remains the only font binary format, and scan-time flattening must preserve the original Figma artwork.
+V9 alpha QA should first re-run the V8 happy path, then focus on expanded glyph coverage and board/UI organization: the OTF remains the only font binary format, and scan-time flattening must preserve the original Figma artwork.
 
 ## Supported Glyph Recipe
 
-- Uppercase A-Z, lowercase a-z, numbers 0-9, basic punctuation, and common symbols.
-- Glyph slots are named `glyph-A` through `glyph-Z`, `glyph-a` through `glyph-z`, `glyph-0` through `glyph-9`, `glyph-period`, `glyph-comma`, `glyph-exclamation`, `glyph-question`, `glyph-hyphen`, `glyph-colon`, `glyph-apostrophe`, `glyph-quote`, `glyph-slash`, `glyph-paren-left`, `glyph-paren-right`, `glyph-ampersand`, `glyph-plus`, `glyph-equals`, and `glyph-at`.
+- The v9 catalog supports 209 glyphs across uppercase, lowercase, numbers, punctuation, symbols, currency, math, standalone marks, and Latin extended letters.
+- The generated board uses safe names for punctuation/symbol slots and Unicode fallback names for accented letters where needed.
 - Glyphs may be simple filled vector shapes, filled live shape layers, or live boolean operations inside glyph slots.
 - `Generate starter glyphs` may be used to create editable Inter-derived starting outlines in empty slots.
 - Starter generation must skip slots that already contain non-helper artwork.
@@ -33,7 +33,7 @@ V8 alpha QA should first re-run the V7 happy path, then focus on temporary slot 
 - Avoid mixed layer types inside a glyph slot during V2 testing unless intentionally testing validation.
 - Text, images, gradients, effects, masks, and complex unsupported layers should be rejected with clear messages.
 - Partial alphabets are allowed if at least one valid glyph exists.
-- Preview spaces are allowed; symbols outside the supported common set are unsupported.
+- Preview spaces are allowed; characters outside the v9 catalog are unsupported.
 - One static font export format is expected.
 - Global letter spacing and space width controls should affect both preview and exported font output.
 
@@ -57,7 +57,7 @@ Record these before each QA pass:
 4. Enter font name: `Typegen Demo`.
 5. Click `Create/update glyph board`.
 6. Confirm a parent frame named `Font Glyph Board` is created or updated.
-7. Confirm it contains 77 glyph slots named for A-Z, a-z, 0-9, supported punctuation, and supported common symbols.
+7. Confirm it contains 209 glyph slots grouped into labeled category bands.
 8. Confirm uppercase/numeric/punctuation slots show baseline, cap-height, width boundaries, and labels.
 9. Confirm lowercase slots show ascender, x-height, baseline, descender, width boundaries, and labels.
 10. Draw simple filled vector glyphs in `glyph-A`, `glyph-B`, `glyph-C`, `glyph-O`, `glyph-1`, `glyph-2`, `glyph-exclamation`, `glyph-question`, `glyph-a`, `glyph-b`, `glyph-g`, `glyph-o`, and `glyph-x`.
@@ -79,6 +79,18 @@ Record these before each QA pass:
 26. Confirm counters remain open/transparent in preview and exported font rendering.
 27. Confirm lowercase proportions match the board guides in preview and exported font rendering.
 
+## V9.0 Expanded Glyph Checks
+
+- [ ] Fresh board creates 209 supported slots in labeled category bands.
+- [ ] Updating a V8 board adds the V9 slots without deleting existing artwork.
+- [ ] Glyphs tab can filter by each category and search by character, safe glyph name, or status.
+- [ ] Selecting a dense section glyph opens the existing detail overlay with preview, spacing, and kerning controls.
+- [ ] Starter glyph generation fills empty slots across all categories where Inter can provide outlines.
+- [ ] Scan returns 209 supported glyph rows.
+- [ ] Preview presets cover mixed text, accented words, symbols, currency, math, and Latin extended samples.
+- [ ] Exported OTF and smoke-test HTML preserve representative glyphs from every category.
+- [ ] Standalone marks export as their own slots; automatic accent composition is not expected.
+
 ## V4.0 Starter Glyph Checks
 
 - [ ] Fresh board plus `Generate starter glyphs` fills all 77 supported slots with editable Inter-derived vector outlines.
@@ -89,7 +101,7 @@ Record these before each QA pass:
 - [ ] Re-running `Generate starter glyphs` does not duplicate starter outlines in already-filled slots.
 - [ ] If a user edits or replaces artwork in one slot, starter generation preserves that slot and fills only other empty slots.
 - [ ] Lowercase starters align with ascender, x-height, baseline, and descender guides.
-- [ ] Punctuation and common-symbol starters remain compact enough to inspect and refine.
+- [ ] Punctuation, symbol, currency, math, mark, and Latin extended starters remain compact enough to inspect and refine.
 
 ## V4.1 Preview Preset Checks
 
@@ -150,18 +162,18 @@ Record these before each QA pass:
 
 ## V3.1 Board Migration Checks
 
-- [ ] Fresh board creates slots in A-Z, a-z, 0-9, punctuation order.
-- [ ] Existing V3.0 pilot board reorders into A-Z, a-z, 0-9, punctuation order.
+- [ ] Fresh board creates categorized v9 slots.
+- [ ] Existing V3.0 pilot board updates into categorized v9 slot bands.
 - [ ] Existing V3.0 pilot artwork in `glyph-a`, `glyph-b`, `glyph-g`, `glyph-o`, and `glyph-x` moves with those slot frames.
 - [ ] Existing V2 artwork in uppercase, numeric, and punctuation slots is preserved after update.
 - [ ] Re-running `Create/update glyph board` twice does not duplicate supported slots.
-- [ ] Selecting the updated board and scanning returns 77 supported glyph rows.
+- [ ] Selecting the updated board and scanning returns 209 supported glyph rows.
 
-## V3.2 Common Symbol Checks
+## V3.2 / V9 Symbol Checks
 
 - [ ] Fresh board includes `glyph-apostrophe`, `glyph-quote`, `glyph-slash`, `glyph-paren-left`, `glyph-paren-right`, `glyph-ampersand`, `glyph-plus`, `glyph-equals`, and `glyph-at`.
-- [ ] Existing boards update with common-symbol slots without clearing existing artwork.
-- [ ] Safe common-symbol slot names scan as supported glyphs.
+- [ ] Existing boards update with symbol and v9 extended slots without clearing existing artwork.
+- [ ] Safe symbol, currency, math, mark, and Latin extended slot names scan as supported glyphs.
 - [ ] Raw aliases such as `glyph-@`, `glyph-+`, and `glyph-/` scan as supported glyphs.
 - [ ] Preview renders `a/b @2+2` when the required glyphs are scanned.
 - [ ] Preview renders `A+B=C`, `font@example`, and `(quick)` when the required glyphs are scanned.
@@ -207,9 +219,9 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Clicking `Create/update glyph board` creates one parent board when no board exists.
 - [ ] Clicking `Create/update glyph board` with an existing board selected preserves existing glyph artwork.
 - [ ] Clicking `Create/update glyph board` with an existing older board adds only missing supported slots.
-- [ ] Clicking `Create/update glyph board` repositions supported slots into A-Z, a-z, 0-9, punctuation order.
+- [ ] Clicking `Create/update glyph board` repositions supported slots into labeled category bands.
 - [ ] Parent board is named `Font Glyph Board`.
-- [ ] Board contains slots for A-Z, a-z, 0-9, supported punctuation, and common symbols.
+- [ ] Board contains slots for all 209 v9 supported glyphs.
 - [ ] Each slot is named exactly `glyph-A`, `glyph-B`, `glyph-a`, etc.
 - [ ] Slots are arranged in a readable grid.
 - [ ] Each slot includes a visible baseline guide.
@@ -236,10 +248,10 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Scanning with no selection shows a clear no-selection or no-glyph message.
 - [ ] Selecting the parent board scans nested glyph slots.
 - [ ] Selecting individual glyph slots scans those slots.
-- [ ] Valid names `glyph-A` through `glyph-Z`, `glyph-a` through `glyph-z`, `glyph-0` through `glyph-9`, supported punctuation slot names, and common-symbol slot names map to supported characters.
-- [ ] Invalid names such as `Glyph-A`, `A`, `glyph-AA`, and `glyph-#` are ignored or reported clearly.
+- [ ] Valid generated slot names for all 209 v9 glyphs map to supported characters.
+- [ ] Invalid names such as `Glyph-A`, `A`, and `glyph-AA` are ignored or reported clearly.
 - [ ] Duplicate glyph slots are handled deterministically.
-- [ ] Scan result returns one visible row/status for every A-Z, a-z, 0-9, supported punctuation, and common-symbol character.
+- [ ] Scan result returns one visible row/status for every v9 supported character.
 - [ ] Empty generated slots are distinguishable from unsupported glyphs.
 - [ ] Clicking a glyph row updates the glyph inspector.
 
@@ -252,7 +264,7 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Glyph containing a stroked vector asks user to convert strokes to filled outlines.
 - [ ] Glyph containing gradients/effects reports unsupported styling.
 - [ ] Hidden layers are ignored or reported with a warning.
-- [ ] Unsupported characters outside A-Z, 0-9, and supported punctuation are rejected with MVP scope messaging.
+- [ ] Unsupported characters outside the v9 catalog are rejected with MVP scope messaging.
 - [ ] Validation messages are visible near the glyph list or relevant action.
 
 ### Glyph Inspector
@@ -280,15 +292,15 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Preview is disabled or empty before any valid scan.
 - [ ] Preview enables after at least one valid glyph is scanned.
 - [ ] Preview updates when text input changes.
-- [ ] Available A-Z, 0-9, and supported punctuation glyphs render from the scanned glyph model.
-- [ ] Missing A-Z, 0-9, and supported punctuation glyphs render as visible placeholders.
+- [ ] Available v9 glyphs render from the scanned glyph model.
+- [ ] Missing v9 glyphs render as visible placeholders.
 - [ ] Period and comma keep their small board-designed size in preview instead of scaling to cap height.
 - [ ] Period and comma have visible side bearing on both sides and do not collide with the following glyph.
 - [ ] Spaces render as blank advance, not as errors.
 - [ ] Changing `Letter spacing` changes the preview spacing between exported glyphs.
 - [ ] Changing `Space width` changes the preview width of spaces.
 - [ ] Typing in preview text and spacing inputs does not lose focus or reset panel scroll.
-- [ ] Symbols outside the supported common set are visibly unsupported.
+- [ ] Characters outside the v9 catalog are visibly unsupported.
 - [ ] Preview shows a concise missing-character summary when needed.
 - [ ] Preview warns when current preview text contains characters that will not be included in the export.
 
@@ -316,10 +328,10 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Generated-font verification panel shows verified glyph count matching generated glyph count when verification succeeds.
 - [ ] Generated-font verification panel shows sample glyph metrics in the form `A advance/commands`.
 - [ ] Generated font family uses the user-entered font name.
-- [ ] Generated font includes the valid scanned A-Z, 0-9, and supported punctuation glyphs.
+- [ ] Generated font includes valid scanned v9 glyphs.
 - [ ] Generated font includes a real space glyph using the selected `Space width`.
-- [ ] Generated A-Z, 0-9, and supported punctuation glyph advance widths include the selected `Letter spacing`.
-- [ ] Generated A-Z, 0-9, and supported punctuation glyph advance widths use per-glyph overrides where set.
+- [ ] Generated v9 glyph advance widths include the selected `Letter spacing`.
+- [ ] Generated v9 glyph advance widths use per-glyph overrides where set.
 - [ ] Generated fonts preserve manual kerning pairs for valid scanned glyphs.
 - [ ] Generated-font verification reports verified kerning pair counts when kerning pairs are active.
 - [ ] Period and comma use narrower default advance widths than uppercase letters.
@@ -350,8 +362,8 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Generated ZIP HTML opens without additional setup after extraction.
 - [ ] Generated ZIP test page references packaged OTF files with relative `fonts/` URLs.
 - [ ] Generated ZIP test page includes rows for each packaged font weight.
-- [ ] Supported A-Z, 0-9, and punctuation glyphs render with custom outlines.
-- [ ] Missing A-Z, 0-9, and punctuation glyphs do not break rendering.
+- [ ] Supported v9 glyphs render with custom outlines.
+- [ ] Missing v9 glyphs do not break rendering.
 - [ ] Spaces render with usable spacing.
 - [ ] Adjusting space width before generation changes browser smoke-test spacing.
 - [ ] Browser console shows no font loading error.
@@ -485,10 +497,10 @@ If the generated ZIP is unavailable, use this local template after exporting a f
 
 Expected result: supported custom glyphs visibly render with Typegen outlines; unsupported or missing letters fall back or show missing-glyph behavior without breaking the page.
 
-## Known V3 Alpha Limitations To Confirm In UI
+## Known V9 Alpha Limitations To Confirm In UI
 
-- Uppercase A-Z, lowercase a-z, numbers 0-9, six punctuation marks, and nine common symbols are supported.
-- No symbols beyond the supported common set, ligatures, auto-kerning, kerning classes, or variable fonts.
+- The v9 catalog supports 209 explicit glyphs.
+- Characters beyond the v9 catalog, automatic accent composition, ligatures, auto-kerning, kerning classes, and variable fonts are not supported.
 - Spacing controls are global except for per-glyph advance width overrides and manual kerning pairs.
 - Per-glyph advance width overrides do not include side bearing editing.
 - Reset clears document-level saved settings; generated font binaries are still not persisted.

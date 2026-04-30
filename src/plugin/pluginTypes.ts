@@ -9,7 +9,7 @@ import {
 
 export const SUPPORTED_CHARS = [...GLYPH_CHARS];
 
-export type GlyphStatus = "valid" | "empty" | "unsupported" | "missing";
+export type GlyphStatus = "valid" | "empty" | "unsupported" | "missing" | "warning";
 
 export type GlyphCommand =
   | { type: "M"; x: number; y: number }
@@ -54,6 +54,7 @@ export type GlyphScanSummary = {
   empty: number;
   unsupported: number;
   missing: number;
+  warning: number;
   warnings: number;
 };
 
@@ -115,6 +116,15 @@ export type PluginToUiMessage =
       activeBoard?: ActiveBoardInfo;
     }
   | {
+      type: "GLYPH_SCAN_STARTED";
+      activeBoard?: ActiveBoardInfo;
+    }
+  | {
+      type: "GLYPH_SCAN_UPDATED";
+      glyph: GlyphScanResult;
+      activeBoard?: ActiveBoardInfo;
+    }
+  | {
       type: "BOARD_SELECTION_CLEARED";
     }
   | {
@@ -134,6 +144,7 @@ export type UiToPluginMessage =
   | { type: "CREATE_GLYPH_BOARD"; style?: FontWeightStyle; mode?: "new" | "update" }
   | { type: "GENERATE_STARTER_GLYPHS"; style?: FontWeightStyle }
   | { type: "SCAN_SELECTED_GLYPHS" }
+  | { type: "SCAN_GLYPH"; boardId: string; char: string }
   | { type: "SCAN_ALL_GLYPH_BOARDS" }
   | { type: "RESTORE_SAVED_SCAN"; nodeIds: string[] }
   | { type: "SAVE_SETTINGS"; settings: PersistedTypegenSettings }
@@ -152,30 +163,19 @@ export const TYPEGEN_ROLE_BOARD = "board";
 export const TYPEGEN_ROLE_SLOT = "glyph-slot";
 export const TYPEGEN_ROLE_HELPER = "helper";
 
-const GLYPH_NAME_ALIASES: Record<string, GlyphChar> = {
-  "glyph-.": ".",
-  "glyph-,": ",",
-  "glyph-!": "!",
-  "glyph-?": "?",
-  "glyph--": "-",
-  "glyph-:": ":",
-  "glyph-'": "'",
-  'glyph-"': '"',
-  "glyph-/": "/",
-  "glyph-(": "(",
-  "glyph-)": ")",
-  "glyph-&": "&",
-  "glyph-+": "+",
-  "glyph-=": "=",
-  "glyph-@": "@",
-};
+const GLYPH_NAME_LOOKUP = new Map<string, GlyphChar>(
+  GLYPH_DEFINITIONS.flatMap((definition) => [
+    [definition.name, definition.char],
+    [`glyph-${definition.char}`, definition.char],
+  ]),
+);
 
 export function isSupportedGlyphName(name: string): boolean {
   return Boolean(glyphCharFromName(name));
 }
 
 export function glyphCharFromName(name: string): string | null {
-  return GLYPH_DEFINITIONS.find((definition) => definition.name === name)?.char ?? GLYPH_NAME_ALIASES[name] ?? null;
+  return GLYPH_NAME_LOOKUP.get(name) ?? null;
 }
 
 export function unicodeForChar(char: string): number {
