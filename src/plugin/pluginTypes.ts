@@ -120,6 +120,11 @@ export type PluginToUiMessage =
       activeBoard?: ActiveBoardInfo;
     }
   | {
+      type: "GLYPH_SCAN_UPDATED";
+      glyph: GlyphScanResult;
+      activeBoard?: ActiveBoardInfo;
+    }
+  | {
       type: "BOARD_SELECTION_CLEARED";
     }
   | {
@@ -139,6 +144,7 @@ export type UiToPluginMessage =
   | { type: "CREATE_GLYPH_BOARD"; style?: FontWeightStyle; mode?: "new" | "update" }
   | { type: "GENERATE_STARTER_GLYPHS"; style?: FontWeightStyle }
   | { type: "SCAN_SELECTED_GLYPHS" }
+  | { type: "SCAN_GLYPH"; boardId: string; char: string }
   | { type: "SCAN_ALL_GLYPH_BOARDS" }
   | { type: "RESTORE_SAVED_SCAN"; nodeIds: string[] }
   | { type: "SAVE_SETTINGS"; settings: PersistedTypegenSettings }

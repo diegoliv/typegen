@@ -23,9 +23,23 @@ export function scanSelectedGlyphs(selection: readonly SceneNode[]): {
   glyphs: GlyphScanResult[];
   summary: GlyphScanSummary;
 } {
+  return scanGlyphChars(selection, SUPPORTED_CHARS);
+}
+
+export function scanSelectedGlyphsForChars(selection: readonly SceneNode[], chars: readonly string[]): {
+  glyphs: GlyphScanResult[];
+  summary: GlyphScanSummary;
+} {
+  return scanGlyphChars(selection, chars);
+}
+
+function scanGlyphChars(selection: readonly SceneNode[], chars: readonly string[]): {
+  glyphs: GlyphScanResult[];
+  summary: GlyphScanSummary;
+} {
   const index = createGlyphCandidateIndex(selection);
 
-  const glyphs = SUPPORTED_CHARS.map((char): GlyphScanResult => {
+  const glyphs = chars.map((char): GlyphScanResult => {
     return scanGlyphFromIndex(char, index);
   });
 

@@ -482,17 +482,17 @@ const kernedPreview = layoutPreviewText("AA", [glyphA], {
 });
 assert.equal(
   defaultOverridePreview.items[1]?.transform,
-  "translate(740 830) scale(1 -1)",
+  "translate(740 930) scale(1 -1)",
   "default preview layout should position the second glyph after the base advance",
 );
 assert.equal(
   wideOverridePreview.items[1]?.transform,
-  "translate(1040 830) scale(1 -1)",
+  "translate(1040 930) scale(1 -1)",
   "preview layout should position repeated glyphs using the per-glyph advance override",
 );
 assert.equal(
   kernedPreview.items[1]?.transform,
-  "translate(660 830) scale(1 -1)",
+  "translate(660 930) scale(1 -1)",
   "preview layout should apply kerning between adjacent glyphs",
 );
 
@@ -748,7 +748,7 @@ assert.equal(symbolFont.glyphCount, 3, "symbol fixture should include @, +, and 
 assert.equal(symbolFont.verification.failedGlyphs.length, 0, "symbol fixture should verify cleanly");
 assertRoundTripGlyph(symbolFont.arrayBuffer, "@", 760, "symbol fixture should preserve @");
 assertRoundTripGlyph(symbolFont.arrayBuffer, "+", 560, "symbol fixture should preserve +");
-assertRoundTripGlyph(symbolFont.arrayBuffer, "/", 420, "symbol fixture should preserve /");
+assertRoundTripGlyph(symbolFont.arrayBuffer, "/", 360, "symbol fixture should preserve /");
 
 const lowercasePilotFont = buildFont({
   familyName: "Typegen Lowercase Pilot Regression",

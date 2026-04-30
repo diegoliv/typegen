@@ -179,6 +179,8 @@ function defaultAdvanceForCatalogChar(char: string): number {
   if (char === '¡') return 320;
   if (char === '?') return 560;
   if (char === '"') return 360;
+  if ("()[]{}".includes(char)) return 360;
+  if ("/\\".includes(char)) return 360;
   if (NARROW_ADVANCE.has(char)) return 260;
   if (MEDIUM_ADVANCE.has(char)) return 420;
   if (MATH_ADVANCE.has(char)) return 560;
@@ -264,6 +266,18 @@ export const UNIFIED_VISUAL_GUIDE_PROFILE: SlotGuideProfile = {
   rightBoundaryX: 195,
 };
 
+const UPPERCASE_ACCENT_TOP_PADDING = 24;
+
+export const UNIFIED_UPPERCASE_ACCENT_GUIDE_PROFILE: SlotGuideProfile = {
+  ...UNIFIED_VISUAL_GUIDE_PROFILE,
+  name: 'uppercase',
+  slotHeight: UNIFIED_VISUAL_GUIDE_PROFILE.slotHeight + UPPERCASE_ACCENT_TOP_PADDING,
+  ascenderY: UNIFIED_VISUAL_GUIDE_PROFILE.ascenderY + UPPERCASE_ACCENT_TOP_PADDING,
+  xHeightY: undefined,
+  baselineY: UNIFIED_VISUAL_GUIDE_PROFILE.baselineY + UPPERCASE_ACCENT_TOP_PADDING,
+  descenderY: (UNIFIED_VISUAL_GUIDE_PROFILE.descenderY ?? UNIFIED_VISUAL_GUIDE_PROFILE.baselineY) + UPPERCASE_ACCENT_TOP_PADDING,
+};
+
 export const GUIDE_PROFILES: Record<SlotGuideProfileName, SlotGuideProfile> = {
   uppercase: UPPERCASE_GUIDE_PROFILE,
   lowercase: LOWERCASE_GUIDE_PROFILE,
@@ -303,10 +317,18 @@ export function guideProfileForChar(char: GlyphChar): SlotGuideProfile {
 }
 
 export function unifiedVisualGuideProfileForChar(char: GlyphChar): SlotGuideProfile {
+  if (glyphCategoryForChar(char) === 'latin-uppercase' && hasTopAccent(char)) {
+    return UNIFIED_UPPERCASE_ACCENT_GUIDE_PROFILE;
+  }
+
   return {
     ...UNIFIED_VISUAL_GUIDE_PROFILE,
     name: guideProfileForChar(char).name,
   };
+}
+
+function hasTopAccent(char: GlyphChar): boolean {
+  return char.normalize('NFD').slice(1).search(/[\u0300-\u036f]/) >= 0;
 }
 
 export type GlyphStatus = 'missing' | 'empty' | 'valid' | 'unsupported' | 'warning';

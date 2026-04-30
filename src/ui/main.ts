@@ -912,7 +912,7 @@ function renderGlyphSpecimenSvg(char: GlyphChar, glyph: GlyphModel, advanceWidth
       }
 
       const className = index === 1 ? 'specimen-main' : 'specimen-ghost';
-      const transform = item.transform.replace(/\s830\)/, ' 700)');
+      const transform = item.transform.replace(new RegExp(`\\s${FONT_METRICS.ascender + 30}\\)`), ' 700)');
       return `<path class="${className}" d="${escapeAttr(item.pathData)}" transform="${escapeAttr(transform)}" />`;
     })
     .join('');
@@ -1031,6 +1031,9 @@ function bindEvents() {
       if (glyph && isGlyphChar(glyph)) {
         state.selectedGlyph = glyph;
         state.glyphOverlayOpen = true;
+        if (state.activeBoard) {
+          postToPlugin({ type: 'SCAN_GLYPH', boardId: state.activeBoard.id, char: glyph });
+        }
         persistSettings();
         render();
       }
@@ -1430,10 +1433,23 @@ window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginToUiMessage }>) 
     state.statusMessage = 'Scanning glyph outlines...';
   }
 
+  if (message.type === 'GLYPH_SCAN_UPDATED') {
+    if (message.activeBoard) {
+      applyActiveBoard(message.activeBoard);
+    }
+    state.glyphs = replaceGlyphResult(state.glyphs, message.glyph);
+    state.lastScanNodeIds = collectScanNodeIds(state.glyphs);
+    state.isScanning = false;
+    state.generatedFont = null;
+    state.statusMessage = `Updated glyph ${glyphLabelForChar(message.glyph.char)}.`;
+    persistSettings();
+  }
+
   if (message.type === 'BOARD_SELECTION_CLEARED') {
     state.activeBoard = null;
     state.glyphs = [];
     state.lastScanNodeIds = [];
+    state.isScanning = false;
     state.generatedFont = null;
     state.glyphOverlayOpen = false;
     state.spacing = createDefaultSpacing();
@@ -1969,6 +1985,14 @@ function cloneSpacingSettings(spacing: Partial<FontSpacingSettings> | undefined)
 
 function collectScanNodeIds(glyphs: GlyphScanResult[]): string[] {
   return [...new Set(glyphs.map((glyph) => glyph.nodeId).filter((id): id is string => Boolean(id)))];
+}
+
+function replaceGlyphResult(glyphs: GlyphScanResult[], nextGlyph: GlyphScanResult): GlyphScanResult[] {
+  if (glyphs.some((glyph) => glyph.char === nextGlyph.char)) {
+    return glyphs.map((glyph) => (glyph.char === nextGlyph.char ? nextGlyph : glyph));
+  }
+
+  return [...glyphs, nextGlyph];
 }
 
 function sanitizeAdvanceOverrides(

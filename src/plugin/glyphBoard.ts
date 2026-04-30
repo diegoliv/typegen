@@ -157,6 +157,10 @@ export function findSelectedGlyphBoard(): FrameNode | null {
   return null;
 }
 
+export function findDirectlySelectedGlyphBoard(): FrameNode | null {
+  return figma.currentPage.selection.find((node): node is FrameNode => isGlyphBoardFrame(node)) ?? null;
+}
+
 function findGlyphBoardAncestor(node: BaseNode | null): FrameNode | null {
   let current: BaseNode | null = node;
 

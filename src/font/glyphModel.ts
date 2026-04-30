@@ -20,7 +20,7 @@ import { GLYPH_CHARS, type BoardSpacingSettings, type GlyphChar, type GlyphModel
 
 export const FONT_METRICS = {
   unitsPerEm: 1000,
-  ascender: 800,
+  ascender: 900,
   descender: -200,
   capHeight: 700,
   defaultAdvanceWidth: 700,

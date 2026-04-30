@@ -1,5 +1,5 @@
-import { createGlyphBoard, findAllGlyphBoards, findSelectedGlyphBoard, getGlyphBoardStyle } from "./glyphBoard";
-import { scanSelectedGlyphs, scanSelectedGlyphsLightweight } from "./figmaNodes";
+import { createGlyphBoard, findAllGlyphBoards, findDirectlySelectedGlyphBoard, findSelectedGlyphBoard, getGlyphBoardStyle } from "./glyphBoard";
+import { scanSelectedGlyphs, scanSelectedGlyphsForChars, scanSelectedGlyphsLightweight } from "./figmaNodes";
 import { generateStarterGlyphs } from "./starterGlyphs";
 import { ActiveBoardInfo, PersistedTypegenSettings, PluginToUiMessage, UiToPluginMessage } from "./pluginTypes";
 import { GLYPH_CHARS, type BoardSpacingSettings, type GlyphChar, type KerningPair } from "../shared/types";
@@ -31,7 +31,7 @@ figma.on("selectionchange", () => {
 
   selectionScanTimer = setTimeout(() => {
     selectionScanTimer = null;
-    void scanCurrentSelection({ silent: true, useLastActiveFallback: false, mode: "lightweight" });
+    void scanDirectBoardSelection();
   }, 120);
 });
 
@@ -114,6 +114,11 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
       return;
     }
 
+    if (message.type === "SCAN_GLYPH") {
+      await scanSingleGlyph(message.boardId, message.char);
+      return;
+    }
+
     if (message.type === "SCAN_ALL_GLYPH_BOARDS") {
       const boards = findAllGlyphBoards();
       if (boards.length === 0) {
@@ -150,6 +155,23 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
 };
 
 type ScanMode = "full" | "lightweight";
+
+async function scanDirectBoardSelection(): Promise<void> {
+  const selectedBoard = findDirectlySelectedGlyphBoard();
+  if (selectedBoard) {
+    if (selectedBoard.id !== activeBoardId) {
+      postScanResult([selectedBoard], { silent: true, mode: "lightweight" });
+    }
+    return;
+  }
+
+  if (selectionTouchesActiveBoard()) {
+    return;
+  }
+
+  activeBoardId = "";
+  postToUi({ type: "BOARD_SELECTION_CLEARED" });
+}
 
 async function scanCurrentSelection(options: { silent: boolean; useLastActiveFallback: boolean; mode: ScanMode }): Promise<void> {
   const scanSelection = await resolveScanSelection(options);
@@ -199,6 +221,29 @@ function postScanResult(scanSelection: readonly SceneNode[], options: { silent: 
   }
 }
 
+async function scanSingleGlyph(boardId: string, char: string): Promise<void> {
+  if (!isGlyphChar(char)) {
+    return;
+  }
+
+  const node = await figma.getNodeByIdAsync(boardId);
+  if (!isFrameNode(node)) {
+    postToUi({ type: "VALIDATION_ERROR", message: "The active Typegen board is no longer available. Select the board again." });
+    return;
+  }
+
+  const done = startPerf(`single glyph scan ${char}`);
+  const result = scanSelectedGlyphsForChars([node], [char]);
+  done();
+  const glyph = result.glyphs[0];
+  if (!glyph) {
+    return;
+  }
+
+  activeBoardId = node.id;
+  postToUi({ type: "GLYPH_SCAN_UPDATED", glyph, activeBoard: createActiveBoardInfo(node) });
+}
+
 function scheduleDeferredFullScan(board: FrameNode, version: number): void {
   if (deferredFullScanTimer) {
     clearTimeout(deferredFullScanTimer);
@@ -206,19 +251,39 @@ function scheduleDeferredFullScan(board: FrameNode, version: number): void {
 
   deferredFullScanTimer = setTimeout(() => {
     deferredFullScanTimer = null;
-    if (version !== scanVersion || activeBoardId !== board.id || board.removed) {
+    if (version !== scanVersion || activeBoardId !== board.id) {
+      return;
+    }
+
+    if (board.removed) {
+      clearActiveBoardScan(board.id);
       return;
     }
 
     postToUi({ type: "GLYPH_SCAN_STARTED", activeBoard: createActiveBoardInfo(board) });
     setTimeout(() => {
-      if (version !== scanVersion || activeBoardId !== board.id || board.removed) {
+      if (version !== scanVersion || activeBoardId !== board.id) {
+        return;
+      }
+
+      if (board.removed) {
+        clearActiveBoardScan(board.id);
         return;
       }
 
       postScanResult([board], { silent: true, mode: "full" });
     }, 80);
   }, 350);
+}
+
+function clearActiveBoardScan(boardId: string): void {
+  if (activeBoardId !== boardId) {
+    return;
+  }
+
+  activeBoardId = "";
+  scanVersion++;
+  postToUi({ type: "BOARD_SELECTION_CLEARED" });
 }
 
 function startPerf(label: string): () => void {
@@ -262,6 +327,25 @@ function resolveActiveBoardForSelection(selection: readonly SceneNode[]): FrameN
   }
 
   return null;
+}
+
+function selectionTouchesActiveBoard(): boolean {
+  if (!activeBoardId) {
+    return false;
+  }
+
+  return figma.currentPage.selection.some((node) => isNodeOrAncestor(node, activeBoardId));
+}
+
+function isNodeOrAncestor(node: BaseNode | null, ancestorId: string): boolean {
+  let current = node;
+  while (current) {
+    if (current.id === ancestorId) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
 }
 
 function createActiveBoardInfo(board: FrameNode): ActiveBoardInfo {

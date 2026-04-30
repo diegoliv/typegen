@@ -1,5 +1,35 @@
 # Typegen MVP Implementation Plan
 
+## 58. V9.2 Starter Glyph Proportions
+
+Goal: keep generated starter glyphs faithful to Inter proportions across the expanded V9 glyph set, especially compact symbols and standalone marks.
+
+Implementation status:
+
+- Updated Inter starter fitting so outlines can downscale when they overflow a slot, but are no longer upscaled to fill the glyph frame.
+- Added category-aware vertical placement for Latin extended letters and standalone marks so accents, cedillas, and ogoneks avoid generic center alignment.
+- Expanded starter layout classification beyond ASCII checks so accented lowercase letters, ligatures, slash/backslash, and descenders use the correct guide bands.
+- Reworked Inter starter fitting to preserve the source Figma text layout box and ink offset through flattening, avoiding per-glyph ink-box centering for descenders, accents, ligatures, and paired symbols.
+- Split starter fitting by glyph kind: letters use Inter baseline metrics and layout width, while punctuation/symbols use visual ink bounds so they keep preview-like scale.
+- Replaced starter-specific uppercase-accent shrinking with top-padded uppercase-accent slot frames: cap/baseline guide distances stay unchanged, while accented caps get extra frame headroom above the guide box.
+- Raised exported/preview font ascender headroom so scanned accented-cap artwork above cap height is not clipped in SVG preview or font metrics.
+- Tuned starter punctuation classes: tall delimiters and slashes use text-metric placement, comma descends below baseline, and trademark uses a superscript symbol zone.
+- Narrowed delimiter and slash default advances so fitted preview/export spacing better matches text input proportions.
+- Simplified Inter starter generation to position live text once at a shared font size and flatten in place, removing post-flatten per-glyph scale/position exceptions.
+- Changed automatic selection scanning so it runs only when a Typegen board itself is selected, not every time a child frame or glyph element inside the active board is clicked.
+- Added a targeted single-glyph rescan when a glyph tile is opened in the UI, keeping the detail overlay fresh without revalidating the whole board.
+- Cleared the UI scanning state when an active board is deleted during deferred scan validation.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run build` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Remaining:
+
+- Manual Figma QA for compact symbols, math, currency, and standalone marks on a freshly generated starter board.
+
 ## 57. V9.1 Performance Audit / Responsiveness
 
 Goal: reduce Figma freezes and plugin latency after the V9 expanded glyph catalog increased board size to 209 slots.

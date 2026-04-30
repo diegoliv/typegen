@@ -151,11 +151,11 @@
     return definitions;
   }
   function glyphNameFromCatalogChar(char) {
-    var _a, _b;
+    var _a2, _b;
     if (/^[A-Za-z0-9]$/.test(char)) {
       return `glyph-${char}`;
     }
-    return (_b = GLYPH_NAME_OVERRIDES[char]) != null ? _b : `glyph-u${((_a = char.codePointAt(0)) != null ? _a : 0).toString(16).padStart(4, "0")}`;
+    return (_b = GLYPH_NAME_OVERRIDES[char]) != null ? _b : `glyph-u${((_a2 = char.codePointAt(0)) != null ? _a2 : 0).toString(16).padStart(4, "0")}`;
   }
   function guideProfileNameForCatalogChar(char) {
     return char.toLowerCase() === char && char.toUpperCase() !== char ? "lowercase" : "uppercase";
@@ -165,6 +165,8 @@
     if (char === "\xA1") return 320;
     if (char === "?") return 560;
     if (char === '"') return 360;
+    if ("()[]{}".includes(char)) return 360;
+    if ("/\\".includes(char)) return 360;
     if (NARROW_ADVANCE.has(char)) return 260;
     if (MEDIUM_ADVANCE.has(char)) return 420;
     if (MATH_ADVANCE.has(char)) return 560;
@@ -218,27 +220,37 @@
     leftBoundaryX: 25,
     rightBoundaryX: 195
   });
+  var UPPERCASE_ACCENT_TOP_PADDING = 24;
+  var _a;
+  var UNIFIED_UPPERCASE_ACCENT_GUIDE_PROFILE = __spreadProps(__spreadValues({}, UNIFIED_VISUAL_GUIDE_PROFILE), {
+    name: "uppercase",
+    slotHeight: UNIFIED_VISUAL_GUIDE_PROFILE.slotHeight + UPPERCASE_ACCENT_TOP_PADDING,
+    ascenderY: UNIFIED_VISUAL_GUIDE_PROFILE.ascenderY + UPPERCASE_ACCENT_TOP_PADDING,
+    xHeightY: void 0,
+    baselineY: UNIFIED_VISUAL_GUIDE_PROFILE.baselineY + UPPERCASE_ACCENT_TOP_PADDING,
+    descenderY: ((_a = UNIFIED_VISUAL_GUIDE_PROFILE.descenderY) != null ? _a : UNIFIED_VISUAL_GUIDE_PROFILE.baselineY) + UPPERCASE_ACCENT_TOP_PADDING
+  });
   var GUIDE_PROFILES = {
     uppercase: UPPERCASE_GUIDE_PROFILE,
     lowercase: LOWERCASE_GUIDE_PROFILE
   };
   var GLYPH_CHARS = GLYPH_DEFINITIONS.map((definition) => definition.char);
   function glyphCategoryForChar(char) {
-    var _a, _b;
-    return (_b = (_a = GLYPH_DEFINITIONS.find((definition) => definition.char === char)) == null ? void 0 : _a.category) != null ? _b : "symbols";
+    var _a2, _b;
+    return (_b = (_a2 = GLYPH_DEFINITIONS.find((definition) => definition.char === char)) == null ? void 0 : _a2.category) != null ? _b : "symbols";
   }
   function glyphNameForChar(char) {
-    var _a, _b;
-    return (_b = (_a = GLYPH_DEFINITIONS.find((definition) => definition.char === char)) == null ? void 0 : _a.name) != null ? _b : `glyph-${char}`;
+    var _a2, _b;
+    return (_b = (_a2 = GLYPH_DEFINITIONS.find((definition) => definition.char === char)) == null ? void 0 : _a2.name) != null ? _b : `glyph-${char}`;
   }
   function glyphLabelForChar(char) {
-    var _a, _b;
-    return (_b = (_a = GLYPH_DEFINITIONS.find((definition) => definition.char === char)) == null ? void 0 : _a.label) != null ? _b : char;
+    var _a2, _b;
+    return (_b = (_a2 = GLYPH_DEFINITIONS.find((definition) => definition.char === char)) == null ? void 0 : _a2.label) != null ? _b : char;
   }
   function defaultAdvanceForChar(char) {
-    var _a;
+    var _a2;
     const definition = GLYPH_DEFINITIONS.find((item) => item.char === char);
-    return (_a = definition == null ? void 0 : definition.defaultAdvanceWidth) != null ? _a : 700;
+    return (_a2 = definition == null ? void 0 : definition.defaultAdvanceWidth) != null ? _a2 : 700;
   }
   function guideProfileForChar(char) {
     const definition = GLYPH_DEFINITIONS.find((item) => item.char === char);
@@ -246,9 +258,15 @@
     return GUIDE_PROFILES[profileName];
   }
   function unifiedVisualGuideProfileForChar(char) {
+    if (glyphCategoryForChar(char) === "latin-uppercase" && hasTopAccent(char)) {
+      return UNIFIED_UPPERCASE_ACCENT_GUIDE_PROFILE;
+    }
     return __spreadProps(__spreadValues({}, UNIFIED_VISUAL_GUIDE_PROFILE), {
       name: guideProfileForChar(char).name
     });
+  }
+  function hasTopAccent(char) {
+    return char.normalize("NFD").slice(1).search(/[\u0300-\u036f]/) >= 0;
   }
 
   // src/plugin/pluginTypes.ts
@@ -264,12 +282,12 @@
     ])
   );
   function glyphCharFromName(name) {
-    var _a;
-    return (_a = GLYPH_NAME_LOOKUP.get(name)) != null ? _a : null;
+    var _a2;
+    return (_a2 = GLYPH_NAME_LOOKUP.get(name)) != null ? _a2 : null;
   }
   function unicodeForChar(char) {
-    var _a;
-    return (_a = char.codePointAt(0)) != null ? _a : 0;
+    var _a2;
+    return (_a2 = char.codePointAt(0)) != null ? _a2 : 0;
   }
   function glyphNameForChar2(char) {
     return glyphNameForChar(char);
@@ -379,6 +397,10 @@
     }
     return null;
   }
+  function findDirectlySelectedGlyphBoard() {
+    var _a2;
+    return (_a2 = figma.currentPage.selection.find((node) => isGlyphBoardFrame(node))) != null ? _a2 : null;
+  }
   function findGlyphBoardAncestor(node) {
     let current = node;
     while (current) {
@@ -399,14 +421,14 @@
     return node.type === "FRAME" && (node.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_BOARD || node.name === "Font Glyph Board" || node.name.startsWith("Font Glyph Board - "));
   }
   function getGlyphBoardStyle(board) {
-    var _a, _b;
+    var _a2, _b;
     const style = board.getPluginData(BOARD_STYLE_KEY);
     if (isFontWeightStyle(style)) {
       return style;
     }
     const weightByLongestLabel = [...FONT_WEIGHT_DEFINITIONS].sort((a, b) => b.style.length - a.style.length);
     const boardName = board.name.toLowerCase();
-    return (_b = (_a = weightByLongestLabel.find((definition) => boardName.includes(definition.style.toLowerCase()))) == null ? void 0 : _a.style) != null ? _b : DEFAULT_FONT_WEIGHT_STYLE;
+    return (_b = (_a2 = weightByLongestLabel.find((definition) => boardName.includes(definition.style.toLowerCase()))) == null ? void 0 : _a2.style) != null ? _b : DEFAULT_FONT_WEIGHT_STYLE;
   }
   function setBoardStyle(board, style) {
     board.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_BOARD);
@@ -446,8 +468,8 @@
     board.resize(boardWidth, boardHeight);
   }
   function getSlotLayout(char) {
-    var _a;
-    return (_a = BOARD_LAYOUT.slots.get(char)) != null ? _a : { x: PADDING, y: PADDING + SECTION_LABEL_HEIGHT };
+    var _a2;
+    return (_a2 = BOARD_LAYOUT.slots.get(char)) != null ? _a2 : { x: PADDING, y: PADDING + SECTION_LABEL_HEIGHT };
   }
   var UPPERCASE_SLOT_WIDTH = unifiedVisualGuideProfileForChar("A").slotWidth;
   var UPPERCASE_SLOT_HEIGHT = unifiedVisualGuideProfileForChar("A").slotHeight;
@@ -507,9 +529,9 @@
     return slot;
   }
   function addGuides(slot, profile) {
-    var _a, _b, _c, _d, _e;
+    var _a2, _b, _c, _d, _e;
     const guideTop = profile.ascenderY;
-    const guideBottom = (_a = profile.descenderY) != null ? _a : profile.baselineY;
+    const guideBottom = (_a2 = profile.descenderY) != null ? _a2 : profile.baselineY;
     const guideWidth = profile.rightBoundaryX - profile.leftBoundaryX;
     const data = [
       `M ${profile.leftBoundaryX} ${guideTop} L ${profile.leftBoundaryX} ${guideBottom}`,
@@ -563,14 +585,14 @@
     return slot.children.some((child) => child.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_HELPER && child.name === `tg-label-${glyphLabelForChar(char)}`);
   }
   function guideSignature(profile) {
-    var _a, _b;
+    var _a2, _b;
     return [
       profile.slotWidth,
       profile.slotHeight,
       profile.leftBoundaryX,
       profile.rightBoundaryX,
       profile.ascenderY,
-      (_a = profile.xHeightY) != null ? _a : "",
+      (_a2 = profile.xHeightY) != null ? _a2 : "",
       profile.baselineY,
       (_b = profile.descenderY) != null ? _b : ""
     ].join(":");
@@ -628,7 +650,7 @@
     [0, 1, 0]
   ];
   function extractGlyphFromNode(node, char) {
-    var _a;
+    var _a2;
     const issues = [];
     const vectorSources = [];
     const glyphName = glyphNameForChar2(char);
@@ -688,7 +710,7 @@
       vectorCount,
       glyph: {
         char,
-        unicode: (_a = char.codePointAt(0)) != null ? _a : 0,
+        unicode: (_a2 = char.codePointAt(0)) != null ? _a2 : 0,
         name: glyphName,
         advanceWidth: finalAdvanceWidth,
         bounds: fitted.bounds,
@@ -889,12 +911,12 @@
     return node.parent && "appendChild" in node.parent ? node.parent : figma.currentPage;
   }
   function cleanupTemporaryVectors(vectorSources) {
-    var _a;
+    var _a2;
     for (const source of vectorSources) {
       if (source.temporary) {
         cleanupTemporaryNode(source.vector);
       }
-      for (const node of (_a = source.cleanupNodes) != null ? _a : []) {
+      for (const node of (_a2 = source.cleanupNodes) != null ? _a2 : []) {
         cleanupTemporaryNode(node);
       }
     }
@@ -959,8 +981,8 @@
     return localScore + 0.5 < transformedScore ? local : transformed;
   }
   function parseSvgPathData(data, transform) {
-    var _a;
-    const tokens = (_a = data.match(COMMAND_RE)) != null ? _a : [];
+    var _a2;
+    const tokens = (_a2 = data.match(COMMAND_RE)) != null ? _a2 : [];
     const commands = [];
     let index = 0;
     let current = { x: 0, y: 0 };
@@ -1320,8 +1342,14 @@
 
   // src/plugin/figmaNodes.ts
   function scanSelectedGlyphs(selection) {
+    return scanGlyphChars(selection, SUPPORTED_CHARS);
+  }
+  function scanSelectedGlyphsForChars(selection, chars) {
+    return scanGlyphChars(selection, chars);
+  }
+  function scanGlyphChars(selection, chars) {
     const index = createGlyphCandidateIndex(selection);
-    const glyphs = SUPPORTED_CHARS.map((char) => {
+    const glyphs = chars.map((char) => {
       return scanGlyphFromIndex(char, index);
     });
     return {
@@ -1340,13 +1368,13 @@
     };
   }
   function createGlyphCandidateIndex(selection) {
-    var _a;
+    var _a2;
     const candidates = collectGlyphCandidates(selection);
     const firstByChar = /* @__PURE__ */ new Map();
     const duplicateTotals = /* @__PURE__ */ new Map();
     for (const candidate of candidates) {
       if (firstByChar.has(candidate.char)) {
-        duplicateTotals.set(candidate.char, ((_a = duplicateTotals.get(candidate.char)) != null ? _a : 1) + 1);
+        duplicateTotals.set(candidate.char, ((_a2 = duplicateTotals.get(candidate.char)) != null ? _a2 : 1) + 1);
         continue;
       }
       firstByChar.set(candidate.char, candidate.node);
@@ -1354,7 +1382,7 @@
     return { firstByChar, duplicateTotals };
   }
   function scanGlyphFromIndex(char, index) {
-    var _a;
+    var _a2;
     const node = index.firstByChar.get(char);
     const glyphName = glyphNameForChar2(char);
     const base = createGlyphResultBase(char, glyphName);
@@ -1363,7 +1391,7 @@
     }
     const extraction = extractGlyphFromNode(node, char);
     const warnings = extraction.issues.filter((issue) => issue.level === "warning").map((issue) => issue.message);
-    appendDuplicateWarning(warnings, (_a = index.duplicateTotals.get(char)) != null ? _a : 0, glyphName);
+    appendDuplicateWarning(warnings, (_a2 = index.duplicateTotals.get(char)) != null ? _a2 : 0, glyphName);
     const errors = extraction.issues.filter((issue) => issue.level === "error");
     if (errors.length > 0) {
       return __spreadProps(__spreadValues({}, base), {
@@ -1385,7 +1413,7 @@
     });
   }
   function scanGlyphFromIndexLightweight(char, firstByChar, duplicateTotals) {
-    var _a;
+    var _a2;
     const node = firstByChar.get(char);
     const glyphName = glyphNameForChar2(char);
     const base = createGlyphResultBase(char, glyphName);
@@ -1393,7 +1421,7 @@
       return createMissingGlyphResult(base, char, glyphName);
     }
     const warnings = [];
-    appendDuplicateWarning(warnings, (_a = duplicateTotals.get(char)) != null ? _a : 0, glyphName);
+    appendDuplicateWarning(warnings, (_a2 = duplicateTotals.get(char)) != null ? _a2 : 0, glyphName);
     if (!hasGlyphArtwork(node)) {
       return createEmptyGlyphResult(base, node.id, char, glyphName, warnings);
     }
@@ -1479,6 +1507,8 @@
   // src/plugin/starterGlyphs.ts
   var FILL = { type: "SOLID", color: { r: 0.05, g: 0.06, b: 0.08 } };
   var INTER_STARTER_FONT_SIZE = 178;
+  var INTER_UNITS_PER_EM = 2048;
+  var INTER_ASCENDER_UNITS = 1984;
   async function generateStarterGlyphs(style = "Regular") {
     const boardResult = await createGlyphBoard(style);
     const slotsByChar = collectSlotsByChar(boardResult.board);
@@ -1558,7 +1588,7 @@
     }
   }
   function addStarterGlyphToSlot(slot, char, starterFont, warnings) {
-    var _a;
+    var _a2;
     if (starterFont) {
       try {
         createInterStarterOutline(slot, char, starterFont);
@@ -1568,7 +1598,7 @@
       }
     }
     const vector = createStarterVector(char);
-    vector.name = `tg-starter-geometric-${(_a = starterFont == null ? void 0 : starterFont.style.toLowerCase()) != null ? _a : "fallback"}-${safeNodeName(glyphLabelForChar(char))}`;
+    vector.name = `tg-starter-geometric-${(_a2 = starterFont == null ? void 0 : starterFont.style.toLowerCase()) != null ? _a2 : "fallback"}-${safeNodeName(glyphLabelForChar(char))}`;
     slot.appendChild(vector);
   }
   function createInterStarterOutline(slot, char, starterFont) {
@@ -1586,6 +1616,7 @@
       text.x = 0;
       text.y = 0;
       slot.appendChild(text);
+      positionInterStarterText(text, char);
       flattened = figma.flatten([text], slot);
       flattened.name = `tg-starter-inter-raw-${starterFont.style.toLowerCase()}-${safeNodeName(glyphLabelForChar(char))}`;
       flattened.fills = [FILL];
@@ -1594,7 +1625,6 @@
       finalVector.name = `tg-starter-inter-${starterFont.style.toLowerCase()}-${safeNodeName(glyphLabelForChar(char))}`;
       finalVector.fills = [FILL];
       finalVector.strokes = [];
-      fitInterStarterVectorToSlot(finalVector, char);
     } catch (error) {
       if (finalVector == null ? void 0 : finalVector.parent) {
         finalVector.remove();
@@ -1607,6 +1637,14 @@
       }
       throw error;
     }
+  }
+  function positionInterStarterText(text, char) {
+    const metrics = createMetrics(unifiedVisualGuideProfileForChar(char));
+    const textWidth = Math.max(1, text.width);
+    const designWidth = metrics.right - metrics.left;
+    const ascenderPx = INTER_ASCENDER_UNITS / INTER_UNITS_PER_EM * INTER_STARTER_FONT_SIZE;
+    text.x = metrics.left + (designWidth - textWidth) / 2;
+    text.y = metrics.baseline - ascenderPx;
   }
   function booleanMergeAndFlattenStarter(vector, slot) {
     const vectorPaths = [...vector.vectorPaths];
@@ -1653,92 +1691,6 @@
       throw error;
     }
   }
-  function fitInterStarterVectorToSlot(vector, char) {
-    const target = targetBoundsForChar(char);
-    const metrics = createMetrics(unifiedVisualGuideProfileForChar(char));
-    const sourceWidth = Math.max(1, vector.width);
-    const sourceHeight = Math.max(1, vector.height);
-    const targetWidth = Math.max(1, target.xMax - target.xMin);
-    const targetHeight = Math.max(1, target.yMax - target.yMin);
-    const scale = interStarterScaleForChar(char, targetWidth, targetHeight, sourceWidth, sourceHeight);
-    const nextWidth = sourceWidth * scale;
-    const nextHeight = sourceHeight * scale;
-    vector.resizeWithoutConstraints(nextWidth, nextHeight);
-    vector.x = target.xMin + (targetWidth - nextWidth) / 2;
-    vector.y = interStarterYForChar(char, metrics, target, nextHeight);
-  }
-  function interStarterScaleForChar(char, targetWidth, targetHeight, sourceWidth, sourceHeight) {
-    if (/[A-Za-z0-9]/.test(char)) {
-      return 1;
-    }
-    return Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
-  }
-  function interStarterYForChar(char, metrics, target, renderedHeight) {
-    if (/[A-Z0-9]/.test(char)) {
-      return metrics.top;
-    }
-    if (/[a-z]/.test(char)) {
-      if ("bdfhkl".includes(char)) {
-        return metrics.top;
-      }
-      if ("gjpqy".includes(char)) {
-        return metrics.descender - renderedHeight;
-      }
-      return metrics.baseline - renderedHeight;
-    }
-    return target.yMin + (target.yMax - target.yMin - renderedHeight) / 2;
-  }
-  function targetBoundsForChar(char) {
-    const profile = unifiedVisualGuideProfileForChar(char);
-    const metrics = createMetrics(profile);
-    const sideInset = defaultSideInset(char, metrics);
-    const vertical = verticalBoundsForChar(char, metrics);
-    return {
-      xMin: metrics.left + sideInset,
-      yMin: vertical.top,
-      xMax: metrics.right - sideInset,
-      yMax: vertical.bottom
-    };
-  }
-  function verticalBoundsForChar(char, metrics) {
-    if (/[a-z]/.test(char)) {
-      if ("bdfhkl".includes(char)) {
-        return { top: metrics.top, bottom: metrics.baseline };
-      }
-      if ("gjpqy".includes(char)) {
-        return { top: metrics.xHeight, bottom: metrics.descender };
-      }
-      if ("it".includes(char)) {
-        return { top: metrics.top + 10, bottom: metrics.baseline };
-      }
-      return { top: metrics.xHeight, bottom: metrics.baseline };
-    }
-    if (".,".includes(char)) {
-      return { top: metrics.baseline - 28, bottom: metrics.baseline };
-    }
-    if (`'"`.includes(char)) {
-      return { top: metrics.top, bottom: metrics.top + 52 };
-    }
-    if (":".includes(char)) {
-      return { top: metrics.bodyMid - 36, bottom: metrics.baseline };
-    }
-    if ("-+=/".includes(char)) {
-      return { top: metrics.bodyMid - 44, bottom: metrics.bodyMid + 44 };
-    }
-    return { top: metrics.top, bottom: metrics.baseline };
-  }
-  function defaultSideInset(char, metrics) {
-    if (`ilI1!'".,:`.includes(char)) {
-      return (metrics.right - metrics.left) * 0.28;
-    }
-    if ("mwMW@&".includes(char)) {
-      return 0;
-    }
-    if ("()+-=/-".includes(char)) {
-      return (metrics.right - metrics.left) * 0.12;
-    }
-    return (metrics.right - metrics.left) * 0.06;
-  }
   function createStarterVector(char) {
     const vector = figma.createVector();
     vector.name = `tg-starter-${safeNodeName(glyphLabelForChar(char))}`;
@@ -1767,11 +1719,11 @@
     return symbolShapes(char, metrics);
   }
   function createMetrics(profile) {
-    var _a, _b;
+    var _a2, _b;
     const left = profile.leftBoundaryX;
     const right = profile.rightBoundaryX;
     const top = profile.ascenderY;
-    const xHeight = (_a = profile.xHeightY) != null ? _a : profile.ascenderY;
+    const xHeight = (_a2 = profile.xHeightY) != null ? _a2 : profile.ascenderY;
     const baseline = profile.baselineY;
     const descender = (_b = profile.descenderY) != null ? _b : profile.baselineY;
     const stroke = profile.name === "lowercase" ? 13 : 15;
@@ -2040,11 +1992,11 @@
     }
     selectionScanTimer = setTimeout(() => {
       selectionScanTimer = null;
-      void scanCurrentSelection({ silent: true, useLastActiveFallback: false, mode: "lightweight" });
+      void scanDirectBoardSelection();
     }, 120);
   });
   figma.ui.onmessage = async (message) => {
-    var _a;
+    var _a2;
     try {
       if (message.type === "SAVE_SETTINGS") {
         saveSettings(message.settings);
@@ -2072,7 +2024,7 @@
       }
       if (message.type === "CREATE_GLYPH_BOARD") {
         const done = startPerf("createGlyphBoard");
-        const result = await createGlyphBoard(message.style, (_a = message.mode) != null ? _a : "update");
+        const result = await createGlyphBoard(message.style, (_a2 = message.mode) != null ? _a2 : "update");
         done();
         activeBoardId = result.board.id;
         const action = result.duplicatePrevented ? `${result.board.name} already exists. Select it to update or generate starters.` : result.created ? `Created ${result.board.name}.` : result.addedSlots > 0 ? `Updated ${result.board.name}: added ${result.addedSlots} missing slots.` : `${result.board.name} is already up to date.`;
@@ -2104,6 +2056,10 @@
       }
       if (message.type === "SCAN_SELECTED_GLYPHS") {
         await scanCurrentSelection({ silent: false, useLastActiveFallback: true, mode: "full" });
+        return;
+      }
+      if (message.type === "SCAN_GLYPH") {
+        await scanSingleGlyph(message.boardId, message.char);
         return;
       }
       if (message.type === "SCAN_ALL_GLYPH_BOARDS") {
@@ -2138,6 +2094,20 @@
       figma.notify(messageText, { error: true });
     }
   };
+  async function scanDirectBoardSelection() {
+    const selectedBoard = findDirectlySelectedGlyphBoard();
+    if (selectedBoard) {
+      if (selectedBoard.id !== activeBoardId) {
+        postScanResult([selectedBoard], { silent: true, mode: "lightweight" });
+      }
+      return;
+    }
+    if (selectionTouchesActiveBoard()) {
+      return;
+    }
+    activeBoardId = "";
+    postToUi({ type: "BOARD_SELECTION_CLEARED" });
+  }
   async function scanCurrentSelection(options) {
     const scanSelection = await resolveScanSelection(options);
     if (scanSelection.length === 0) {
@@ -2178,23 +2148,58 @@
       scheduleDeferredFullScan(activeBoard, version);
     }
   }
+  async function scanSingleGlyph(boardId, char) {
+    if (!isGlyphChar(char)) {
+      return;
+    }
+    const node = await figma.getNodeByIdAsync(boardId);
+    if (!isFrameNode(node)) {
+      postToUi({ type: "VALIDATION_ERROR", message: "The active Typegen board is no longer available. Select the board again." });
+      return;
+    }
+    const done = startPerf(`single glyph scan ${char}`);
+    const result = scanSelectedGlyphsForChars([node], [char]);
+    done();
+    const glyph = result.glyphs[0];
+    if (!glyph) {
+      return;
+    }
+    activeBoardId = node.id;
+    postToUi({ type: "GLYPH_SCAN_UPDATED", glyph, activeBoard: createActiveBoardInfo(node) });
+  }
   function scheduleDeferredFullScan(board, version) {
     if (deferredFullScanTimer) {
       clearTimeout(deferredFullScanTimer);
     }
     deferredFullScanTimer = setTimeout(() => {
       deferredFullScanTimer = null;
-      if (version !== scanVersion || activeBoardId !== board.id || board.removed) {
+      if (version !== scanVersion || activeBoardId !== board.id) {
+        return;
+      }
+      if (board.removed) {
+        clearActiveBoardScan(board.id);
         return;
       }
       postToUi({ type: "GLYPH_SCAN_STARTED", activeBoard: createActiveBoardInfo(board) });
       setTimeout(() => {
-        if (version !== scanVersion || activeBoardId !== board.id || board.removed) {
+        if (version !== scanVersion || activeBoardId !== board.id) {
+          return;
+        }
+        if (board.removed) {
+          clearActiveBoardScan(board.id);
           return;
         }
         postScanResult([board], { silent: true, mode: "full" });
       }, 80);
     }, 350);
+  }
+  function clearActiveBoardScan(boardId) {
+    if (activeBoardId !== boardId) {
+      return;
+    }
+    activeBoardId = "";
+    scanVersion++;
+    postToUi({ type: "BOARD_SELECTION_CLEARED" });
   }
   function startPerf(label) {
     const start = Date.now();
@@ -2230,6 +2235,22 @@
       }
     }
     return null;
+  }
+  function selectionTouchesActiveBoard() {
+    if (!activeBoardId) {
+      return false;
+    }
+    return figma.currentPage.selection.some((node) => isNodeOrAncestor(node, activeBoardId));
+  }
+  function isNodeOrAncestor(node, ancestorId) {
+    let current = node;
+    while (current) {
+      if (current.id === ancestorId) {
+        return true;
+      }
+      current = current.parent;
+    }
+    return false;
   }
   function createActiveBoardInfo(board) {
     const boardSpacing = loadBoardSpacing(board);
