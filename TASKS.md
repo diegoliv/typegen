@@ -1,5 +1,36 @@
 # Typegen MVP Implementation Plan
 
+## 59. Release Export Settings
+
+Goal: add a final export-settings step before ZIP generation so release users can choose board weights, glyph sections, and output formats.
+
+Implementation status:
+
+- Added a package settings overlay opened from `Generate font`.
+- Added weight checkboxes based on existing Typegen boards.
+- Added glyph-section checkboxes based on the V9 catalog categories so selected sections define which scanned glyphs are included.
+- Added format checkboxes for OTF, TTF, WOFF, and WOFF2.
+- Kept OTF as the native generated format and added `fonteditor-core` conversion for TTF/WOFF plus bundled WASM-backed WOFF2 conversion.
+- Updated package HTML so `@font-face` sources reflect the selected formats and prefer the packaged web formats when present.
+- Updated regression bundling to handle the WOFF2 WASM asset.
+
+Research notes:
+
+- `opentype.js` remains reliable for Typegen's native OTF generation and browser/node parsing, but WOFF2 support requires an additional Brotli/WOFF2 runtime.
+- `fonteditor-core` documents OTF-to-TTF conversion and writing TTF, WOFF, and WOFF2; WOFF2 requires initializing its Google WOFF2 WASM module.
+- WOFF/WOFF2 are web font containers around sfnt data; the smoke-test HTML uses the CSS `format()` hint that matches each selected file type.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run build` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+- `npm.cmd audit --omit=dev` passed with 0 vulnerabilities.
+
+Remaining:
+
+- Manual Figma QA for the export overlay with Regular/Bold selections, category subsets, OTF-only export, and all-format export including WOFF2.
+
 ## 58. V9.2 Starter Glyph Proportions
 
 Goal: keep generated starter glyphs faithful to Inter proportions across the expanded V9 glyph set, especially compact symbols and standalone marks.

@@ -949,6 +949,110 @@ h2 {
   gap: 16px;
 }
 
+.export-settings-overlay {
+  gap: 16px;
+}
+
+.export-section {
+  display: grid;
+  gap: 8px;
+}
+
+.export-section h3 {
+  color: #1f1f1f;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.export-shortcuts {
+  display: flex;
+  gap: 4px;
+}
+
+.export-shortcuts button {
+  width: 58px;
+  background: #ffffff;
+}
+
+.selectable-tile-list {
+  display: grid;
+  gap: 6px;
+}
+
+.selectable-tile {
+  position: relative;
+  display: flex;
+  min-height: 36px;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f1f1f;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  padding: 9px 11px;
+}
+
+.selectable-tile:hover {
+  border-color: #bde3ff;
+  background: #f7fcff;
+}
+
+.selectable-tile.selected {
+  border-color: #0d99ff;
+  background: #edfbff;
+}
+
+.selectable-tile input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.selectable-tile span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selectable-tile em {
+  flex: 0 0 auto;
+  color: #6b6b6b;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 14px;
+}
+
+.selectable-tile.selected em {
+  color: #0a6fb8;
+}
+
+.export-category-list {
+  grid-template-columns: 1fr 1fr;
+}
+
+.format-list {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.format-tile {
+  min-height: 44px;
+  justify-content: center;
+  padding: 10px 8px;
+  text-align: center;
+}
+
 .checkbox-list {
   display: grid;
   gap: 8px;

@@ -8,10 +8,11 @@
     "build:plugin": "esbuild src/plugin/controller.ts --bundle --outfile=dist/controller.js --target=es2017 --format=iife",
     "build:ui": "vite build",
     "check": "npm run typecheck && npm run test:regression && npm run build",
-    "test:regression": "esbuild scripts/v2-regression-checks.ts --bundle --platform=node --outfile=dist/v2-regression-checks.cjs --format=cjs && node dist/v2-regression-checks.cjs",
+    "test:regression": "esbuild scripts/v2-regression-checks.ts --bundle --platform=node --outfile=dist/v2-regression-checks.cjs --format=cjs --loader:.wasm=dataurl && node dist/v2-regression-checks.cjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "fonteditor-core": "^2.6.3",
     "opentype.js": "^1.3.4"
   },
   "devDependencies": {

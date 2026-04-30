@@ -1,6 +1,6 @@
 # Typegen
 
-Typegen is a focused Figma plugin MVP for turning glyphs drawn in Figma into a usable static OTF font.
+Typegen is a focused Figma plugin MVP for turning glyphs drawn in Figma into usable static font files.
 
 The current V9 alpha keeps the reliable V8 flattening/export loop and expands the supported glyph catalog to 209 Latin, punctuation, symbol, currency, math, and standalone mark glyphs:
 
@@ -10,7 +10,7 @@ The current V9 alpha keeps the reliable V8 flattening/export loop and expands th
 4. Select a board and let Typegen auto-scan it.
 5. Preview available glyphs with custom text or quick presets.
 6. Tune spacing and optional manual kerning pairs in the glyph detail overlay.
-7. Click `Generate font` to download a ZIP package containing every generated weight and one test HTML file.
+7. Click `Generate font`, choose export settings, and download a ZIP package containing selected weights, selected glyph sections, selected formats, and one test HTML file.
 
 The board action is safe to re-run: it updates the selected board when one is active on the canvas, preserves existing glyph artwork, and adds/repositions supported slots into labeled category bands. Regular and Bold starter styles use separate boards, so creating a Bold board will not reuse an existing Regular board.
 
@@ -44,8 +44,8 @@ Supported:
 - Global letter spacing and space width
 - Per-glyph advance width overrides
 - Manual kerning pairs from the glyph detail overlay
-- One-click ZIP export from all Typegen glyph boards on the page
-- OTF files for each valid generated board weight
+- Export settings for board weights, glyph sections, and output formats
+- OTF, TTF, WOFF, and WOFF2 files for selected valid generated board weights
 - Single HTML test page with inline `@font-face` rows for every generated weight
 - Saved settings and last scan restore inside the Figma document
 
@@ -57,7 +57,7 @@ Not supported in the MVP:
 - AI glyph generation
 - Replacing existing glyph artwork from the starter generator
 - Text layers, images, gradients, effects, masks, or unsupported live shape layers as glyph outlines
-- Multiple weights or styles
+- Variable or interpolated weights/styles beyond separate static board exports
 
 ## Using The Plugin In Figma
 
@@ -111,4 +111,4 @@ See [docs/QA.md](docs/QA.md) for the manual QA checklist, [docs/SMOKE_TEST.md](d
 
 ## Status
 
-V9.1 alpha keeps the expanded V9 glyph coverage and improves board creation plus scan responsiveness while keeping the same one-static-OTF export path.
+Release candidate export settings add selected weight, glyph-section, and OTF/TTF/WOFF/WOFF2 package output on top of the expanded V9 glyph coverage.

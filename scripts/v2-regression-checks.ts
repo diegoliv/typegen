@@ -30,6 +30,9 @@ import { glyphCharFromName, isSupportedGlyphName, unicodeForChar } from "../src/
 import { fitPathsToAdvance, normalizePathsForSlotMetrics } from "../src/plugin/extractPaths";
 import { layoutPreviewText } from "../src/ui/preview/renderGlyphPreview";
 
+void main();
+
+async function main(): Promise<void> {
 const glyphA: GlyphModel = {
   char: "A",
   unicode: 65,
@@ -657,9 +660,31 @@ assert.ok(packageHtml.includes('url("./fonts/Typegen-Regression-Regular.otf")'),
 assert.ok(packageHtml.includes("font-weight: 400"), "package HTML should map Regular to weight 400");
 assert.ok(createFontPackageHtml([{ result: font, style: "Black" }], "A").includes("font-weight: 900"), "package HTML should map Black to weight 900");
 assert.ok(packageHtml.includes("A Z"), "package HTML should include sample text");
-const packageZip = createFontPackageZip([{ result: font, style: "Regular" }], "A Z");
+const packageZip = await createFontPackageZip([{ result: font, style: "Regular" }], "A Z");
 assert.equal(packageZip.type, "application/zip", "package ZIP should use the zip MIME type");
 assert.ok(packageZip.size > font.arrayBuffer.byteLength, "package ZIP should include font and HTML bytes");
+const multiFormatPackageZip = await createFontPackageZip([{ result: font, style: "Regular" }], "A Z", ["otf", "ttf", "woff"]);
+const multiFormatNames = await listZipFileNames(multiFormatPackageZip);
+assert.ok(multiFormatNames.includes("fonts/Typegen-Regression-Regular.otf"), "multi-format package should include OTF");
+assert.ok(multiFormatNames.includes("fonts/Typegen-Regression-Regular.ttf"), "multi-format package should include TTF");
+assert.ok(multiFormatNames.includes("fonts/Typegen-Regression-Regular.woff"), "multi-format package should include WOFF");
+assert.ok(multiFormatNames.includes("index.html"), "multi-format package should include the smoke-test HTML");
+const multiFormatHtml = createFontPackageHtml([
+  {
+    result: font,
+    style: "Regular",
+    files: [
+      { format: "otf", filename: "Typegen-Regression-Regular.otf", data: new Uint8Array(font.arrayBuffer) },
+      { format: "ttf", filename: "Typegen-Regression-Regular.ttf", data: new Uint8Array() },
+      { format: "woff", filename: "Typegen-Regression-Regular.woff", data: new Uint8Array() },
+      { format: "woff2", filename: "Typegen-Regression-Regular.woff2", data: new Uint8Array() },
+    ],
+  },
+], "A Z");
+assert.ok(multiFormatHtml.includes('format("woff2")'), "package HTML should describe WOFF2 sources");
+assert.ok(multiFormatHtml.includes('format("woff")'), "package HTML should describe WOFF sources");
+assert.ok(multiFormatHtml.includes('format("truetype")'), "package HTML should describe TTF sources");
+assert.ok(multiFormatHtml.includes('format("opentype")'), "package HTML should describe OTF sources");
 
 const counterFont = buildFont({
   familyName: "Typegen Counter Regression",
@@ -761,6 +786,7 @@ assert.equal(lowercasePilotFont.verification.failedGlyphs.length, 0, "lowercase 
 assertRoundTripGlyph(lowercasePilotFont.arrayBuffer, "a", 700, "lowercase pilot fixture should preserve a");
 
 console.log("V5.0 export package regression baseline passed.");
+}
 
 function makeRectGlyph(
   char: string,
@@ -877,4 +903,23 @@ function collectParsedGlyphContourAreas(buffer: ArrayBuffer, char: string): numb
     }
     return area / 2;
   });
+}
+
+async function listZipFileNames(blob: Blob): Promise<string[]> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const names: string[] = [];
+  for (let offset = 0; offset < bytes.length - 4; offset++) {
+    if (bytes[offset] !== 0x50 || bytes[offset + 1] !== 0x4b || bytes[offset + 2] !== 0x03 || bytes[offset + 3] !== 0x04) {
+      continue;
+    }
+    const view = new DataView(bytes.buffer, bytes.byteOffset + offset);
+    const nameLength = view.getUint16(26, true);
+    const extraLength = view.getUint16(28, true);
+    const compressedSize = view.getUint32(18, true);
+    const nameStart = offset + 30;
+    const nameEnd = nameStart + nameLength;
+    names.push(new TextDecoder().decode(bytes.slice(nameStart, nameEnd)));
+    offset = nameEnd + extraLength + compressedSize - 1;
+  }
+  return names;
 }
