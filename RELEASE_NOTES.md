@@ -1,5 +1,23 @@
 # Release Notes
 
+## 9.0.0-alpha.1
+
+Typegen V9.0 alpha expanded glyph support.
+
+### Added
+
+- Expanded the supported catalog to 209 unique glyphs across Latin uppercase/lowercase, numbers, ASCII punctuation, inverted punctuation, quotes, dashes, currency, symbols, math operators, standalone marks, and Latin extended letters.
+- Categorized the generated Figma board into labeled bands instead of one long flat table.
+- Added category filtering, search, and grouped glyph sections in the plugin Glyphs tab.
+- Added broader preview presets for accented Latin words, symbols, currency, and math.
+- Added regression coverage for the requested glyph set, unique slot names, and risky glyph-name parsing.
+
+### Still Out Of Scope
+
+- Automatic accent composition.
+- Variable fonts, AI generation, WOFF, or WOFF2 export.
+- Live lines, stroked vectors, text layers, images, gradients, effects, masks, and unsupported live shape layers.
+
 ## 8.0.0-alpha.1
 
 Typegen V8.0 alpha temporary slot flattening.

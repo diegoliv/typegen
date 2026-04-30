@@ -25,8 +25,11 @@ import { postToPlugin, isPluginMessage, type ActiveBoardInfo, type BoardScanResu
 import {
   DEFAULT_FONT_WEIGHT_STYLE,
   FONT_WEIGHT_DEFINITIONS,
+  GLYPH_CATEGORIES,
+  glyphCategoryForChar,
   isFontWeightStyle,
   unifiedVisualGuideProfileForChar,
+  type GlyphCategoryId,
   type FontWeightStyle,
   type GlyphScanResult,
   type PersistedTypegenSettings,
@@ -45,6 +48,8 @@ type UiState = {
   kerningPairRight: GlyphChar;
   kerningPairInput: string;
   starterStyle: FontWeightStyle;
+  glyphCategoryFilter: GlyphCategoryId | 'all';
+  glyphSearch: string;
   glyphs: GlyphScanResult[];
   selectedGlyph: GlyphChar;
   activeBoard: ActiveBoardInfo | null;
@@ -97,9 +102,12 @@ type PreviewPreset = {
 const PREVIEW_PRESETS: PreviewPreset[] = [
   { id: 'default', label: 'Mixed', text: 'ABC box @2+2' },
   { id: 'headline', label: 'Headline', text: 'TYPEGEN quick fox' },
-  { id: 'words', label: 'Words', text: 'type glyph font quick boxing' },
+  { id: 'words', label: 'Words', text: 'façade jalapeño über niño' },
   { id: 'paragraph', label: 'Paragraph', text: 'The quick type glyphs box a font.' },
-  { id: 'symbols', label: 'Numbers', text: 'A-Z / a-z @ 10+20 = 30' },
+  { id: 'symbols', label: 'Symbols', text: 'A-Z / a-z @ 10+20 = 30 #&%' },
+  { id: 'currency', label: 'Currency', text: '€20 £30 ¥40 ₹50 ₩60' },
+  { id: 'math', label: 'Math', text: '± × ÷ ≈ ≠ ≤ ≥' },
+  { id: 'latin', label: 'Latin', text: 'ÇÑ ÁÀÂÄÃÅ ÉÈÊË Œ ŠŽ Ł' },
 ];
 
 const SHOW_DEBUG_CONTENT = false;
@@ -115,6 +123,8 @@ const state: UiState = {
   kerningPairRight: 'V',
   kerningPairInput: 'V',
   starterStyle: DEFAULT_FONT_WEIGHT_STYLE,
+  glyphCategoryFilter: 'all',
+  glyphSearch: '',
   glyphs: [],
   selectedGlyph: 'A',
   activeBoard: null,
@@ -265,6 +275,7 @@ function renderGlyphsTab(rows: GlyphScanResult[], diagnostics: ExportDiagnostics
   const scanWarning = createScanExportWarning();
   const missingTotal = diagnostics.emptyCount + diagnostics.missingCount;
   const issueTotal = diagnostics.unsupportedCount;
+  const visibleRows = visibleGlyphRows(rows);
 
   return `
     <section class="panel diagnostics-panel ${diagnostics.status} ${state.healthCollapsed ? 'collapsed' : ''}">
@@ -293,6 +304,7 @@ function renderGlyphsTab(rows: GlyphScanResult[], diagnostics: ExportDiagnostics
                 <strong class="${diagnostics.warningCount ? 'warning-count' : ''}">${diagnostics.warningCount}</strong>
               </div>
             </div>
+            ${scanWarning ? `<p class="warning">${escapeHtml(scanWarning)}</p>` : ''}
             ${
               SHOW_DEBUG_CONTENT && diagnostics.details.length
                 ? `<details class="diagnostic-details"><summary>Details</summary><ul class="message-list">${diagnostics.details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join('')}</ul></details>`
@@ -303,10 +315,11 @@ function renderGlyphsTab(rows: GlyphScanResult[], diagnostics: ExportDiagnostics
     <section class="panel">
       <div class="section-head">
         <h2>Glyphs</h2>
+        <span class="section-count">${visibleRows.length}</span>
       </div>
-      ${scanWarning ? `<p class="warning">${escapeHtml(scanWarning)}</p>` : ''}
-      <div class="glyph-grid" role="list" aria-label="Glyph status">
-        ${rows.map((row) => renderGlyphTile(row)).join('')}
+      ${renderGlyphCategoryControls(rows)}
+      <div class="glyph-sections">
+        ${renderGlyphSections(visibleRows)}
       </div>
     </section>
   `;
@@ -325,6 +338,9 @@ function renderPreviewTab(): string {
         state.previewCollapsed
           ? ''
           : `<input id="preview-text" class="preview-text-input" value="${escapeAttr(state.previewText)}" aria-label="Preview text" />
+            <div class="preset-grid">
+              ${PREVIEW_PRESETS.map((preset) => `<button type="button" data-preview-preset="${escapeAttr(preset.id)}">${escapeHtml(preset.label)}</button>`).join('')}
+            </div>
             <div class="metric-slider-grid">
               ${renderMetricSlider('preview-font-size', 'Font Size', state.previewFontSize, 12, 96, 1, false, 'wide')}
               <div class="metric-two-up">
@@ -407,7 +423,7 @@ function renderGeneratedPanel(): string {
     <section class="panel compact-panel">
       ${
         state.generatedFont
-          ? `<p class="status">Font generated with ${state.generatedFont.glyphCount}/${GLYPH_CHARS.length} glyphs. Export includes: ${escapeHtml(exportedChars().join(', ') || 'none')}. Letter spacing: ${state.spacing.letterSpacing}, space width: ${state.spacing.spaceWidth}, overrides: ${countAdvanceOverrides()}, kerning pairs: ${state.spacing.kerningPairs.length}.</p>`
+          ? `<p class="status">Font generated with ${state.generatedFont.glyphCount}/${GLYPH_CHARS.length} glyphs. Export includes ${GLYPH_CATEGORIES.length} organized sections. Letter spacing: ${state.spacing.letterSpacing}, space width: ${state.spacing.spaceWidth}, overrides: ${countAdvanceOverrides()}, kerning pairs: ${state.spacing.kerningPairs.length}.</p>`
           : ''
       }
       ${state.generatedFont ? renderFontVerification(state.generatedFont) : ''}
@@ -457,6 +473,84 @@ function restoreRenderInteraction(interaction: RenderInteraction): void {
   if (app) {
     app.scrollTop = interaction.appScrollTop;
   }
+}
+
+function visibleGlyphRows(rows: GlyphScanResult[]): GlyphScanResult[] {
+  const search = state.glyphSearch.trim();
+  return rows.filter((row) => {
+    const categoryMatches = state.glyphCategoryFilter === 'all' || glyphCategoryForChar(row.char) === state.glyphCategoryFilter;
+    return categoryMatches && glyphMatchesSearch(row, search);
+  });
+}
+
+function glyphMatchesSearch(row: GlyphScanResult, search: string): boolean {
+  if (!search) {
+    return true;
+  }
+
+  const searchChars = Array.from(search);
+  if (searchChars.length === 1) {
+    return row.char === search;
+  }
+
+  const normalizedSearch = search.toLowerCase();
+  return [
+    row.char,
+    glyphLabelForChar(row.char),
+    glyphNameForChar(row.char),
+    glyphCategoryForChar(row.char),
+    row.status,
+  ].some((value) => value.toLowerCase().includes(normalizedSearch));
+}
+
+function renderGlyphCategoryControls(rows: GlyphScanResult[]): string {
+  return `
+    <div class="glyph-controls">
+      <select id="glyph-category-filter" class="glyph-category-filter" aria-label="Glyph category">
+        <option value="all" ${state.glyphCategoryFilter === 'all' ? 'selected' : ''}>${escapeHtml(`All (${countCategoryRows(rows, 'all')})`)}</option>
+        ${GLYPH_CATEGORIES.map((category) => {
+          const count = countCategoryRows(rows, category.id);
+          return `<option value="${escapeAttr(category.id)}" ${state.glyphCategoryFilter === category.id ? 'selected' : ''}>${escapeHtml(`${category.label} (${count})`)}</option>`;
+        }).join('')}
+      </select>
+      <input id="glyph-search" class="glyph-search" value="${escapeAttr(state.glyphSearch)}" placeholder="Find glyph, name, or status" aria-label="Find glyph" />
+    </div>
+  `;
+}
+
+function countCategoryRows(rows: GlyphScanResult[], category: GlyphCategoryId | 'all'): string {
+  const categoryRows = category === 'all' ? rows : rows.filter((row) => glyphCategoryForChar(row.char) === category);
+  return String(categoryRows.length);
+}
+
+function renderGlyphSections(rows: GlyphScanResult[]): string {
+  if (rows.length === 0) {
+    return '<p class="status">No glyphs match the current filter.</p>';
+  }
+
+  return GLYPH_CATEGORIES.map((category) => {
+    const categoryRows = rows.filter((row) => glyphCategoryForChar(row.char) === category.id);
+    if (categoryRows.length === 0) {
+      return '';
+    }
+
+    const valid = categoryRows.filter((row) => row.status === 'valid').length;
+    const issues = categoryRows.filter((row) => row.status === 'unsupported').length;
+    return `
+      <section class="glyph-section">
+        <div class="glyph-section-head">
+          <div>
+            <h3>${escapeHtml(category.label)}</h3>
+            <p>${escapeHtml(category.description)}</p>
+          </div>
+          <span>${valid}/${categoryRows.length}${issues ? ` - ${issues} issues` : ''}</span>
+        </div>
+        <div class="glyph-grid" role="list" aria-label="${escapeAttr(category.label)} glyph status">
+          ${categoryRows.map((row) => renderGlyphTile(row)).join('')}
+        </div>
+      </section>
+    `;
+  }).join('');
 }
 
 function renderGlyphTile(row: GlyphScanResult): string {
@@ -561,13 +655,13 @@ function renderRecipeOverlay(): string {
           <button id="close-recipe" class="icon-button" aria-label="Close recipe">Close</button>
         </div>
         <ol class="recipe-list">
-          <li>Name slots exactly <strong>glyph-A</strong> through <strong>glyph-Z</strong>, <strong>glyph-a</strong> through <strong>glyph-z</strong>, <strong>glyph-0</strong> through <strong>glyph-9</strong>, punctuation slots, and common symbol slots such as <strong>glyph-slash</strong> and <strong>glyph-at</strong>.</li>
+          <li>Use the generated board names for the full V9 catalog, including safe names such as <strong>glyph-dollar</strong>, <strong>glyph-endash</strong>, <strong>glyph-euro</strong>, and <strong>glyph-not-equal</strong>.</li>
           <li>Draw filled vectors, filled live shapes, or live booleans inside each slot.</li>
           <li>Glyph slots are scanned from temporary flattened copies.</li>
           <li>Convert text, live lines, and strokes to filled outlines before scanning.</li>
           <li>Avoid images, effects, gradients, masks, and unsupported live shape layers.</li>
         </ol>
-        <p class="status">V8 supports temporary slot flattening and manual pair kerning for scanned glyphs. Variable fonts, AI generation, live lines, and broader symbol coverage remain outside this MVP.</p>
+        <p class="status">V9 supports the expanded Latin, punctuation, symbol, currency, math, and standalone mark set through temporary slot flattening and manual pair kerning. Variable fonts, AI generation, live lines, and automatic accent composition remain outside this MVP.</p>
       </section>
     </div>
   `;
@@ -903,6 +997,19 @@ function bindEvents() {
         render();
       }
     });
+  });
+
+  document.querySelector<HTMLSelectElement>('#glyph-category-filter')?.addEventListener('change', (event) => {
+    const category = (event.target as HTMLSelectElement).value;
+    if (category === 'all' || GLYPH_CATEGORIES.some((item) => item.id === category)) {
+      state.glyphCategoryFilter = category as GlyphCategoryId | 'all';
+      render();
+    }
+  });
+
+  document.querySelector<HTMLInputElement>('#glyph-search')?.addEventListener('input', (event) => {
+    state.glyphSearch = (event.target as HTMLInputElement).value;
+    render();
   });
 
   document.querySelectorAll<HTMLButtonElement>('[data-glyph]').forEach((button) => {
@@ -1401,7 +1508,7 @@ function createPreviewExportWarning(): string {
   }
 
   if (unsupported.size > 0) {
-    return 'Preview includes unsupported characters. Exported fonts only include A-Z, a-z, 0-9, supported punctuation, common symbols, and space when scanned as valid.';
+    return 'Preview includes unsupported characters. Exported fonts include the V9 glyph catalog and space when scanned as valid.';
   }
 
   if (missing.size > 0) {
@@ -1487,7 +1594,7 @@ function createExportDiagnostics(): ExportDiagnostics {
   }
 
   if (previewUnsupported.length > 0) {
-    details.push('Preview contains unsupported characters; export only includes A-Z, a-z, 0-9, supported punctuation, common symbols, and space.');
+    details.push('Preview contains unsupported characters; export only includes the V9 glyph catalog and space.');
   }
 
   if (overrideCount > 0) {

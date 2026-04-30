@@ -4,6 +4,8 @@
 
 We are building a Figma plugin for creating usable font files directly from glyphs designed inside Figma.
 
+Current implementation note: V9 expands the working glyph catalog beyond the original MVP's A-Z constraint to 209 requested glyphs across Latin letters, numbers, punctuation, symbols, currency, math, standalone marks, and Latin extended letters. The product constraint remains the same: keep one reliable Figma vectors -> glyph model -> preview -> static OTF export pipeline.
+
 The long-term vision is to create a more modern, design-friendly, AI-assisted font creation workflow — closer to “Figma for typography” than a traditional technical font editor.
 
 However, the MVP must stay extremely focused.

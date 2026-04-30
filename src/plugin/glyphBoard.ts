@@ -10,6 +10,8 @@ import {
 import {
   DEFAULT_FONT_WEIGHT_STYLE,
   FONT_WEIGHT_DEFINITIONS,
+  GLYPH_CATEGORIES,
+  glyphCategoryForChar,
   glyphLabelForChar,
   isFontWeightStyle,
   unifiedVisualGuideProfileForChar,
@@ -19,8 +21,10 @@ import {
 } from "../shared/types";
 
 const GAP = 24;
-const COLUMNS = 6;
+const COLUMNS = 8;
 const PADDING = 32;
+const SECTION_LABEL_HEIGHT = 24;
+const SECTION_GAP = 36;
 const LABEL_FONT: FontName = { family: "Inter", style: "Regular" };
 const BOARD_STYLE_KEY = "typegen-board-style";
 
@@ -85,10 +89,11 @@ export async function createGlyphBoard(style: GlyphBoardStyle = DEFAULT_FONT_WEI
     }
 
     syncSlotGuides(slot, char as GlyphChar, labelsEnabled);
-    positionSlot(slot, char, index);
+    positionSlot(slot, char);
   }
 
   resizeBoardToFitSupportedSlots(board);
+  syncBoardSectionLabels(board, labelsEnabled);
 
   if (!existingBoard) {
     positionNewBoard(board);
@@ -118,8 +123,8 @@ function collectExistingSlots(board: FrameNode): Map<string, SceneNode> {
   return slots;
 }
 
-function positionSlot(slot: SceneNode, char: string, index: number): void {
-  const layout = getSlotLayout(index);
+function positionSlot(slot: SceneNode, char: string): void {
+  const layout = getSlotLayout(char as GlyphChar);
   slot.x = layout.x;
   slot.y = layout.y;
 
@@ -229,37 +234,73 @@ function positionNewBoard(board: FrameNode): void {
 }
 
 function resizeBoardToFitSupportedSlots(board: FrameNode): void {
-  const rows = Math.ceil(SUPPORTED_CHARS.length / COLUMNS);
+  const layout = createBoardLayout();
   const boardWidth = PADDING * 2 + COLUMNS * UPPERCASE_SLOT_WIDTH + (COLUMNS - 1) * GAP;
-  const boardHeight = PADDING * 2 + getRowsHeight(rows) + Math.max(0, rows - 1) * GAP;
+  const boardHeight = PADDING + layout.height;
   board.resize(boardWidth, boardHeight);
 }
 
-function getSlotLayout(index: number): { x: number; y: number } {
-  const column = index % COLUMNS;
-  const row = Math.floor(index / COLUMNS);
-  const rowTop = PADDING + getRowsHeight(row) + row * GAP;
-  return {
-    x: PADDING + column * (UPPERCASE_SLOT_WIDTH + GAP),
-    y: rowTop,
-  };
-}
-
-function getRowsHeight(rowCount: number): number {
-  let height = 0;
-  for (let row = 0; row < rowCount; row++) {
-    height += getRowHeight(row);
-  }
-  return height;
-}
-
-function getRowHeight(row: number): number {
-  const rowChars = SUPPORTED_CHARS.slice(row * COLUMNS, row * COLUMNS + COLUMNS);
-  return Math.max(...rowChars.map((char) => unifiedVisualGuideProfileForChar(char as GlyphChar).slotHeight), UPPERCASE_SLOT_HEIGHT);
+function getSlotLayout(char: GlyphChar): { x: number; y: number } {
+  return createBoardLayout().slots.get(char) ?? { x: PADDING, y: PADDING + SECTION_LABEL_HEIGHT };
 }
 
 const UPPERCASE_SLOT_WIDTH = unifiedVisualGuideProfileForChar("A").slotWidth;
 const UPPERCASE_SLOT_HEIGHT = unifiedVisualGuideProfileForChar("A").slotHeight;
+
+type BoardLayout = {
+  slots: Map<GlyphChar, { x: number; y: number }>;
+  sections: Array<{ id: string; label: string; description: string; x: number; y: number; width: number }>;
+  height: number;
+};
+
+function createBoardLayout(): BoardLayout {
+  const slots = new Map<GlyphChar, { x: number; y: number }>();
+  const sections: BoardLayout["sections"] = [];
+  const boardInnerWidth = COLUMNS * UPPERCASE_SLOT_WIDTH + (COLUMNS - 1) * GAP;
+  let y = PADDING;
+
+  for (const category of GLYPH_CATEGORIES) {
+    const chars = SUPPORTED_CHARS.filter((char) => glyphCategoryForChar(char as GlyphChar) === category.id);
+    if (chars.length === 0) {
+      continue;
+    }
+
+    sections.push({
+      id: category.id,
+      label: category.label,
+      description: category.description,
+      x: PADDING,
+      y,
+      width: boardInnerWidth,
+    });
+
+    y += SECTION_LABEL_HEIGHT;
+    const rowCount = Math.ceil(chars.length / COLUMNS);
+
+    for (let index = 0; index < chars.length; index++) {
+      const char = chars[index] as GlyphChar;
+      const column = index % COLUMNS;
+      const row = Math.floor(index / COLUMNS);
+      slots.set(char, {
+        x: PADDING + column * (UPPERCASE_SLOT_WIDTH + GAP),
+        y: y + getSectionRowsHeight(chars, row) + row * GAP,
+      });
+    }
+
+    y += getSectionRowsHeight(chars, rowCount) + Math.max(0, rowCount - 1) * GAP + SECTION_GAP;
+  }
+
+  return { slots, sections, height: Math.max(PADDING, y - SECTION_GAP + PADDING) };
+}
+
+function getSectionRowsHeight(chars: string[], rowCount: number): number {
+  let height = 0;
+  for (let row = 0; row < rowCount; row++) {
+    const rowChars = chars.slice(row * COLUMNS, row * COLUMNS + COLUMNS);
+    height += Math.max(...rowChars.map((char) => unifiedVisualGuideProfileForChar(char as GlyphChar).slotHeight), UPPERCASE_SLOT_HEIGHT);
+  }
+  return height;
+}
 
 function createSlot(char: string): FrameNode {
   const profile = unifiedVisualGuideProfileForChar(char as GlyphChar);
@@ -305,6 +346,33 @@ function syncSlotGuides(slot: SceneNode, char: GlyphChar, labelsEnabled: boolean
 
   if (labelsEnabled) {
     addLabel(slot, glyphLabelForChar(char));
+  }
+}
+
+function syncBoardSectionLabels(board: FrameNode, labelsEnabled: boolean): void {
+  for (const child of [...board.children]) {
+    if (child.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_HELPER && child.name.startsWith("tg-section-")) {
+      child.remove();
+    }
+  }
+
+  if (!labelsEnabled) {
+    return;
+  }
+
+  for (const section of createBoardLayout().sections) {
+    const label = figma.createText();
+    label.name = `tg-section-${section.id}`;
+    label.characters = `${section.label}  ${section.description}`;
+    label.fontName = LABEL_FONT;
+    label.fontSize = 18;
+    label.fills = [solid(0.12, 0.13, 0.15)];
+    label.x = section.x;
+    label.y = section.y;
+    label.resize(section.width, SECTION_LABEL_HEIGHT);
+    label.locked = true;
+    label.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_HELPER);
+    board.appendChild(label);
   }
 }
 

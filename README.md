@@ -2,9 +2,9 @@
 
 Typegen is a focused Figma plugin MVP for turning glyphs drawn in Figma into a usable static OTF font.
 
-The current V8 alpha keeps the reliable V7 kerning/export loop and flattens supported glyph-slot artwork before extraction:
+The current V9 alpha keeps the reliable V8 flattening/export loop and expands the supported glyph catalog to 209 Latin, punctuation, symbol, currency, math, and standalone mark glyphs:
 
-1. Create a starter A-Z, a-z, 0-9, punctuation, and common-symbol glyph board.
+1. Create a categorized starter glyph board.
 2. Generate starter glyph outlines in empty slots, draw filled vector glyphs yourself, or build glyphs from supported live shapes and booleans.
 3. Refine the editable vector outlines in Figma.
 4. Select a board and let Typegen auto-scan it.
@@ -12,7 +12,7 @@ The current V8 alpha keeps the reliable V7 kerning/export loop and flattens supp
 6. Tune spacing and optional manual kerning pairs in the glyph detail overlay.
 7. Click `Generate font` to download a ZIP package containing every generated weight and one test HTML file.
 
-The board action is safe to re-run: it updates the selected board when one is active on the canvas, preserves existing glyph artwork, and repositions supported slots into the canonical A-Z, a-z, 0-9, punctuation order. Regular and Bold starter styles use separate boards, so creating a Bold board will not reuse an existing Regular board.
+The board action is safe to re-run: it updates the selected board when one is active on the canvas, preserves existing glyph artwork, and adds/repositions supported slots into labeled category bands. Regular and Bold starter styles use separate boards, so creating a Bold board will not reuse an existing Regular board.
 
 Board-aware actions prefer the selected board or a selected slot's parent board. If no board is selected, Typegen falls back to the starter style control.
 
@@ -24,11 +24,8 @@ The starter glyph action is also artwork-safe: it fills empty supported slots, r
 
 Supported:
 
-- Uppercase A-Z
-- Numbers 0-9
-- Basic punctuation: `.`, `,`, `!`, `?`, `-`, `:`
-- Lowercase a-z
-- Common symbols: `'`, `"`, `/`, `(`, `)`, `&`, `+`, `=`, `@`
+- 209 glyphs across uppercase, lowercase, numbers, ASCII punctuation, inverted punctuation, quotes, dashes, currency, legal symbols, math symbols, standalone marks, and Latin extended letters.
+- The expanded v9 catalog matches the requested Latin, punctuation, symbol, currency, math, mark, and extended-letter set.
 - Simple filled vector paths
 - Filled shape layers such as rounded rectangles, ellipses, polygons, and stars
 - Live boolean operations
@@ -54,7 +51,8 @@ Supported:
 
 Not supported in the MVP:
 
-- Symbols beyond the supported common set
+- Characters outside the v9 catalog
+- Automatic accent composition from base letters plus marks
 - Variable fonts
 - AI glyph generation
 - Replacing existing glyph artwork from the starter generator
@@ -83,8 +81,8 @@ The committed `dist/` files are included so the manifest can load immediately af
 
 ## Supported Glyph Recipe
 
-- Use slots named exactly `glyph-A` through `glyph-Z`, `glyph-a` through `glyph-z`, `glyph-0` through `glyph-9`, `glyph-period`, `glyph-comma`, `glyph-exclamation`, `glyph-question`, `glyph-hyphen`, `glyph-colon`, `glyph-apostrophe`, `glyph-quote`, `glyph-slash`, `glyph-paren-left`, `glyph-paren-right`, `glyph-ampersand`, `glyph-plus`, `glyph-equals`, and `glyph-at`.
-- Raw punctuation aliases such as `glyph-!`, `glyph-.`, and `glyph-?` are also accepted during scanning, but the generated board uses the safer names above.
+- Use the generated board whenever possible; it creates safe slot names for all 209 supported glyphs, including names such as `glyph-dollar`, `glyph-endash`, `glyph-euro`, `glyph-not-equal`, and Unicode fallback names for accented letters.
+- Raw single-character aliases such as `glyph-!`, `glyph-.`, `glyph-?`, and `glyph-Ç` are also accepted during scanning, but the generated board uses safer names for punctuation and symbols.
 - Draw simple filled vector paths, filled live shape layers, or live boolean operations inside each slot. Typegen scans a temporary flattened copy of the slot artwork.
 - Choose Inter Regular or Inter Bold, then use `Generate starter glyphs` to fill empty slots with editable Inter-derived starter outlines.
 - Convert text to outlines before scanning.
@@ -113,4 +111,4 @@ See [docs/QA.md](docs/QA.md) for the manual QA checklist, [docs/SMOKE_TEST.md](d
 
 ## Status
 
-V8.0 alpha adds scan-time slot flattening on top of V7 manual kerning. This is intentionally still an MVP with one static OTF export path, built to prove and harden the Figma vectors -> glyph model -> preview -> font export workflow before broader export formats.
+V9.0 alpha expands glyph coverage and organizes the board/UI around categories while keeping the same one-static-OTF export path.

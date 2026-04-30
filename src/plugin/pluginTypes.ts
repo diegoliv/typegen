@@ -152,30 +152,19 @@ export const TYPEGEN_ROLE_BOARD = "board";
 export const TYPEGEN_ROLE_SLOT = "glyph-slot";
 export const TYPEGEN_ROLE_HELPER = "helper";
 
-const GLYPH_NAME_ALIASES: Record<string, GlyphChar> = {
-  "glyph-.": ".",
-  "glyph-,": ",",
-  "glyph-!": "!",
-  "glyph-?": "?",
-  "glyph--": "-",
-  "glyph-:": ":",
-  "glyph-'": "'",
-  'glyph-"': '"',
-  "glyph-/": "/",
-  "glyph-(": "(",
-  "glyph-)": ")",
-  "glyph-&": "&",
-  "glyph-+": "+",
-  "glyph-=": "=",
-  "glyph-@": "@",
-};
+const GLYPH_NAME_LOOKUP = new Map<string, GlyphChar>(
+  GLYPH_DEFINITIONS.flatMap((definition) => [
+    [definition.name, definition.char],
+    [`glyph-${definition.char}`, definition.char],
+  ]),
+);
 
 export function isSupportedGlyphName(name: string): boolean {
   return Boolean(glyphCharFromName(name));
 }
 
 export function glyphCharFromName(name: string): string | null {
-  return GLYPH_DEFINITIONS.find((definition) => definition.name === name)?.char ?? GLYPH_NAME_ALIASES[name] ?? null;
+  return GLYPH_NAME_LOOKUP.get(name) ?? null;
 }
 
 export function unicodeForChar(char: string): number {

@@ -3,6 +3,7 @@ import * as opentype from "opentype.js";
 import { buildFont } from "../src/font/buildFont";
 import {
   DEFAULT_SPACING,
+  GLYPH_DEFINITIONS,
   GLYPH_CHARS,
   LOWERCASE_GUIDE_PROFILE,
   collectMetricsWarnings,
@@ -305,14 +306,25 @@ const glyphPlus = makeRectGlyph("+", 43, "glyph-plus", 90, 180, 470, 560, defaul
 const glyphSlash = makeRectGlyph("/", 47, "glyph-slash", 90, 0, 430, 700, defaultAdvanceForChar("/"));
 const commonSymbolGlyphs = [glyphAt, glyphPlus, glyphSlash];
 
-assert.equal(GLYPH_CHARS.length, 77, "supported glyph list should contain V2 glyphs, full lowercase a-z, and V3.2 symbols");
+const requestedV9Glyphs = Array.from(
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~¡¿«»–—…‹›€¢£¥₩₹§©®™°±×÷≈≠≤≥µ¶†‡•·¸¨ˆˇ˘¯˙˚˝`´ˆ˜¨¸˛ÇçÑñÁÀÂÄÃÅÆÉÈÊËÍÌÎÏÓÒÔÖÕØÚÙÛÜÝŸáàâäãåæéèêëíìîïóòôöõøúùûüýÿŒœŠšŽžÐðÞþŁł",
+);
+const uniqueRequestedV9Glyphs = [...new Set(requestedV9Glyphs)];
+assert.equal(uniqueRequestedV9Glyphs.length, 209, "V9 requested glyph string should resolve to 209 unique glyphs");
+assert.equal(GLYPH_CHARS.length, 209, "supported glyph list should contain the full V9 glyph catalog");
+assert.deepEqual(new Set(GLYPH_CHARS), new Set(uniqueRequestedV9Glyphs), "supported glyph set should match the requested V9 catalog after duplicates are removed");
+assert.equal(new Set(GLYPH_DEFINITIONS.map((definition) => definition.name)).size, GLYPH_DEFINITIONS.length, "glyph slot names should be unique");
 assert.equal(isGlyphChar("A"), true, "A should be supported");
 assert.equal(isGlyphChar("2"), true, "numeric glyphs should be supported");
 assert.equal(isGlyphChar("!"), true, "supported punctuation glyphs should be supported");
 assert.equal(isGlyphChar("a"), true, "lowercase glyphs should be supported");
 assert.equal(isGlyphChar("z"), true, "lowercase z should be supported");
 assert.equal(isGlyphChar("@"), true, "common symbols should be supported");
-assert.equal(isGlyphChar("#"), false, "extra symbols should remain unsupported");
+assert.equal(isGlyphChar("#"), true, "number sign should be supported in V9");
+assert.equal(isGlyphChar("€"), true, "euro should be supported in V9");
+assert.equal(isGlyphChar("≈"), true, "approximately equal should be supported in V9");
+assert.equal(isGlyphChar("Ç"), true, "Latin extended uppercase should be supported in V9");
+assert.equal(isGlyphChar("ł"), true, "Latin extended lowercase should be supported in V9");
 assert.equal(defaultAdvanceForChar("."), 260, "periods should have a narrow default advance");
 assert.equal(defaultAdvanceForChar(","), 260, "commas should have a narrow default advance");
 assert.equal(defaultAdvanceForChar("!"), 320, "exclamation should have a narrow default advance");
@@ -329,6 +341,20 @@ assert.equal(isSupportedGlyphName("glyph-a"), true, "lowercase glyph name should
 assert.equal(isSupportedGlyphName("glyph-z"), true, "lowercase z glyph name should parse");
 assert.equal(isSupportedGlyphName("glyph-at"), true, "safe symbol glyph name should parse");
 assert.equal(isSupportedGlyphName("glyph-plus"), true, "safe plus glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-number-sign"), true, "safe number-sign glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-backslash"), true, "safe backslash glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-bracket-left"), true, "safe bracket glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-grave"), true, "safe grave glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-endash"), true, "safe en dash glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-ellipsis"), true, "safe ellipsis glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-euro"), true, "safe euro glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-rupee"), true, "safe rupee glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-section"), true, "safe section glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-plus-minus"), true, "safe plus-minus glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-not-equal"), true, "safe not-equal glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-caron"), true, "safe caron glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-u00c7"), true, "unicode fallback name for Ç should parse");
+assert.equal(isSupportedGlyphName("glyph-u0142"), true, "unicode fallback name for ł should parse");
 assert.equal(isSupportedGlyphName("glyph-@"), true, "raw at sign alias should parse");
 assert.equal(isSupportedGlyphName("glyph-+"), true, "raw plus alias should parse");
 assert.equal(isSupportedGlyphName("glyph-!"), true, "raw punctuation alias should parse");
@@ -344,6 +370,15 @@ assert.equal(glyphCharFromName("glyph-at"), "@", "glyph-at should map to @");
 assert.equal(glyphCharFromName("glyph-@"), "@", "glyph-@ alias should map to @");
 assert.equal(glyphCharFromName("glyph-plus"), "+", "glyph-plus should map to +");
 assert.equal(glyphCharFromName("glyph-+"), "+", "glyph-+ alias should map to +");
+assert.equal(glyphCharFromName("glyph-number-sign"), "#", "glyph-number-sign should map to #");
+assert.equal(glyphCharFromName("glyph-backslash"), "\\", "glyph-backslash should map to backslash");
+assert.equal(glyphCharFromName("glyph-endash"), "–", "glyph-endash should map to en dash");
+assert.equal(glyphCharFromName("glyph-ellipsis"), "…", "glyph-ellipsis should map to ellipsis");
+assert.equal(glyphCharFromName("glyph-euro"), "€", "glyph-euro should map to euro");
+assert.equal(glyphCharFromName("glyph-not-equal"), "≠", "glyph-not-equal should map to ≠");
+assert.equal(glyphCharFromName("glyph-caron"), "ˇ", "glyph-caron should map to caron");
+assert.equal(glyphCharFromName("glyph-u00c7"), "Ç", "unicode fallback name should map to Ç");
+assert.equal(glyphCharFromName("glyph-u0142"), "ł", "unicode fallback name should map to ł");
 assert.equal(glyphCharFromName("glyph-!"), "!", "glyph-! alias should map to !");
 assert.equal(glyphCharFromName("glyph-."), ".", "glyph-. alias should map to period");
 assert.equal(glyphCharFromName("Glyph-Z"), null, "name parsing should be case-sensitive");
@@ -379,7 +414,7 @@ assert.deepEqual(
   normalizeKerningPairs([
     { left: "A", right: "V", value: -80 },
     { left: "A", right: "V", value: -90 },
-    { left: "A", right: "#", value: -80 } as never,
+    { left: "A", right: "🙂", value: -80 } as never,
     { left: "T", right: "A", value: 999 },
   ]),
   [
@@ -434,8 +469,8 @@ assert.ok(
 
 const preview = layoutPreviewText("AZ #", [glyphA], DEFAULT_SPACING);
 assert.equal(preview.items.length, 4, "preview should lay out all entered characters");
-assert.equal(preview.missingChars.join(","), "Z", "missing supported glyphs should be tracked");
-assert.equal(preview.unsupportedChars.join(","), "#", "unsupported characters should be tracked");
+assert.equal(preview.missingChars.join(","), "Z,#", "missing supported glyphs should be tracked");
+assert.equal(preview.unsupportedChars.join(","), "", "V9 punctuation should not be unsupported");
 const defaultOverridePreview = layoutPreviewText("AA", [glyphA], DEFAULT_SPACING);
 const wideOverridePreview = layoutPreviewText("AA", [glyphA], {
   ...DEFAULT_SPACING,
@@ -486,8 +521,8 @@ assert.equal(commonSymbolPreview.missingChars.length, 0, "common symbol preview 
 assert.equal(commonSymbolPreview.unsupportedChars.length, 0, "common symbol preview should not be unsupported");
 
 const numericPreview = layoutPreviewText("A2#", [glyphA, glyph2], DEFAULT_SPACING);
-assert.equal(numericPreview.missingChars.length, 0, "numeric glyphs should preview when available");
-assert.equal(numericPreview.unsupportedChars.join(","), "#", "unsupported punctuation should remain unsupported");
+assert.equal(numericPreview.missingChars.join(","), "#", "V9 punctuation should be tracked as missing when unavailable");
+assert.equal(numericPreview.unsupportedChars.length, 0, "V9 punctuation should not be unsupported");
 
 const punctuationPreview = layoutPreviewText("A2!", [glyphA, glyph2, glyphExclamation], DEFAULT_SPACING);
 assert.equal(punctuationPreview.missingChars.length, 0, "supported punctuation should preview when available");
@@ -592,7 +627,7 @@ const font = buildFont({
 assert.equal(font.familyName, "Typegen Regression", "font family should use user input");
 assert.equal(font.glyphCount, 1, "font generation should include one usable glyph");
 assert.ok(font.arrayBuffer.byteLength > 0, "generated font should produce a non-empty buffer");
-assert.ok(font.warnings.some((warning) => warning.includes("1/77")), "partial glyph-set warning should be preserved");
+assert.ok(font.warnings.some((warning) => warning.includes("1/209")), "partial glyph-set warning should be preserved");
 assert.equal(font.verification.failedGlyphs.length, 0, "single glyph font should verify cleanly");
 assert.equal(font.verification.verifiedGlyphs.length, 1, "single glyph font should verify one glyph");
 assert.ok(font.verification.parsedGlyphCount >= 3, "single glyph font should include notdef, space, and A");

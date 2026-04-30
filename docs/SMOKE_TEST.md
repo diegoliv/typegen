@@ -13,7 +13,7 @@ Use the generated ZIP to verify that all Typegen board weights can load in a nor
 7. Confirm it contains `fonts/*.otf` files for each valid board weight plus `index.html`.
 8. Open `index.html` in a browser.
 9. Confirm it shows one specimen row per generated weight.
-10. Confirm supported A-Z, a-z, 0-9, punctuation, and common symbols render with the exported outlines.
+10. Confirm representative v9 glyphs from uppercase, lowercase, numbers, punctuation, symbols, currency, math, marks, and Latin extended sections render with the exported outlines.
 11. Confirm spacing in the test page matches the generated settings.
 
 ## Expected Result
@@ -21,7 +21,7 @@ Use the generated ZIP to verify that all Typegen board weights can load in a nor
 - The exported ZIP includes one OTF file per verified generated weight in the current session.
 - The ZIP `index.html` includes inline `@font-face` CSS and one row per generated weight.
 - The ZIP page opens without extra setup after extraction.
-- Supported A-Z, a-z, 0-9, punctuation, and common symbols use the Typegen font when available.
+- Supported v9 catalog glyphs use the Typegen font when available.
 - Spaces use the generated font's space glyph width.
 - Supported glyph advances include the selected letter spacing.
 - Supported glyph advances include any selected per-glyph advance overrides.

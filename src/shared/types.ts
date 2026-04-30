@@ -1,84 +1,197 @@
-export const GLYPH_DEFINITIONS = [
-  { char: 'A', name: 'glyph-A', label: 'A' },
-  { char: 'B', name: 'glyph-B', label: 'B' },
-  { char: 'C', name: 'glyph-C', label: 'C' },
-  { char: 'D', name: 'glyph-D', label: 'D' },
-  { char: 'E', name: 'glyph-E', label: 'E' },
-  { char: 'F', name: 'glyph-F', label: 'F' },
-  { char: 'G', name: 'glyph-G', label: 'G' },
-  { char: 'H', name: 'glyph-H', label: 'H' },
-  { char: 'I', name: 'glyph-I', label: 'I' },
-  { char: 'J', name: 'glyph-J', label: 'J' },
-  { char: 'K', name: 'glyph-K', label: 'K' },
-  { char: 'L', name: 'glyph-L', label: 'L' },
-  { char: 'M', name: 'glyph-M', label: 'M' },
-  { char: 'N', name: 'glyph-N', label: 'N' },
-  { char: 'O', name: 'glyph-O', label: 'O' },
-  { char: 'P', name: 'glyph-P', label: 'P' },
-  { char: 'Q', name: 'glyph-Q', label: 'Q' },
-  { char: 'R', name: 'glyph-R', label: 'R' },
-  { char: 'S', name: 'glyph-S', label: 'S' },
-  { char: 'T', name: 'glyph-T', label: 'T' },
-  { char: 'U', name: 'glyph-U', label: 'U' },
-  { char: 'V', name: 'glyph-V', label: 'V' },
-  { char: 'W', name: 'glyph-W', label: 'W' },
-  { char: 'X', name: 'glyph-X', label: 'X' },
-  { char: 'Y', name: 'glyph-Y', label: 'Y' },
-  { char: 'Z', name: 'glyph-Z', label: 'Z' },
-  { char: 'a', name: 'glyph-a', label: 'a', guideProfile: 'lowercase' },
-  { char: 'b', name: 'glyph-b', label: 'b', guideProfile: 'lowercase' },
-  { char: 'c', name: 'glyph-c', label: 'c', guideProfile: 'lowercase' },
-  { char: 'd', name: 'glyph-d', label: 'd', guideProfile: 'lowercase' },
-  { char: 'e', name: 'glyph-e', label: 'e', guideProfile: 'lowercase' },
-  { char: 'f', name: 'glyph-f', label: 'f', guideProfile: 'lowercase' },
-  { char: 'g', name: 'glyph-g', label: 'g', guideProfile: 'lowercase' },
-  { char: 'h', name: 'glyph-h', label: 'h', guideProfile: 'lowercase' },
-  { char: 'i', name: 'glyph-i', label: 'i', guideProfile: 'lowercase' },
-  { char: 'j', name: 'glyph-j', label: 'j', guideProfile: 'lowercase' },
-  { char: 'k', name: 'glyph-k', label: 'k', guideProfile: 'lowercase' },
-  { char: 'l', name: 'glyph-l', label: 'l', guideProfile: 'lowercase' },
-  { char: 'm', name: 'glyph-m', label: 'm', guideProfile: 'lowercase' },
-  { char: 'n', name: 'glyph-n', label: 'n', guideProfile: 'lowercase' },
-  { char: 'o', name: 'glyph-o', label: 'o', guideProfile: 'lowercase' },
-  { char: 'p', name: 'glyph-p', label: 'p', guideProfile: 'lowercase' },
-  { char: 'q', name: 'glyph-q', label: 'q', guideProfile: 'lowercase' },
-  { char: 'r', name: 'glyph-r', label: 'r', guideProfile: 'lowercase' },
-  { char: 's', name: 'glyph-s', label: 's', guideProfile: 'lowercase' },
-  { char: 't', name: 'glyph-t', label: 't', guideProfile: 'lowercase' },
-  { char: 'u', name: 'glyph-u', label: 'u', guideProfile: 'lowercase' },
-  { char: 'v', name: 'glyph-v', label: 'v', guideProfile: 'lowercase' },
-  { char: 'w', name: 'glyph-w', label: 'w', guideProfile: 'lowercase' },
-  { char: 'x', name: 'glyph-x', label: 'x', guideProfile: 'lowercase' },
-  { char: 'y', name: 'glyph-y', label: 'y', guideProfile: 'lowercase' },
-  { char: 'z', name: 'glyph-z', label: 'z', guideProfile: 'lowercase' },
-  { char: '0', name: 'glyph-0', label: '0' },
-  { char: '1', name: 'glyph-1', label: '1' },
-  { char: '2', name: 'glyph-2', label: '2' },
-  { char: '3', name: 'glyph-3', label: '3' },
-  { char: '4', name: 'glyph-4', label: '4' },
-  { char: '5', name: 'glyph-5', label: '5' },
-  { char: '6', name: 'glyph-6', label: '6' },
-  { char: '7', name: 'glyph-7', label: '7' },
-  { char: '8', name: 'glyph-8', label: '8' },
-  { char: '9', name: 'glyph-9', label: '9' },
-  { char: '.', name: 'glyph-period', label: '.', defaultAdvanceWidth: 260 },
-  { char: ',', name: 'glyph-comma', label: ',', defaultAdvanceWidth: 260 },
-  { char: '!', name: 'glyph-exclamation', label: '!', defaultAdvanceWidth: 320 },
-  { char: '?', name: 'glyph-question', label: '?', defaultAdvanceWidth: 560 },
-  { char: '-', name: 'glyph-hyphen', label: '-', defaultAdvanceWidth: 420 },
-  { char: ':', name: 'glyph-colon', label: ':', defaultAdvanceWidth: 280 },
-  { char: "'", name: 'glyph-apostrophe', label: "'", defaultAdvanceWidth: 260 },
-  { char: '"', name: 'glyph-quote', label: '"', defaultAdvanceWidth: 360 },
-  { char: '/', name: 'glyph-slash', label: '/', defaultAdvanceWidth: 420 },
-  { char: '(', name: 'glyph-paren-left', label: '(', defaultAdvanceWidth: 360 },
-  { char: ')', name: 'glyph-paren-right', label: ')', defaultAdvanceWidth: 360 },
-  { char: '&', name: 'glyph-ampersand', label: '&', defaultAdvanceWidth: 700 },
-  { char: '+', name: 'glyph-plus', label: '+', defaultAdvanceWidth: 560 },
-  { char: '=', name: 'glyph-equals', label: '=', defaultAdvanceWidth: 560 },
-  { char: '@', name: 'glyph-at', label: '@', defaultAdvanceWidth: 760 },
-] as const;
+export type GlyphCategoryId =
+  | 'uppercase'
+  | 'lowercase'
+  | 'numbers'
+  | 'punctuation'
+  | 'symbols'
+  | 'currency'
+  | 'math'
+  | 'marks'
+  | 'latin-uppercase'
+  | 'latin-lowercase';
 
-export type GlyphChar = (typeof GLYPH_DEFINITIONS)[number]['char'];
+export type GlyphDefinition = {
+  char: string;
+  name: string;
+  label: string;
+  category: GlyphCategoryId;
+  guideProfile?: SlotGuideProfileName;
+  defaultAdvanceWidth?: number;
+};
+
+export type GlyphCategory = {
+  id: GlyphCategoryId;
+  label: string;
+  description: string;
+};
+
+export const GLYPH_CATEGORIES: GlyphCategory[] = [
+  { id: 'uppercase', label: 'Uppercase', description: 'A-Z' },
+  { id: 'lowercase', label: 'Lowercase', description: 'a-z' },
+  { id: 'numbers', label: 'Numbers', description: '0-9' },
+  { id: 'punctuation', label: 'Punctuation', description: 'ASCII punctuation, quotes, and dashes' },
+  { id: 'symbols', label: 'Symbols', description: 'General symbols and legal marks' },
+  { id: 'currency', label: 'Currency', description: 'Common currency signs' },
+  { id: 'math', label: 'Math', description: 'Operators and comparisons' },
+  { id: 'marks', label: 'Marks', description: 'Standalone diacritic and accent marks' },
+  { id: 'latin-uppercase', label: 'Latin Uppercase', description: 'Accented and extended uppercase letters' },
+  { id: 'latin-lowercase', label: 'Latin Lowercase', description: 'Accented and extended lowercase letters' },
+];
+
+const GLYPH_CATEGORY_CHARS: Array<{ category: GlyphCategoryId; chars: string }> = [
+  { category: 'uppercase', chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' },
+  { category: 'lowercase', chars: 'abcdefghijklmnopqrstuvwxyz' },
+  { category: 'numbers', chars: '0123456789' },
+  { category: 'punctuation', chars: "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~¡¿«»–—…‹›" },
+  { category: 'currency', chars: '€¢£¥₩₹' },
+  { category: 'symbols', chars: '§©®™°µ¶†‡•·' },
+  { category: 'math', chars: '±×÷≈≠≤≥' },
+  { category: 'marks', chars: '¸¨ˆˇ˘¯˙˚˝`´˜˛' },
+  { category: 'latin-uppercase', chars: 'ÇÑÁÀÂÄÃÅÆÉÈÊËÍÌÎÏÓÒÔÖÕØÚÙÛÜÝŸŒŠŽÐÞŁ' },
+  { category: 'latin-lowercase', chars: 'çñáàâäãåæéèêëíìîïóòôöõøúùûüýÿœšžðþł' },
+];
+
+const GLYPH_NAME_OVERRIDES: Record<string, string> = {
+  '!': 'glyph-exclamation',
+  '"': 'glyph-quote',
+  '#': 'glyph-number-sign',
+  '$': 'glyph-dollar',
+  '%': 'glyph-percent',
+  '&': 'glyph-ampersand',
+  "'": 'glyph-apostrophe',
+  '(': 'glyph-paren-left',
+  ')': 'glyph-paren-right',
+  '*': 'glyph-asterisk',
+  '+': 'glyph-plus',
+  ',': 'glyph-comma',
+  '-': 'glyph-hyphen',
+  '.': 'glyph-period',
+  '/': 'glyph-slash',
+  ':': 'glyph-colon',
+  ';': 'glyph-semicolon',
+  '<': 'glyph-less',
+  '=': 'glyph-equals',
+  '>': 'glyph-greater',
+  '?': 'glyph-question',
+  '@': 'glyph-at',
+  '[': 'glyph-bracket-left',
+  '\\': 'glyph-backslash',
+  ']': 'glyph-bracket-right',
+  '^': 'glyph-caret',
+  '_': 'glyph-underscore',
+  '`': 'glyph-grave',
+  '{': 'glyph-brace-left',
+  '|': 'glyph-bar',
+  '}': 'glyph-brace-right',
+  '~': 'glyph-tilde',
+  '¡': 'glyph-exclamation-inverted',
+  '¿': 'glyph-question-inverted',
+  '«': 'glyph-guillemet-left',
+  '»': 'glyph-guillemet-right',
+  '–': 'glyph-endash',
+  '—': 'glyph-emdash',
+  '…': 'glyph-ellipsis',
+  '‹': 'glyph-guillemet-single-left',
+  '›': 'glyph-guillemet-single-right',
+  '€': 'glyph-euro',
+  '¢': 'glyph-cent',
+  '£': 'glyph-sterling',
+  '¥': 'glyph-yen',
+  '₩': 'glyph-won',
+  '₹': 'glyph-rupee',
+  '§': 'glyph-section',
+  '©': 'glyph-copyright',
+  '®': 'glyph-registered',
+  '™': 'glyph-trademark',
+  '°': 'glyph-degree',
+  '±': 'glyph-plus-minus',
+  '×': 'glyph-multiply',
+  '÷': 'glyph-divide',
+  '≈': 'glyph-approximately',
+  '≠': 'glyph-not-equal',
+  '≤': 'glyph-less-equal',
+  '≥': 'glyph-greater-equal',
+  'µ': 'glyph-micro',
+  '¶': 'glyph-pilcrow',
+  '†': 'glyph-dagger',
+  '‡': 'glyph-dagger-double',
+  '•': 'glyph-bullet',
+  '·': 'glyph-middle-dot',
+  '¸': 'glyph-cedilla',
+  '¨': 'glyph-dieresis',
+  'ˆ': 'glyph-modifier-circumflex',
+  'ˇ': 'glyph-caron',
+  '˘': 'glyph-breve',
+  '¯': 'glyph-macron',
+  '˙': 'glyph-dot-accent',
+  '˚': 'glyph-ring-above',
+  '˝': 'glyph-double-acute',
+  '´': 'glyph-acute',
+  '˜': 'glyph-small-tilde',
+  '˛': 'glyph-ogonek',
+};
+
+const NARROW_ADVANCE = new Set(["'", '`', '´', 'ˆ', 'ˇ', '˘', '¯', '˙', '˚', '˝', '˜', '¨', '¸', '˛', '.', ',', ':', ';', '!', '¡', '|', '·']);
+const MEDIUM_ADVANCE = new Set(['"', '(', ')', '[', ']', '{', '}', '/', '\\', '-', '–', '‹', '›', '«', '»']);
+const WIDE_ADVANCE = new Set(['@', '&', '©', '®', '™', '—', '…', 'Œ', 'œ', 'Æ', 'æ']);
+const MATH_ADVANCE = new Set(['+', '=', '<', '>', '±', '×', '÷', '≈', '≠', '≤', '≥']);
+const CURRENCY_ADVANCE = new Set(['€', '¢', '£', '¥', '₩', '₹', '$']);
+
+function createGlyphDefinitions(): GlyphDefinition[] {
+  const seen = new Set<string>();
+  const definitions: GlyphDefinition[] = [];
+
+  for (const group of GLYPH_CATEGORY_CHARS) {
+    for (const char of Array.from(group.chars)) {
+      if (seen.has(char)) {
+        continue;
+      }
+
+      seen.add(char);
+      definitions.push({
+        char,
+        name: glyphNameFromCatalogChar(char),
+        label: char,
+        category: group.category,
+        guideProfile: guideProfileNameForCatalogChar(char),
+        defaultAdvanceWidth: defaultAdvanceForCatalogChar(char),
+      });
+    }
+  }
+
+  return definitions;
+}
+
+function glyphNameFromCatalogChar(char: string): string {
+  if (/^[A-Za-z0-9]$/.test(char)) {
+    return `glyph-${char}`;
+  }
+
+  return GLYPH_NAME_OVERRIDES[char] ?? `glyph-u${(char.codePointAt(0) ?? 0).toString(16).padStart(4, '0')}`;
+}
+
+function guideProfileNameForCatalogChar(char: string): SlotGuideProfileName {
+  return char.toLowerCase() === char && char.toUpperCase() !== char ? 'lowercase' : 'uppercase';
+}
+
+function defaultAdvanceForCatalogChar(char: string): number {
+  if (char === '!') return 320;
+  if (char === '¡') return 320;
+  if (char === '?') return 560;
+  if (char === '"') return 360;
+  if (NARROW_ADVANCE.has(char)) return 260;
+  if (MEDIUM_ADVANCE.has(char)) return 420;
+  if (MATH_ADVANCE.has(char)) return 560;
+  if (CURRENCY_ADVANCE.has(char)) return 620;
+  if (WIDE_ADVANCE.has(char)) return 760;
+  if (char === '_') return 560;
+  if (char === '•') return 420;
+  return 700;
+}
+
+export const GLYPH_DEFINITIONS = createGlyphDefinitions();
+
+export type GlyphChar = string;
 
 export const FONT_WEIGHT_DEFINITIONS = [
   { style: 'Thin', label: 'Thin', cssWeight: 100 },
@@ -158,6 +271,14 @@ export const GUIDE_PROFILES: Record<SlotGuideProfileName, SlotGuideProfile> = {
 
 export const GLYPH_CHARS = GLYPH_DEFINITIONS.map((definition) => definition.char) as GlyphChar[];
 
+export function glyphCategoryForChar(char: GlyphChar): GlyphCategoryId {
+  return GLYPH_DEFINITIONS.find((definition) => definition.char === char)?.category ?? 'symbols';
+}
+
+export function glyphCategoryLabel(category: GlyphCategoryId): string {
+  return GLYPH_CATEGORIES.find((item) => item.id === category)?.label ?? category;
+}
+
 export function glyphNameForChar(char: GlyphChar): string {
   return GLYPH_DEFINITIONS.find((definition) => definition.char === char)?.name ?? `glyph-${char}`;
 }
@@ -168,13 +289,13 @@ export function glyphLabelForChar(char: GlyphChar): string {
 
 export function defaultAdvanceForChar(char: GlyphChar): number {
   const definition = GLYPH_DEFINITIONS.find((item) => item.char === char);
-  return definition && 'defaultAdvanceWidth' in definition ? definition.defaultAdvanceWidth : 700;
+  return definition?.defaultAdvanceWidth ?? 700;
 }
 
 export function guideProfileForChar(char: GlyphChar): SlotGuideProfile {
   const definition = GLYPH_DEFINITIONS.find((item) => item.char === char);
   const profileName =
-    definition && 'guideProfile' in definition
+    definition?.guideProfile
       ? definition.guideProfile
       : 'uppercase';
 
