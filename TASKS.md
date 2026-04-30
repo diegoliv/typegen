@@ -1,5 +1,24 @@
 # Typegen MVP Implementation Plan
 
+## 60. 1.0.0 Documentation And Community Launch Alignment
+
+Goal: align public-facing docs and release metadata with the current 1.0.0 baseline before Figma Community publication.
+
+Implementation status:
+
+- Updated README positioning from internal alpha language to the 1.0.0 expanded-catalog and release export settings baseline.
+- Updated PROJECT_CONTEXT so the source-of-truth scope reflects the 209-glyph catalog and static font package export path.
+- Updated QA and smoke-test docs to remove stale V5/expanded-catalog export contradictions and describe OTF, TTF, WOFF, WOFF2 ZIP output.
+- Added a Community launch brief covering listing copy, required assets, visual direction, constraints, QA gates, and review risks.
+- Bumped package metadata to `1.0.0`.
+- Declared no network access in the Figma manifest.
+
+Remaining:
+
+- Create the actual Figma Community icon, thumbnail, carousel screenshots/videos, and optional playground file.
+- Run manual Figma Desktop QA for the 1.0.0 export overlay, OTF-only export, all-format export, WOFF2 timing, and representative glyph coverage.
+- Confirm Inter starter outline license/attribution language before publication.
+
 ## 59. Release Export Settings
 
 Goal: add a final export-settings step before ZIP generation so release users can choose board weights, glyph sections, and output formats.
@@ -8,7 +27,7 @@ Implementation status:
 
 - Added a package settings overlay opened from `Generate font`.
 - Added weight checkboxes based on existing Typegen boards.
-- Added glyph-section checkboxes based on the V9 catalog categories so selected sections define which scanned glyphs are included.
+- Added glyph-section checkboxes based on the expanded-catalog catalog categories so selected sections define which scanned glyphs are included.
 - Added format checkboxes for OTF, TTF, WOFF, and WOFF2.
 - Kept OTF as the native generated format and added `fonteditor-core` conversion for TTF/WOFF plus bundled WASM-backed WOFF2 conversion.
 - Updated package HTML so `@font-face` sources reflect the selected formats and prefer the packaged web formats when present.
@@ -31,9 +50,9 @@ Remaining:
 
 - Manual Figma QA for the export overlay with Regular/Bold selections, category subsets, OTF-only export, and all-format export including WOFF2.
 
-## 58. V9.2 Starter Glyph Proportions
+## 58. Internal Milestone: Starter Glyph Proportions
 
-Goal: keep generated starter glyphs faithful to Inter proportions across the expanded V9 glyph set, especially compact symbols and standalone marks.
+Goal: keep generated starter glyphs faithful to Inter proportions across the expanded expanded-catalog glyph set, especially compact symbols and standalone marks.
 
 Implementation status:
 
@@ -61,9 +80,9 @@ Remaining:
 
 - Manual Figma QA for compact symbols, math, currency, and standalone marks on a freshly generated starter board.
 
-## 57. V9.1 Performance Audit / Responsiveness
+## 57. Internal Milestone: Performance Audit / Responsiveness
 
-Goal: reduce Figma freezes and plugin latency after the V9 expanded glyph catalog increased board size to 209 slots.
+Goal: reduce Figma freezes and plugin latency after the expanded-catalog expanded glyph catalog increased board size to 209 slots.
 
 Plan:
 
@@ -94,20 +113,20 @@ Verification completed:
 
 Remaining:
 
-- Manual Figma timing pass for creating a fresh V9 board and selecting existing boards.
+- Manual Figma timing pass for creating a fresh expanded-catalog board and selecting existing boards.
 - Decide whether to restore background full validation after lightweight scan, or keep full validation only on explicit scan/export.
 
-## 56. V9.0 Expanded Glyph Support Plan
+## 56. Internal Milestone: Expanded Glyph Support Plan
 
 Goal: expand Typegen from the current compact Latin/basic symbol set to the requested 209 unique glyphs while keeping the board, scan, preview, spacing, kerning, starter, and export pipeline understandable for a designer.
 
 Implementation status:
 
-- Added a shared v9 glyph catalog with 209 unique supported glyphs, category metadata, safe slot names, guide profile hints, and default advance widths.
+- Added a shared expanded-catalog glyph catalog with 209 unique supported glyphs, category metadata, safe slot names, guide profile hints, and default advance widths.
 - Replaced the fixed flat board layout with category bands and board-level section labels.
 - Updated glyph-name parsing to use generated catalog lookup maps and raw single-character aliases.
 - Added grouped glyph sections, category filters, search, per-section counts, and broader preview presets to the plugin UI.
-- Updated support copy, README, release notes, QA docs, smoke-test docs, and package metadata for V9.
+- Updated support copy, README, release notes, QA docs, smoke-test docs, and package metadata for expanded-catalog.
 - Added regression coverage for the requested glyph set, unique slot names, and risky glyph-name parsing.
 
 Verification completed:
@@ -118,15 +137,15 @@ Verification completed:
 
 Remaining:
 
-- Manual Figma QA for V8 board update -> V9 slot creation, category board usability, starter generation coverage, scan/preview/export across representative glyphs, and standalone mark behavior.
+- Manual Figma QA for V8 board update -> expanded-catalog slot creation, category board usability, starter generation coverage, scan/preview/export across representative glyphs, and standalone mark behavior.
 
 Requested support:
 
 - Basic Latin: A-Z, a-z, 0-9.
 - ASCII punctuation and symbols: `!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~`.
-- Inverted punctuation, quotes, dashes, ellipsis, and single guillemets: `¡¿«»–—…‹›`.
-- Currency, legal, math, measurement, and marks: `€¢£¥₩₹§©®™°±×÷≈≠≤≥µ¶†‡•·¸¨ˆˇ˘¯˙˚˝´˜˛`.
-- Latin extended letters: `ÇçÑñÁÀÂÄÃÅÆÉÈÊËÍÌÎÏÓÒÔÖÕØÚÙÛÜÝŸáàâäãåæéèêëíìîïóòôöõøúùûüýÿŒœŠšŽžÐðÞþŁł`.
+- Inverted punctuation, quotes, dashes, ellipsis, and single guillemets: `Â¡Â¿Â«Â»â€“â€”â€¦â€¹â€º`.
+- Currency, legal, math, measurement, and marks: `â‚¬Â¢Â£Â¥â‚©â‚¹Â§Â©Â®â„¢Â°Â±Ã—Ã·â‰ˆâ‰ â‰¤â‰¥ÂµÂ¶â€ â€¡â€¢Â·Â¸Â¨Ë†Ë‡Ë˜Â¯Ë™ËšËÂ´ËœË›`.
+- Latin extended letters: `Ã‡Ã§Ã‘Ã±ÃÃ€Ã‚Ã„ÃƒÃ…Ã†Ã‰ÃˆÃŠÃ‹ÃÃŒÃŽÃÃ“Ã’Ã”Ã–Ã•Ã˜ÃšÃ™Ã›ÃœÃÅ¸Ã¡Ã Ã¢Ã¤Ã£Ã¥Ã¦Ã©Ã¨ÃªÃ«Ã­Ã¬Ã®Ã¯Ã³Ã²Ã´Ã¶ÃµÃ¸ÃºÃ¹Ã»Ã¼Ã½Ã¿Å’Å“Å Å¡Å½Å¾ÃÃ°ÃžÃ¾ÅÅ‚`.
 
 UX direction:
 
@@ -137,7 +156,7 @@ UX direction:
 - Add search/jump behavior for a typed character or glyph name once the list becomes large enough to make manual scanning tedious.
 - Keep glyph tiles small and consistent; open the existing detail overlay for full specimen, status, spacing, and kerning work.
 - Preserve minimal visible guidance: the UI should say which section is active and how many valid/missing/issue glyphs it contains.
-- For combining accent marks and spacing marks, make the constraints explicit. V9 should support them as standalone glyph slots only, not automatic accent composition.
+- For combining accent marks and spacing marks, make the constraints explicit. expanded-catalog should support them as standalone glyph slots only, not automatic accent composition.
 
 Implementation plan:
 
@@ -145,27 +164,27 @@ Implementation plan:
 - Expand `GLYPH_DEFINITIONS` to the requested 209 unique characters. Give every glyph a safe Figma slot name such as `glyph-dollar`, `glyph-section`, `glyph-Aacute`, `glyph-aacute`, `glyph-endash`, and `glyph-combining-acute` where direct character names are ambiguous or unsafe.
 - Replace hard-coded alias handling in `src/plugin/pluginTypes.ts` with lookup maps generated from the glyph catalog, while preserving existing names like `glyph-period` and direct legacy aliases where safe.
 - Update board generation in `src/plugin/glyphBoard.ts` to lay out glyphs by category bands and resize the board from category layout data instead of a fixed six-column global grid.
-- Keep slot frames deterministic and update-safe: updating an existing board should add new v9 slots, preserve existing artwork, and avoid moving user-edited slots more than necessary unless the selected board is explicitly updated.
+- Keep slot frames deterministic and update-safe: updating an existing board should add new expanded-catalog slots, preserve existing artwork, and avoid moving user-edited slots more than necessary unless the selected board is explicitly updated.
 - Update starter glyph generation in `src/plugin/starterGlyphs.ts` so Inter-generated outlines are attempted for every requested glyph, with fallbacks only for simple symbols where Inter cannot supply a glyph.
 - Update preview presets in `src/ui/main.ts` to include samples for punctuation, currency/math, accents, and Latin extended words without making the Preview tab busy.
 - Update the Glyphs tab in `src/ui/main.ts` and `src/ui/styles.css` for section grouping, category filter/search, per-section health counts, and a scalable grid.
 - Audit spacing and kerning UX for a 209-glyph set: default advance widths need tighter punctuation/currency/math values, and the kerning pair picker must remain usable with a larger supported set.
 - Ensure `buildFont`, verification, smoke-test HTML, preview layout, and persistence continue to rely on the shared glyph catalog rather than duplicated character lists.
-- Update copy in recipe/validation messages from "A-Z, a-z, 0-9, supported punctuation, common symbols" to the actual V9 support language.
-- Update README, release notes, QA docs, and package metadata to V9 alpha.
+- Update copy in recipe/validation messages from "A-Z, a-z, 0-9, supported punctuation, common symbols" to the actual expanded-catalog support language.
+- Update README, release notes, QA docs, and package metadata to expanded-catalog alpha.
 
 QA plan:
 
 - Add regression checks that the requested glyph string resolves to 209 unique supported glyphs with no duplicate names.
 - Add regression checks for glyph name parsing for risky characters: quote, apostrophe, backslash, brackets, backtick, braces, currency symbols, dashes, ellipsis, combining marks, and accented letters.
-- Verify board update from a V8 board adds V9 glyph slots without deleting existing user artwork.
+- Verify board update from a V8 board adds expanded-catalog glyph slots without deleting existing user artwork.
 - Verify scan, preview, export, package ZIP, and OTF parse-back for representative glyphs from every category.
 - Manual Figma QA should inspect canvas board usability: section labels, scroll/navigation feel, category filter/search, and glyph detail overlay from a dense section.
 
 Open decisions:
 
-- Whether to split the Figma board into one large categorized board or multiple linked boards/pages. Recommendation: one categorized board for V9 to preserve the existing package and per-weight model.
-- Whether combining marks should use zero advance widths. Recommendation: keep them standalone spacing glyphs for V9 unless font/browser QA proves zero-advance export is reliable.
+- Whether to split the Figma board into one large categorized board or multiple linked boards/pages. Recommendation: one categorized board for expanded-catalog to preserve the existing package and per-weight model.
+- Whether combining marks should use zero advance widths. Recommendation: keep them standalone spacing glyphs for expanded-catalog unless font/browser QA proves zero-advance export is reliable.
 - Whether starter generation should fill all 209 slots by default. Recommendation: yes for demo velocity, but show warnings for glyphs Inter cannot flatten cleanly.
 
 ## 55. V8.0 Temporary Slot Flattening

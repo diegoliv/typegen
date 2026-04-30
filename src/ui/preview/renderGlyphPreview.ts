@@ -185,7 +185,7 @@ export function createPreviewStatus(layout: PreviewLayout): string {
   }
 
   if (layout.unsupportedChars.length > 0) {
-    return "Preview contains unsupported characters. Use V9 catalog glyphs and spaces.";
+    return "Preview contains unsupported characters. Use supported Typegen catalog glyphs and spaces.";
   }
 
   if (layout.missingChars.length > 0) {

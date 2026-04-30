@@ -1,4 +1,4 @@
-# Typegen V9 Alpha QA Checklist
+# Typegen 1.0.0 Release QA Checklist
 
 ## QA Goal
 
@@ -13,11 +13,11 @@ Validate that the smallest working Typegen loop remains stable and becomes relia
 7. Click `Generate font`, choose export settings, and export the weight ZIP.
 8. Smoke test the exported font in a browser or font viewer.
 
-V9 alpha QA should first re-run the V8 happy path, then focus on expanded glyph coverage, board/UI organization, and release export settings. OTF remains the native generated format; TTF, WOFF, and WOFF2 are converted package outputs. Scan-time flattening must preserve the original Figma artwork.
+Typegen 1.0.0 release QA should first re-run the temporary-flattening happy path, then focus on expanded glyph coverage, board/UI organization, and release export settings. OTF remains the native generated format; TTF, WOFF, and WOFF2 are converted package outputs. Scan-time flattening must preserve the original Figma artwork.
 
 ## Supported Glyph Recipe
 
-- The v9 catalog supports 209 glyphs across uppercase, lowercase, numbers, punctuation, symbols, currency, math, standalone marks, and Latin extended letters.
+- The expanded release catalog supports 209 glyphs across uppercase, lowercase, numbers, punctuation, symbols, currency, math, standalone marks, and Latin extended letters.
 - The generated board uses safe names for punctuation/symbol slots and Unicode fallback names for accented letters where needed.
 - Glyphs may be simple filled vector shapes, filled live shape layers, or live boolean operations inside glyph slots.
 - `Generate starter glyphs` may be used to create editable Inter-derived starting outlines in empty slots.
@@ -30,10 +30,10 @@ V9 alpha QA should first re-run the V8 happy path, then focus on expanded glyph 
 - Live boolean layers should scan through Typegen's temporary flatten step; manually flattened vector outlines remain the safest fallback for counter glyphs.
 - Multi-contour glyphs should be checked in both preview and exported smoke-test HTML because path winding can affect whether counters stay open.
 - Mixed winding rules in one glyph should be treated as a warning that needs manual smoke testing.
-- Avoid mixed layer types inside a glyph slot during V2 testing unless intentionally testing validation.
+- Avoid mixed layer types inside a glyph slot unless intentionally testing validation.
 - Text, images, gradients, effects, masks, and complex unsupported layers should be rejected with clear messages.
 - Partial alphabets are allowed if at least one valid glyph exists.
-- Preview spaces are allowed; characters outside the v9 catalog are unsupported.
+- Preview spaces are allowed; characters outside the 209-glyph catalog are unsupported.
 - OTF, TTF, WOFF, and WOFF2 package formats are available from the export settings overlay.
 - Global letter spacing and space width controls should affect both preview and exported font output.
 
@@ -49,7 +49,7 @@ Record these before each QA pass:
 - Export format tested:
 - Browser/font viewer used for smoke test:
 
-## V3 Alpha Demo Flow
+## Release Demo Flow
 
 1. Open a blank Figma file.
 2. Load the Typegen plugin from its local manifest.
@@ -81,10 +81,10 @@ Record these before each QA pass:
 26. Confirm counters remain open/transparent in preview and exported font rendering.
 27. Confirm lowercase proportions match the board guides in preview and exported font rendering.
 
-## V9.0 Expanded Glyph Checks
+## Expanded Glyph Checks
 
 - [ ] Fresh board creates 209 supported slots in labeled category bands.
-- [ ] Updating a V8 board adds the V9 slots without deleting existing artwork.
+- [ ] Updating an older board adds the expanded-catalog slots without deleting existing artwork.
 - [ ] Glyphs tab can filter by each category and search by character, safe glyph name, or status.
 - [ ] Selecting a dense section glyph opens the existing detail overlay with preview, spacing, and kerning controls.
 - [ ] Starter glyph generation fills empty slots across all categories where Inter can provide outlines.
@@ -93,7 +93,7 @@ Record these before each QA pass:
 - [ ] Exported OTF and smoke-test HTML preserve representative glyphs from every category.
 - [ ] Standalone marks export as their own slots; automatic accent composition is not expected.
 
-## V4.0 Starter Glyph Checks
+## Starter Glyph Checks
 
 - [ ] Fresh board plus `Generate starter glyphs` fills all 77 supported slots with editable Inter-derived vector outlines.
 - [ ] Clicking `Generate starter glyphs` with no existing board creates/updates the board before filling empty slots.
@@ -105,7 +105,7 @@ Record these before each QA pass:
 - [ ] Lowercase starters align with ascender, x-height, baseline, and descender guides.
 - [ ] Punctuation, symbol, currency, math, mark, and Latin extended starters remain compact enough to inspect and refine.
 
-## V4.1 Preview Preset Checks
+## Preview Preset Checks
 
 - [ ] Preview section includes preset buttons for mixed, headline, words, paragraph, and numbers/symbols samples.
 - [ ] Clicking each preset updates the editable preview text input.
@@ -114,7 +114,7 @@ Record these before each QA pass:
 - [ ] Preset text appears in smoke-test HTML when it contains at least one exportable glyph.
 - [ ] Presets do not change scanned glyphs, spacing controls, advance overrides, generated-font verification, or export behavior.
 
-## V4.2 Starter Style Checks
+## Starter Style Checks
 
 - [ ] Starter weight selector offers Thin, Extra Light, Light, Regular, Medium, Semi Bold, Bold, Extra Bold, and Black.
 - [ ] New board creation opens a weight select before creating a board.
@@ -133,7 +133,7 @@ Record these before each QA pass:
 - [ ] Re-running starter generation with a different style does not overwrite existing slot artwork.
 - [ ] Scanning, preview presets, font generation, and export behave the same for both starter styles.
 
-## V4.3 Active Board Checks
+## Active Board Checks
 
 - [ ] UI shows an active board indicator after creating a board.
 - [ ] UI shows the selected board name and weight after generating starter glyphs.
@@ -142,9 +142,9 @@ Record these before each QA pass:
 - [ ] Starter style selector syncs to the active board weight after board, generate, or scan actions.
 - [ ] Scan notification mentions the active board when available.
 
-## V5.0 Export Package Checks
+## 1.0.0 Export Package Checks
 
-- [ ] UI label shows `Typegen V5.0 alpha`.
+- [ ] UI/version copy reflects the current 1.0.0 release baseline.
 - [ ] UI has only one output button: `Generate font`.
 - [ ] `Generate font` opens an export settings overlay before downloading.
 - [ ] Export settings allow selecting existing board weights.
@@ -156,7 +156,7 @@ Record these before each QA pass:
 - [ ] ZIP `index.html` shows one specimen row per generated weight.
 - [ ] WOFF and WOFF2 smoke-test correctly when selected.
 
-## V8.0 Temporary Flattening Checks
+## Temporary Flattening Checks
 
 - [ ] A glyph built from a live boolean operation scans as valid without permanently flattening the source artwork.
 - [ ] A glyph built from a filled rounded rectangle scans as valid without permanently flattening the source artwork.
@@ -166,28 +166,28 @@ Record these before each QA pass:
 - [ ] Live lines and stroked vectors show actionable validation messages asking for filled outlines.
 - [ ] Text, images, gradients, effects, masks, and unsupported live shape layers still show actionable validation messages.
 
-## V3.1 Board Migration Checks
+## Board Migration Checks
 
-- [ ] Fresh board creates categorized v9 slots.
-- [ ] Existing V3.0 pilot board updates into categorized v9 slot bands.
-- [ ] Existing V3.0 pilot artwork in `glyph-a`, `glyph-b`, `glyph-g`, `glyph-o`, and `glyph-x` moves with those slot frames.
-- [ ] Existing V2 artwork in uppercase, numeric, and punctuation slots is preserved after update.
+- [ ] Fresh board creates categorized expanded-catalog slots.
+- [ ] Existing pilot boards update into categorized expanded-catalog slot bands.
+- [ ] Existing pilot artwork in `glyph-a`, `glyph-b`, `glyph-g`, `glyph-o`, and `glyph-x` moves with those slot frames.
+- [ ] Existing uppercase, numeric, and punctuation artwork is preserved after update.
 - [ ] Re-running `Create/update glyph board` twice does not duplicate supported slots.
 - [ ] Selecting the updated board and scanning returns 209 supported glyph rows.
 
-## V3.2 / V9 Symbol Checks
+## Symbol And Extended Glyph Checks
 
 - [ ] Fresh board includes `glyph-apostrophe`, `glyph-quote`, `glyph-slash`, `glyph-paren-left`, `glyph-paren-right`, `glyph-ampersand`, `glyph-plus`, `glyph-equals`, and `glyph-at`.
-- [ ] Existing boards update with symbol and v9 extended slots without clearing existing artwork.
+- [ ] Existing boards update with symbol and extended catalog slots without clearing existing artwork.
 - [ ] Safe symbol, currency, math, mark, and Latin extended slot names scan as supported glyphs.
 - [ ] Raw aliases such as `glyph-@`, `glyph-+`, and `glyph-/` scan as supported glyphs.
 - [ ] Preview renders `a/b @2+2` when the required glyphs are scanned.
 - [ ] Preview renders `A+B=C`, `font@example`, and `(quick)` when the required glyphs are scanned.
 - [ ] Exported OTF and smoke-test HTML preserve scanned common symbols.
 
-## V2 Reliability Focus
+## Reliability Focus
 
-V2 is not a scope expansion. It is a hardening pass over the already-working V1 pipeline.
+This is not a scope expansion. It is a hardening pass over the already-working release pipeline.
 
 - Confirm the generated board, scan, preview, font generation, and export still work end to end.
 - Confirm the same normalized glyph data is used consistently by preview and font generation.
@@ -218,7 +218,7 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] UI includes a supported glyph recipe/help panel.
 - [ ] UI includes a `Ready to export` diagnostics panel.
 - [ ] `Show recipe` / `Hide recipe` toggles the help panel.
-- [ ] Help panel mentions supported glyph names, filled vectors/shapes, temporary slot flattening, text/stroke outlines, and unsupported MVP features.
+- [ ] Help panel mentions supported glyph names, filled vectors/shapes, temporary slot flattening, text/stroke outlines, and unsupported release features.
 
 ### Glyph Board Creation
 
@@ -227,7 +227,7 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Clicking `Create/update glyph board` with an existing older board adds only missing supported slots.
 - [ ] Clicking `Create/update glyph board` repositions supported slots into labeled category bands.
 - [ ] Parent board is named `Font Glyph Board`.
-- [ ] Board contains slots for all 209 v9 supported glyphs.
+- [ ] Board contains slots for all 209 supported glyphs.
 - [ ] Each slot is named exactly `glyph-A`, `glyph-B`, `glyph-a`, etc.
 - [ ] Slots are arranged in a readable grid.
 - [ ] Each slot includes a visible baseline guide.
@@ -254,10 +254,10 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Scanning with no selection shows a clear no-selection or no-glyph message.
 - [ ] Selecting the parent board scans nested glyph slots.
 - [ ] Selecting individual glyph slots scans those slots.
-- [ ] Valid generated slot names for all 209 v9 glyphs map to supported characters.
+- [ ] Valid generated slot names for all 209 supported glyphs map to supported characters.
 - [ ] Invalid names such as `Glyph-A`, `A`, and `glyph-AA` are ignored or reported clearly.
 - [ ] Duplicate glyph slots are handled deterministically.
-- [ ] Scan result returns one visible row/status for every v9 supported character.
+- [ ] Scan result returns one visible row/status for every supported character.
 - [ ] Empty generated slots are distinguishable from unsupported glyphs.
 - [ ] Clicking a glyph row updates the glyph inspector.
 
@@ -270,7 +270,7 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Glyph containing a stroked vector asks user to convert strokes to filled outlines.
 - [ ] Glyph containing gradients/effects reports unsupported styling.
 - [ ] Hidden layers are ignored or reported with a warning.
-- [ ] Unsupported characters outside the v9 catalog are rejected with MVP scope messaging.
+- [ ] Unsupported characters outside the 209-glyph catalog are rejected with release-scope messaging.
 - [ ] Validation messages are visible near the glyph list or relevant action.
 
 ### Glyph Inspector
@@ -298,15 +298,15 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Preview is disabled or empty before any valid scan.
 - [ ] Preview enables after at least one valid glyph is scanned.
 - [ ] Preview updates when text input changes.
-- [ ] Available v9 glyphs render from the scanned glyph model.
-- [ ] Missing v9 glyphs render as visible placeholders.
+- [ ] Available supported glyphs render from the scanned glyph model.
+- [ ] Missing supported glyphs render as visible placeholders.
 - [ ] Period and comma keep their small board-designed size in preview instead of scaling to cap height.
 - [ ] Period and comma have visible side bearing on both sides and do not collide with the following glyph.
 - [ ] Spaces render as blank advance, not as errors.
 - [ ] Changing `Letter spacing` changes the preview spacing between exported glyphs.
 - [ ] Changing `Space width` changes the preview width of spaces.
 - [ ] Typing in preview text and spacing inputs does not lose focus or reset panel scroll.
-- [ ] Characters outside the v9 catalog are visibly unsupported.
+- [ ] Characters outside the 209-glyph catalog are visibly unsupported.
 - [ ] Preview shows a concise missing-character summary when needed.
 - [ ] Preview warns when current preview text contains characters that will not be included in the export.
 
@@ -334,10 +334,10 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Generated-font verification panel shows verified glyph count matching generated glyph count when verification succeeds.
 - [ ] Generated-font verification panel shows sample glyph metrics in the form `A advance/commands`.
 - [ ] Generated font family uses the user-entered font name.
-- [ ] Generated font includes valid scanned v9 glyphs.
+- [ ] Generated font includes valid scanned supported glyphs.
 - [ ] Generated font includes a real space glyph using the selected `Space width`.
-- [ ] Generated v9 glyph advance widths include the selected `Letter spacing`.
-- [ ] Generated v9 glyph advance widths use per-glyph overrides where set.
+- [ ] Generated supported glyph advance widths include the selected `Letter spacing`.
+- [ ] Generated supported glyph advance widths use per-glyph overrides where set.
 - [ ] Generated fonts preserve manual kerning pairs for valid scanned glyphs.
 - [ ] Generated-font verification reports verified kerning pair counts when kerning pairs are active.
 - [ ] Period and comma use narrower default advance widths than uppercase letters.
@@ -368,14 +368,14 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Generated ZIP HTML opens without additional setup after extraction.
 - [ ] Generated ZIP test page references packaged selected font files with relative `fonts/` URLs.
 - [ ] Generated ZIP test page includes rows for each packaged font weight.
-- [ ] Supported v9 glyphs render with custom outlines.
-- [ ] Missing v9 glyphs do not break rendering.
+- [ ] Supported expanded-catalog glyphs render with custom outlines.
+- [ ] Missing expanded-catalog glyphs do not break rendering.
 - [ ] Spaces render with usable spacing.
 - [ ] Adjusting space width before generation changes browser smoke-test spacing.
 - [ ] Browser console shows no font loading error.
 - [ ] Font metadata/family name appears correctly where inspectable.
 
-### V2 Counters And Path Winding
+### Counters And Path Winding
 
 - [ ] `glyph-A` renders with its internal counter open when drawn with a counter.
 - [ ] `glyph-O` renders as a ring, not as a filled disk.
@@ -389,7 +389,7 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 - [ ] Mixed winding-rule glyphs show a warning in diagnostics or inspector.
 - [ ] A counter failure is documented with the exact glyph construction method used.
 
-### V2 Smoke-Test HTML Export/Use
+### Smoke-Test HTML Export/Use
 
 - [ ] Generated smoke-test HTML embeds the generated font with `@font-face`.
 - [ ] Generated smoke-test HTML uses the exported font family name.
@@ -503,10 +503,10 @@ If the generated ZIP is unavailable, use this local template after exporting a f
 
 Expected result: supported custom glyphs visibly render with Typegen outlines; unsupported or missing letters fall back or show missing-glyph behavior without breaking the page.
 
-## Known V9 Alpha Limitations To Confirm In UI
+## Known Release Limitations To Confirm In UI
 
-- The v9 catalog supports 209 explicit glyphs.
-- Characters beyond the v9 catalog, automatic accent composition, ligatures, auto-kerning, kerning classes, and variable fonts are not supported.
+- The release catalog supports 209 explicit glyphs.
+- Characters beyond the 209-glyph catalog, automatic accent composition, ligatures, auto-kerning, kerning classes, and variable fonts are not supported.
 - Spacing controls are global except for per-glyph advance width overrides and manual kerning pairs.
 - Per-glyph advance width overrides do not include side bearing editing.
 - Reset clears document-level saved settings; generated font binaries are still not persisted.
@@ -519,10 +519,10 @@ Expected result: supported custom glyphs visibly render with Typegen outlines; u
 
 ## QA Signoff Criteria
 
-V2 is ready for demo when:
+Typegen 1.0.0 is ready for demo when:
 
 - The demo flow passes from board creation through exported font smoke test.
-- At least A, B, C, and O can be drawn, scanned, previewed, exported, and rendered in a browser/font viewer.
+- Representative glyphs from every release section can be drawn or generated, scanned, previewed, exported, and rendered in a browser/font viewer.
 - At least one counter glyph, preferably O or P, renders correctly in both preview and exported font.
 - Browser smoke testing passes with `ABC, 123!`, `ABOPR PRO BAR`, `2024 A10`, `A-B: 10`, `box`, `go`, `bag`, `go ox`, `ABC box 012`, `type`, `glyph`, `font`, `quick`, `boxing glyph`, `a/b @2+2`, `A+B=C`, `font@example`, and `(quick)`.
 - Unsupported glyph structures show actionable messages instead of failing silently.

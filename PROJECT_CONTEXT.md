@@ -4,13 +4,13 @@
 
 We are building a Figma plugin for creating usable font files directly from glyphs designed inside Figma.
 
-Current implementation note: V9 expands the working glyph catalog beyond the original MVP's A-Z constraint to 209 requested glyphs across Latin letters, numbers, punctuation, symbols, currency, math, standalone marks, and Latin extended letters. The product constraint remains the same: keep one reliable Figma vectors -> glyph model -> preview -> static OTF export pipeline.
+Current implementation note: Typegen 1.0.0 uses the expanded 209-glyph catalog as the release baseline, covering Latin letters, numbers, punctuation, symbols, currency, math, standalone marks, and Latin extended letters. The product constraint remains the same: keep one reliable Figma vectors -> glyph model -> preview -> static font package export pipeline.
 
 The long-term vision is to create a more modern, design-friendly, AI-assisted font creation workflow — closer to “Figma for typography” than a traditional technical font editor.
 
-However, the MVP must stay extremely focused.
+However, the release must stay focused.
 
-The first goal is not to build a full font editor. The first goal is to prove that a designer can go from a few glyphs in Figma to a usable generated font file with minimal friction.
+The first goal is not to build a full font editor. The first goal is to prove that a designer can go from glyphs in Figma to usable generated font files with minimal friction.
 
 ## 2. Core MVP Promise
 
@@ -57,7 +57,7 @@ Recommended naming convention:
 * `glyph-C`
 * etc.
 
-For MVP, support uppercase A–Z first.
+For the current release, support the explicit 209-glyph catalog first. This includes uppercase, lowercase, numbers, punctuation, symbols, currency, math, standalone marks, and Latin extended letters.
 
 The plugin should scan the current selection and identify valid glyph nodes based on name.
 
@@ -112,11 +112,12 @@ The plugin should show clear validation messages when a glyph is unsupported.
 
 #### 3.5 Font generation
 
-Generate one basic static font file.
+Generate basic static font files for selected board weights and selected glyph sections.
 
 Recommended first target:
 
-* TTF or OTF
+* OTF as the native generated format
+* TTF, WOFF, and WOFF2 as converted package outputs
 
 Use a JavaScript-compatible font generation library if possible, such as `opentype.js` or another suitable library.
 
@@ -158,25 +159,24 @@ The user should be able to export the generated font file locally.
 
 Since Figma plugins run in an iframe UI, the export can likely be handled by generating a Blob and triggering a browser download from the plugin UI.
 
-MVP export format:
+Current release export format:
 
-* One font format only: TTF or OTF
+* ZIP package with selected OTF, TTF, WOFF, and WOFF2 files plus a test HTML page
 
-Later roadmap can add WOFF / WOFF2.
+Variable fonts and interpolated weights remain later roadmap items.
 
 ## 4. Explicit Non-goals for MVP
 
-Do not build these in the MVP:
+Do not build these in the current release:
 
 * Variable fonts
-* Multiple weights
+* Variable or interpolated weights
 * Multiple width axes
 * AI glyph generation
 * Auto-generating missing glyphs from a few letters
 * Advanced auto-kerning
 * Advanced spacing engine
-* Full lowercase support
-* Numbers and punctuation
+* Characters outside the explicit 209-glyph catalog
 * Font hinting
 * Complex OpenType features
 * Ligatures
@@ -186,7 +186,7 @@ Do not build these in the MVP:
 * Marketplace
 * Standalone app
 
-The MVP is intentionally narrow.
+The release is intentionally narrow.
 
 ## 5. Suggested Technical Architecture
 
@@ -278,22 +278,22 @@ Example messages:
 * “Glyph A has no vector paths.”
 * “Glyph B contains a text layer. Convert it to outlines first.”
 * "Glyph C contains a live line. Convert strokes to filled vector outlines before scanning."
-* “Only uppercase A–Z is supported in this MVP.”
+* "Only the current 209-glyph Typegen catalog is supported in this release."
 
 ### Prefer working constraints over fragile magic
 
-For MVP, it is better to require users to follow a specific glyph structure than to support every possible Figma edge case poorly.
+For the current release, it is better to require users to follow a specific glyph structure than to support every possible Figma edge case poorly.
 
 ## 7. Success Criteria
 
-The MVP is successful if:
+The current release is successful if:
 
 * A user can create a starter board.
-* A user can draw/edit at least several uppercase glyphs.
+* A user can draw/edit representative glyphs across the supported 209-glyph catalog.
 * The plugin can scan and validate those glyphs.
 * The plugin can generate a preview from the available glyphs.
-* The plugin can export a usable font file.
-* The font can be installed or used in a simple test page.
+* The plugin can export a usable static font package with selected weights, glyph sections, and formats.
+* The exported fonts can be installed or used in the generated test page.
 
 ## 8. Milestones
 
@@ -317,7 +317,7 @@ Deliverable:
 Build the board creation feature:
 
 * Create parent frame
-* Create A–Z glyph slots
+* Create categorized slots for the supported glyph catalog
 * Add labels and visual guides
 * Name slots correctly
 
@@ -356,13 +356,13 @@ Deliverable:
 Build the static font generator:
 
 * Use font generation library
-* Map A–Z to unicode
+* Map supported glyph catalog entries to unicode
 * Add metadata
 * Generate binary font buffer
 
 Deliverable:
 
-* Plugin can generate a TTF or OTF from scanned glyphs.
+* Plugin can generate static font files from scanned glyphs.
 
 ### Milestone 6 — Preview
 
@@ -623,9 +623,9 @@ Important constraints:
 - Keep the MVP focused.
 - Do not include variable fonts in the MVP.
 - Do not include AI generation in the MVP.
-- Start with uppercase A–Z only.
+- Start with the explicit 209-glyph release catalog only.
 - Prefer a reliable constrained workflow over broad fragile support.
-- The plugin should generate a starter glyph board, scan selected glyphs, preview available glyphs, and export one static font file.
+- The plugin should generate a starter glyph board, scan selected glyphs, preview available glyphs, and export a static font package.
 ```
 
 ## 14. Build Philosophy

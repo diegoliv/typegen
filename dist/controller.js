@@ -739,7 +739,7 @@
       return;
     }
     if ("effects" in node && node.effects.length > 0) {
-      issues.push({ level: "error", message: `${node.name}: effects are unsupported in the MVP. Remove effects before exporting.` });
+      issues.push({ level: "error", message: `${node.name}: effects are unsupported. Remove effects before exporting.` });
       return;
     }
     if (node.type === "BOOLEAN_OPERATION") {
@@ -843,7 +843,7 @@
       return;
     }
     if ("effects" in node && node.effects.length > 0) {
-      issues.push({ level: "error", message: `${node.name}: effects are unsupported in the MVP. Remove effects before exporting.` });
+      issues.push({ level: "error", message: `${node.name}: effects are unsupported. Remove effects before exporting.` });
       return;
     }
     if (node.type === "VECTOR") {

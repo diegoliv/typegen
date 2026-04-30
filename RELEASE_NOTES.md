@@ -1,14 +1,14 @@
 # Release Notes
 
-## Release Candidate Export Settings
+## 1.0.0
 
-Typegen release-candidate export controls.
+Official Typegen 1.0.0 release with expanded glyph coverage, export settings, and multi-format font package output.
 
 ### Added
 
 - `Generate font` now opens a package settings overlay before ZIP generation.
 - Export can be limited to selected existing board weights.
-- Export can be limited to selected V9 glyph sections.
+- Export can be limited to selected expanded-catalog glyph sections.
 - Export formats now include OTF, TTF, WOFF, and WOFF2.
 - ZIP smoke-test HTML now writes `@font-face` sources for the selected packaged formats.
 
@@ -18,9 +18,9 @@ Typegen release-candidate export controls.
 - WOFF2 uses a bundled WASM encoder, so all-format exports can take longer than OTF-only exports.
 - Variable fonts, AI generation, and automatic accent composition remain out of scope.
 
-## 9.1.0-alpha.1
+## Internal Milestone: Performance And Scan Responsiveness
 
-Typegen V9.1 alpha performance and scan responsiveness.
+Performance and scan responsiveness milestone.
 
 ### Changed
 
@@ -35,9 +35,9 @@ Typegen V9.1 alpha performance and scan responsiveness.
 - Background worker offloading; Figma plugin work still runs on the plugin main context.
 - Incremental per-glyph streaming in the UI, which was tested and reverted because message/render overhead made full-board validation slower.
 
-## 9.0.0-alpha.1
+## Internal Milestone: Expanded Glyph Support
 
-Typegen V9.0 alpha expanded glyph support.
+Expanded glyph support milestone.
 
 ### Added
 
@@ -53,9 +53,9 @@ Typegen V9.0 alpha expanded glyph support.
 - Variable fonts, AI generation, WOFF, or WOFF2 export.
 - Live lines, stroked vectors, text layers, images, gradients, effects, masks, and unsupported live shape layers.
 
-## 8.0.0-alpha.1
+## Internal Milestone: Temporary Slot Flattening
 
-Typegen V8.0 alpha temporary slot flattening.
+Temporary slot flattening milestone.
 
 ### Added
 
@@ -70,9 +70,9 @@ Typegen V8.0 alpha temporary slot flattening.
 - Destructive canvas conversion during scan; source artwork should remain editable.
 - Variable fonts, AI generation, WOFF, or WOFF2 export.
 
-## 7.0.0-alpha.1
+## Internal Milestone: Manual Kerning
 
-Typegen V7.0 alpha manual kerning.
+Manual kerning milestone.
 
 ### Added
 
@@ -95,9 +95,9 @@ Typegen V7.0 alpha manual kerning.
 - OpenType feature editing.
 - Variable fonts, AI generation, WOFF, or WOFF2 export.
 
-## 6.0.0-alpha.1
+## Internal Milestone: Core UX/UI Direction
 
-Typegen V6.0 alpha core UX/UI direction.
+Core UX/UI direction milestone.
 
 ### Added
 
@@ -126,9 +126,9 @@ Typegen V6.0 alpha core UX/UI direction.
 - New font generation behavior.
 - Kerning, variable fonts, AI generation, WOFF, or WOFF2 export.
 
-## 5.0.0-alpha.1
+## Internal Milestone: Export Package Polish
 
-Typegen V5.0 alpha export package polish.
+Export package polish milestone.
 
 ### Added
 
@@ -151,9 +151,9 @@ Typegen V5.0 alpha export package polish.
 - Automatically generating unscanned or unverified weights.
 - Compressed or nested production packages.
 
-## 4.3.0-alpha.1
+## Internal Milestone: Active Board Clarity
 
-Typegen V4.3 alpha active board clarity.
+Active board clarity milestone.
 
 ### Added
 
@@ -162,9 +162,9 @@ Typegen V4.3 alpha active board clarity.
 - Scan notifications mention the active board when available.
 - The starter style selector syncs to the active board weight after board, generate, or scan actions.
 
-## 4.2.0-alpha.1
+## Internal Milestone: Starter Style Controls
 
-Typegen V4.2 alpha starter style controls.
+Starter style controls milestone.
 
 ### Added
 
@@ -176,9 +176,9 @@ Typegen V4.2 alpha starter style controls.
 - If Inter Bold is unavailable, starter generation falls back to Inter Regular before using the geometric fallback.
 - Kept starter generation artwork-safe: existing non-helper artwork is still preserved.
 
-## 4.1.0-alpha.1
+## Internal Milestone: Preview Presets
 
-Typegen V4.1 alpha preview presets.
+Preview presets milestone.
 
 ### Added
 
@@ -186,9 +186,9 @@ Typegen V4.1 alpha preview presets.
 - Presets update the editable preview text field, so users can start from a sample and then refine the string manually.
 - Presets reuse the existing preview, diagnostics, generated-font, and smoke-test export workflow.
 
-## 4.0.0-alpha.1
+## Internal Milestone: Starter Glyph Generation
 
-Typegen V4.0 alpha Inter-based starter glyph generation.
+Inter-based starter glyph generation milestone.
 
 ### Added
 
@@ -208,13 +208,13 @@ Typegen V4.0 alpha Inter-based starter glyph generation.
 
 ## V3 Alpha Closeout Notes
 
-V3 alpha now includes the V3.0 lowercase pilot, V3.1 full lowercase expansion, V3.2 common symbols, and V3.3 metrics/readability signoff.
+The lowercase and symbol expansion milestones include the lowercase pilot, full lowercase expansion, common symbols, and metrics/readability signoff.
 
 Manual V3.3 QA passed for lowercase plus symbols, and no metrics/readability code changes were needed.
 
-## 3.2.0-alpha.1
+## Internal Milestone: Common Symbol Expansion
 
-Typegen V3.2 alpha common-symbol expansion.
+Common-symbol expansion milestone.
 
 ### Added
 
@@ -226,9 +226,9 @@ Typegen V3.2 alpha common-symbol expansion.
 - Added regression checks for symbol naming, preview, verification, and OTF roundtrip parsing.
 - Manual V3.2 QA passed for common-symbol board slots, preview strings, OTF export, and smoke-test HTML.
 
-## 3.1.0-alpha.1
+## Internal Milestone: Full Lowercase Expansion
 
-Typegen V3.1 alpha full lowercase expansion.
+Full lowercase expansion milestone.
 
 ### Added
 
@@ -239,9 +239,9 @@ Typegen V3.1 alpha full lowercase expansion.
 - Added regression checks for full lowercase preview strings: `type`, `glyph`, `font`, `quick`, and `boxing glyph`.
 - Manual V3.1 QA passed for fresh boards, upgraded V3.0 pilot boards, sorted board order, lowercase preview, and smoke-test targets.
 
-## 3.0.0-alpha.1
+## Internal Milestone: Lowercase Pilot Foundations
 
-Typegen V3.0 alpha lowercase pilot foundations.
+Lowercase pilot foundations milestone.
 
 ### Added
 
