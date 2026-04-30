@@ -843,6 +843,30 @@ h2 {
   align-items: center;
 }
 
+.scanning-backdrop {
+  z-index: 20;
+}
+
+.scanning-overlay {
+  width: min(100%, 260px);
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+  padding: 18px;
+}
+
+.scanning-overlay strong {
+  color: #1f1f1f;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.scanning-overlay span {
+  color: #6b6b6b;
+  font-size: 11px;
+  line-height: 16px;
+}
+
 .glyph-detail-tabs {
   display: inline-flex;
   align-items: center;

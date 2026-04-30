@@ -185,6 +185,7 @@ function render() {
       ${state.boardCreationOverlayOpen ? renderBoardCreationOverlay() : ''}
       ${state.importSettingsOverlayOpen ? renderImportSettingsOverlay() : ''}
       ${state.glyphOverlayOpen ? renderGlyphOverlay(selectedGlyph) : ''}
+      ${state.isScanning ? renderScanningOverlay() : ''}
     </section>
   `;
 
@@ -304,6 +305,7 @@ function renderGlyphsTab(rows: GlyphScanResult[], diagnostics: ExportDiagnostics
                 <strong class="${diagnostics.warningCount ? 'warning-count' : ''}">${diagnostics.warningCount}</strong>
               </div>
             </div>
+            ${state.isScanning ? '<p class="status scanning-status">Scanning glyph outlines...</p>' : ''}
             ${scanWarning ? `<p class="warning">${escapeHtml(scanWarning)}</p>` : ''}
             ${
               SHOW_DEBUG_CONTENT && diagnostics.details.length
@@ -312,7 +314,7 @@ function renderGlyphsTab(rows: GlyphScanResult[], diagnostics: ExportDiagnostics
             }`
       }
     </section>
-    <section class="panel">
+    <section class="panel glyphs-panel">
       <div class="section-head">
         <h2>Glyphs</h2>
         <span class="section-count">${visibleRows.length}</span>
@@ -322,6 +324,17 @@ function renderGlyphsTab(rows: GlyphScanResult[], diagnostics: ExportDiagnostics
         ${renderGlyphSections(visibleRows)}
       </div>
     </section>
+  `;
+}
+
+function renderScanningOverlay(): string {
+  return `
+    <div class="overlay-backdrop scanning-backdrop" role="status" aria-live="polite">
+      <section class="overlay-card scanning-overlay">
+        <strong>Scanning glyphs...</strong>
+        <span>Validating outlines and updating the glyph table.</span>
+      </section>
+    </div>
   `;
 }
 
@@ -1396,13 +1409,25 @@ window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginToUiMessage }>) 
     if (message.activeBoard) {
       applyActiveBoard(message.activeBoard);
     }
+    const hasQueuedValidation = message.glyphs.some((glyph) => glyph.message.includes('Full outline validation is queued'));
     state.glyphs = message.glyphs;
     state.lastScanNodeIds = collectScanNodeIds(message.glyphs);
     state.selectedGlyph = chooseSelectedGlyph(message.glyphs, state.selectedGlyph);
-    state.isScanning = false;
+    state.isScanning = hasQueuedValidation;
     state.generatedFont = null;
-    state.statusMessage = `Auto-scan updated: ${message.summary.valid} valid, ${message.summary.empty} empty, ${message.summary.unsupported} unsupported.`;
+    state.statusMessage = hasQueuedValidation
+      ? 'Scanning glyph outlines...'
+      : `Auto-scan updated: ${message.summary.valid} valid, ${message.summary.empty} empty, ${message.summary.unsupported} unsupported.`;
     persistSettings();
+  }
+
+  if (message.type === 'GLYPH_SCAN_STARTED') {
+    if (message.activeBoard) {
+      applyActiveBoard(message.activeBoard);
+    }
+    state.isScanning = true;
+    state.generatedFont = null;
+    state.statusMessage = 'Scanning glyph outlines...';
   }
 
   if (message.type === 'BOARD_SELECTION_CLEARED') {
@@ -1477,10 +1502,14 @@ function createScanExportWarning(): string {
     unsupported ? `${unsupported} unsupported` : '',
     empty ? `${empty} empty` : '',
     missing ? `${missing} missing` : '',
-    warning ? `${warning} warning` : '',
+    warning ? `${warning} need validation` : '',
   ].filter(Boolean);
 
-  return `${parts.join(', ')} glyphs will not export. Only valid filled vector glyphs are included.`;
+  if (unsupported === 0 && empty === 0 && missing === 0 && warning > 0) {
+    return `${parts.join(', ')}. Generate font runs full outline validation before export.`;
+  }
+
+  return `${parts.join(', ')} glyphs need attention before export. Only valid filled vector glyphs are included.`;
 }
 
 function createPreviewExportWarning(): string {

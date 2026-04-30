@@ -283,6 +283,8 @@
   var SECTION_GAP = 36;
   var LABEL_FONT = { family: "Inter", style: "Regular" };
   var BOARD_STYLE_KEY = "typegen-board-style";
+  var GUIDE_NODE_NAME = "tg-guides";
+  var GUIDE_SIGNATURE_KEY = "typegen-guide-signature";
   async function createGlyphBoard(style = DEFAULT_FONT_WEIGHT_STYLE, mode = "update") {
     const selectedBoard = findSelectedGlyphBoard();
     const requestedStyle = sanitizeBoardStyle(style);
@@ -439,14 +441,13 @@
     board.y = top;
   }
   function resizeBoardToFitSupportedSlots(board) {
-    const layout = createBoardLayout();
     const boardWidth = PADDING * 2 + COLUMNS * UPPERCASE_SLOT_WIDTH + (COLUMNS - 1) * GAP;
-    const boardHeight = PADDING + layout.height;
+    const boardHeight = PADDING + BOARD_LAYOUT.height;
     board.resize(boardWidth, boardHeight);
   }
   function getSlotLayout(char) {
     var _a;
-    return (_a = createBoardLayout().slots.get(char)) != null ? _a : { x: PADDING, y: PADDING + SECTION_LABEL_HEIGHT };
+    return (_a = BOARD_LAYOUT.slots.get(char)) != null ? _a : { x: PADDING, y: PADDING + SECTION_LABEL_HEIGHT };
   }
   var UPPERCASE_SLOT_WIDTH = unifiedVisualGuideProfileForChar("A").slotWidth;
   var UPPERCASE_SLOT_HEIGHT = unifiedVisualGuideProfileForChar("A").slotHeight;
@@ -491,6 +492,7 @@
     }
     return height;
   }
+  var BOARD_LAYOUT = createBoardLayout();
   function createSlot(char) {
     const profile = unifiedVisualGuideProfileForChar(char);
     const slot = figma.createFrame();
@@ -505,31 +507,73 @@
     return slot;
   }
   function addGuides(slot, profile) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e;
     const guideTop = profile.ascenderY;
     const guideBottom = (_a = profile.descenderY) != null ? _a : profile.baselineY;
-    const guideHeight = Math.max(1, guideBottom - guideTop);
     const guideWidth = profile.rightBoundaryX - profile.leftBoundaryX;
-    addGuide(slot, "tg-left-boundary", profile.leftBoundaryX, guideTop, 1, guideHeight, 0.78);
-    addGuide(slot, "tg-right-boundary", profile.rightBoundaryX, guideTop, 1, guideHeight, 0.78);
-    addGuide(slot, "tg-ascender", profile.leftBoundaryX, profile.ascenderY, guideWidth, 1, 0.62);
-    addGuide(slot, "tg-x-height", profile.leftBoundaryX, (_b = profile.xHeightY) != null ? _b : profile.ascenderY, guideWidth, 1, 0.5);
-    addGuide(slot, "tg-baseline", profile.leftBoundaryX, profile.baselineY, guideWidth, 1, 0.36);
-    addGuide(slot, "tg-descender", profile.leftBoundaryX, (_c = profile.descenderY) != null ? _c : profile.baselineY, guideWidth, 1, 0.28);
+    const data = [
+      `M ${profile.leftBoundaryX} ${guideTop} L ${profile.leftBoundaryX} ${guideBottom}`,
+      `M ${profile.rightBoundaryX} ${guideTop} L ${profile.rightBoundaryX} ${guideBottom}`,
+      `M ${profile.leftBoundaryX} ${profile.ascenderY} L ${profile.leftBoundaryX + guideWidth} ${profile.ascenderY}`,
+      `M ${profile.leftBoundaryX} ${(_b = profile.xHeightY) != null ? _b : profile.ascenderY} L ${profile.leftBoundaryX + guideWidth} ${(_c = profile.xHeightY) != null ? _c : profile.ascenderY}`,
+      `M ${profile.leftBoundaryX} ${profile.baselineY} L ${profile.leftBoundaryX + guideWidth} ${profile.baselineY}`,
+      `M ${profile.leftBoundaryX} ${(_d = profile.descenderY) != null ? _d : profile.baselineY} L ${profile.leftBoundaryX + guideWidth} ${(_e = profile.descenderY) != null ? _e : profile.baselineY}`
+    ].join(" ");
+    const guide = figma.createVector();
+    guide.name = GUIDE_NODE_NAME;
+    guide.vectorPaths = [{ windingRule: "NONZERO", data }];
+    guide.fills = [];
+    guide.strokes = [solid(0.16, 0.32, 0.68, 0.42)];
+    guide.strokeWeight = 1;
+    guide.locked = true;
+    guide.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_HELPER);
+    guide.setPluginData(GUIDE_SIGNATURE_KEY, guideSignature(profile));
+    slot.appendChild(guide);
   }
   function syncSlotGuides(slot, char, labelsEnabled) {
     if (slot.type !== "FRAME") {
       return;
     }
+    const profile = unifiedVisualGuideProfileForChar(char);
+    if (slotHelpersAreCurrent(slot, char, profile, labelsEnabled)) {
+      return;
+    }
     for (const child of [...slot.children]) {
-      if (child.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_HELPER && (child.type === "RECTANGLE" || labelsEnabled && child.name.startsWith("tg-label-"))) {
+      if (child.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_HELPER && (child.type === "RECTANGLE" || child.name === GUIDE_NODE_NAME || labelsEnabled && child.name.startsWith("tg-label-"))) {
         child.remove();
       }
     }
-    addGuides(slot, unifiedVisualGuideProfileForChar(char));
+    addGuides(slot, profile);
     if (labelsEnabled) {
       addLabel(slot, glyphLabelForChar(char));
     }
+  }
+  function slotHelpersAreCurrent(slot, char, profile, labelsEnabled) {
+    const guide = slot.children.find((child) => child.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_HELPER && child.name === GUIDE_NODE_NAME);
+    if (!guide || guide.getPluginData(GUIDE_SIGNATURE_KEY) !== guideSignature(profile)) {
+      return false;
+    }
+    const hasLegacyGuideRect = slot.children.some((child) => child.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_HELPER && child.type === "RECTANGLE");
+    if (hasLegacyGuideRect) {
+      return false;
+    }
+    if (!labelsEnabled) {
+      return true;
+    }
+    return slot.children.some((child) => child.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_HELPER && child.name === `tg-label-${glyphLabelForChar(char)}`);
+  }
+  function guideSignature(profile) {
+    var _a, _b;
+    return [
+      profile.slotWidth,
+      profile.slotHeight,
+      profile.leftBoundaryX,
+      profile.rightBoundaryX,
+      profile.ascenderY,
+      (_a = profile.xHeightY) != null ? _a : "",
+      profile.baselineY,
+      (_b = profile.descenderY) != null ? _b : ""
+    ].join(":");
   }
   function syncBoardSectionLabels(board, labelsEnabled) {
     for (const child of [...board.children]) {
@@ -540,7 +584,7 @@
     if (!labelsEnabled) {
       return;
     }
-    for (const section of createBoardLayout().sections) {
+    for (const section of BOARD_LAYOUT.sections) {
       const label = figma.createText();
       label.name = `tg-section-${section.id}`;
       label.characters = `${section.label}  ${section.description}`;
@@ -554,17 +598,6 @@
       label.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_HELPER);
       board.appendChild(label);
     }
-  }
-  function addGuide(parent, name, x, y, width, height, alpha) {
-    const guide = figma.createRectangle();
-    guide.name = name;
-    guide.x = x;
-    guide.y = y;
-    guide.resize(width, height);
-    guide.fills = [solid(0.16, 0.32, 0.68, alpha)];
-    guide.locked = true;
-    guide.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_HELPER);
-    parent.appendChild(guide);
   }
   function addLabel(parent, char) {
     const label = figma.createText();
@@ -1287,6 +1320,26 @@
 
   // src/plugin/figmaNodes.ts
   function scanSelectedGlyphs(selection) {
+    const index = createGlyphCandidateIndex(selection);
+    const glyphs = SUPPORTED_CHARS.map((char) => {
+      return scanGlyphFromIndex(char, index);
+    });
+    return {
+      glyphs,
+      summary: summarize(glyphs)
+    };
+  }
+  function scanSelectedGlyphsLightweight(selection) {
+    const { firstByChar, duplicateTotals } = createGlyphCandidateIndex(selection);
+    const glyphs = SUPPORTED_CHARS.map((char) => {
+      return scanGlyphFromIndexLightweight(char, firstByChar, duplicateTotals);
+    });
+    return {
+      glyphs,
+      summary: summarize(glyphs)
+    };
+  }
+  function createGlyphCandidateIndex(selection) {
     var _a;
     const candidates = collectGlyphCandidates(selection);
     const firstByChar = /* @__PURE__ */ new Map();
@@ -1298,57 +1351,85 @@
       }
       firstByChar.set(candidate.char, candidate.node);
     }
-    const glyphs = SUPPORTED_CHARS.map((char) => {
-      var _a2;
-      const node = firstByChar.get(char);
-      const glyphName = glyphNameForChar2(char);
-      const base = {
-        char,
-        unicode: unicodeForChar(char),
-        name: glyphName,
-        warnings: []
-      };
-      if (!node) {
-        return __spreadProps(__spreadValues({}, base), {
-          status: "missing",
-          message: `Glyph ${char} is missing. Select a board or node named ${glyphName}.`
-        });
-      }
-      const extraction = extractGlyphFromNode(node, char);
-      const duplicateTotal = (_a2 = duplicateTotals.get(char)) != null ? _a2 : 0;
-      const warnings = extraction.issues.filter((issue) => issue.level === "warning").map((issue) => issue.message);
-      if (duplicateTotal > 0) {
-        warnings.push(`${duplicateTotal} ${glyphName} nodes were found. The first one was used; remove or rename duplicates.`);
-      }
-      const errors = extraction.issues.filter((issue) => issue.level === "error");
-      if (errors.length > 0) {
-        return __spreadProps(__spreadValues({}, base), {
-          status: "unsupported",
-          nodeId: node.id,
-          message: errors[0].message,
-          warnings
-        });
-      }
-      if (extraction.vectorCount === 0 || !extraction.glyph) {
-        return __spreadProps(__spreadValues({}, base), {
-          status: "empty",
-          nodeId: node.id,
-          message: `Glyph ${char} is empty. Add a simple filled vector path inside ${glyphName}.`,
-          warnings
-        });
-      }
+    return { firstByChar, duplicateTotals };
+  }
+  function scanGlyphFromIndex(char, index) {
+    var _a;
+    const node = index.firstByChar.get(char);
+    const glyphName = glyphNameForChar2(char);
+    const base = createGlyphResultBase(char, glyphName);
+    if (!node) {
+      return createMissingGlyphResult(base, char, glyphName);
+    }
+    const extraction = extractGlyphFromNode(node, char);
+    const warnings = extraction.issues.filter((issue) => issue.level === "warning").map((issue) => issue.message);
+    appendDuplicateWarning(warnings, (_a = index.duplicateTotals.get(char)) != null ? _a : 0, glyphName);
+    const errors = extraction.issues.filter((issue) => issue.level === "error");
+    if (errors.length > 0) {
       return __spreadProps(__spreadValues({}, base), {
-        status: "valid",
+        status: "unsupported",
         nodeId: node.id,
-        message: `Glyph ${char} is valid.`,
-        glyph: extraction.glyph,
+        message: errors[0].message,
         warnings
       });
+    }
+    if (extraction.vectorCount === 0 || !extraction.glyph) {
+      return createEmptyGlyphResult(base, node.id, char, glyphName, warnings);
+    }
+    return __spreadProps(__spreadValues({}, base), {
+      status: "valid",
+      nodeId: node.id,
+      message: `Glyph ${char} is valid.`,
+      glyph: extraction.glyph,
+      warnings
     });
+  }
+  function scanGlyphFromIndexLightweight(char, firstByChar, duplicateTotals) {
+    var _a;
+    const node = firstByChar.get(char);
+    const glyphName = glyphNameForChar2(char);
+    const base = createGlyphResultBase(char, glyphName);
+    if (!node) {
+      return createMissingGlyphResult(base, char, glyphName);
+    }
+    const warnings = [];
+    appendDuplicateWarning(warnings, (_a = duplicateTotals.get(char)) != null ? _a : 0, glyphName);
+    if (!hasGlyphArtwork(node)) {
+      return createEmptyGlyphResult(base, node.id, char, glyphName, warnings);
+    }
+    return __spreadProps(__spreadValues({}, base), {
+      status: "empty",
+      nodeId: node.id,
+      message: `Glyph ${char} has artwork. Full outline validation is queued.`,
+      warnings
+    });
+  }
+  function createGlyphResultBase(char, glyphName) {
     return {
-      glyphs,
-      summary: summarize(glyphs)
+      char,
+      unicode: unicodeForChar(char),
+      name: glyphName,
+      warnings: []
     };
+  }
+  function createMissingGlyphResult(base, char, glyphName) {
+    return __spreadProps(__spreadValues({}, base), {
+      status: "missing",
+      message: `Glyph ${char} is missing. Select a board or node named ${glyphName}.`
+    });
+  }
+  function createEmptyGlyphResult(base, nodeId, char, glyphName, warnings) {
+    return __spreadProps(__spreadValues({}, base), {
+      status: "empty",
+      nodeId,
+      message: `Glyph ${char} is empty. Add a simple filled vector path inside ${glyphName}.`,
+      warnings
+    });
+  }
+  function appendDuplicateWarning(warnings, duplicateTotal, glyphName) {
+    if (duplicateTotal > 0) {
+      warnings.push(`${duplicateTotal} ${glyphName} nodes were found. The first one was used; remove or rename duplicates.`);
+    }
   }
   function collectGlyphCandidates(selection) {
     const candidates = [];
@@ -1372,6 +1453,18 @@
       }
     }
   }
+  function hasGlyphArtwork(node) {
+    if (!node.visible || node.getPluginData(TYPEGEN_ROLE_KEY) === "helper") {
+      return false;
+    }
+    if (glyphCharFromName(node.name) && "children" in node) {
+      return node.children.some((child) => hasGlyphArtwork(child));
+    }
+    if ("children" in node) {
+      return node.children.some((child) => hasGlyphArtwork(child));
+    }
+    return true;
+  }
   function summarize(glyphs) {
     return glyphs.reduce(
       (summary, glyph) => {
@@ -1379,7 +1472,7 @@
         summary.warnings += glyph.warnings.length;
         return summary;
       },
-      { valid: 0, empty: 0, unsupported: 0, missing: 0, warnings: 0 }
+      { valid: 0, empty: 0, unsupported: 0, missing: 0, warning: 0, warnings: 0 }
     );
   }
 
@@ -1927,6 +2020,7 @@
   // src/plugin/controller.ts
   var SETTINGS_KEY = "typegen-settings-v1";
   var BOARD_SPACING_KEY = "typegen-board-spacing-v1";
+  var PERF_LOG_PREFIX = "[Typegen perf]";
   var DEFAULT_BOARD_SPACING = {
     letterSpacing: 0,
     spaceWidth: 320,
@@ -1934,11 +2028,20 @@
     kerningPairs: []
   };
   var activeBoardId = "";
+  var selectionScanTimer = null;
+  var deferredFullScanTimer = null;
+  var scanVersion = 0;
   figma.showUI(__html__, { width: 420, height: 640, themeColors: true });
   postToUi({ type: "PLUGIN_READY" });
   postToUi({ type: "SETTINGS_LOADED", settings: loadSettings() });
   figma.on("selectionchange", () => {
-    void scanCurrentSelection({ silent: true, useLastActiveFallback: false });
+    if (selectionScanTimer) {
+      clearTimeout(selectionScanTimer);
+    }
+    selectionScanTimer = setTimeout(() => {
+      selectionScanTimer = null;
+      void scanCurrentSelection({ silent: true, useLastActiveFallback: false, mode: "lightweight" });
+    }, 120);
   });
   figma.ui.onmessage = async (message) => {
     var _a;
@@ -1968,7 +2071,9 @@
         return;
       }
       if (message.type === "CREATE_GLYPH_BOARD") {
+        const done = startPerf("createGlyphBoard");
         const result = await createGlyphBoard(message.style, (_a = message.mode) != null ? _a : "update");
+        done();
         activeBoardId = result.board.id;
         const action = result.duplicatePrevented ? `${result.board.name} already exists. Select it to update or generate starters.` : result.created ? `Created ${result.board.name}.` : result.addedSlots > 0 ? `Updated ${result.board.name}: added ${result.addedSlots} missing slots.` : `${result.board.name} is already up to date.`;
         postToUi({
@@ -1978,11 +2083,13 @@
           activeBoard: createActiveBoardInfo(result.board)
         });
         figma.notify(action);
-        postScanResult([result.board], { silent: true });
+        postScanResult([result.board], { silent: true, mode: "lightweight" });
         return;
       }
       if (message.type === "GENERATE_STARTER_GLYPHS") {
+        const done = startPerf("generateStarterGlyphs");
         const result = await generateStarterGlyphs(message.style);
+        done();
         activeBoardId = result.board.id;
         const action = result.filledSlots > 0 ? `Generated starter outlines in ${result.filledSlots} empty slots. Preserved ${result.skippedSlots} slots with existing artwork.` : `No empty slots needed starter outlines. Preserved ${result.skippedSlots} slots with existing artwork.`;
         postToUi({
@@ -1992,11 +2099,11 @@
           activeBoard: createActiveBoardInfo(result.board)
         });
         figma.notify(action);
-        postScanResult([result.board], { silent: true });
+        postScanResult([result.board], { silent: true, mode: "lightweight" });
         return;
       }
       if (message.type === "SCAN_SELECTED_GLYPHS") {
-        await scanCurrentSelection({ silent: false, useLastActiveFallback: true });
+        await scanCurrentSelection({ silent: false, useLastActiveFallback: true, mode: "full" });
         return;
       }
       if (message.type === "SCAN_ALL_GLYPH_BOARDS") {
@@ -2011,7 +2118,9 @@
         postToUi({
           type: "ALL_GLYPH_BOARDS_SCANNED",
           boards: boards.map((board) => {
+            const done = startPerf(`scanSelectedGlyphs export ${board.name}`);
             const result = scanSelectedGlyphs([board]);
+            done();
             return {
               activeBoard: createActiveBoardInfo(board),
               glyphs: result.glyphs,
@@ -2048,7 +2157,10 @@
     postScanResult(scanSelection, options);
   }
   function postScanResult(scanSelection, options) {
-    const result = scanSelectedGlyphs(scanSelection);
+    const version = ++scanVersion;
+    const done = startPerf(`${options.mode} scan`);
+    const result = options.mode === "lightweight" ? scanSelectedGlyphsLightweight(scanSelection) : scanSelectedGlyphs(scanSelection);
+    done();
     const activeBoard = resolveActiveBoardForSelection(scanSelection);
     if (activeBoard) {
       activeBoardId = activeBoard.id;
@@ -2062,6 +2174,36 @@
     if (!options.silent) {
       figma.notify(`Scanned glyphs: ${result.summary.valid} valid, ${result.summary.empty} empty${activeBoard ? ` from ${activeBoard.name}` : ""}.`);
     }
+    if (options.mode === "lightweight" && activeBoard) {
+      scheduleDeferredFullScan(activeBoard, version);
+    }
+  }
+  function scheduleDeferredFullScan(board, version) {
+    if (deferredFullScanTimer) {
+      clearTimeout(deferredFullScanTimer);
+    }
+    deferredFullScanTimer = setTimeout(() => {
+      deferredFullScanTimer = null;
+      if (version !== scanVersion || activeBoardId !== board.id || board.removed) {
+        return;
+      }
+      postToUi({ type: "GLYPH_SCAN_STARTED", activeBoard: createActiveBoardInfo(board) });
+      setTimeout(() => {
+        if (version !== scanVersion || activeBoardId !== board.id || board.removed) {
+          return;
+        }
+        postScanResult([board], { silent: true, mode: "full" });
+      }, 80);
+    }, 350);
+  }
+  function startPerf(label) {
+    const start = Date.now();
+    return () => {
+      const elapsed = Date.now() - start;
+      if (elapsed >= 50) {
+        console.log(`${PERF_LOG_PREFIX} ${label}: ${elapsed}ms`);
+      }
+    };
   }
   async function resolveScanSelection(options) {
     const selectedBoard = findSelectedGlyphBoard();

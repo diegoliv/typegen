@@ -53,6 +53,10 @@ export type PluginToUiMessage =
       activeBoard?: ActiveBoardInfo;
     }
   | {
+      type: 'GLYPH_SCAN_STARTED';
+      activeBoard?: ActiveBoardInfo;
+    }
+  | {
       type: 'BOARD_SELECTION_CLEARED';
     }
   | {

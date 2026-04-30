@@ -1,5 +1,5 @@
 import { createGlyphBoard, findAllGlyphBoards, findSelectedGlyphBoard, getGlyphBoardStyle } from "./glyphBoard";
-import { scanSelectedGlyphs } from "./figmaNodes";
+import { scanSelectedGlyphs, scanSelectedGlyphsLightweight } from "./figmaNodes";
 import { generateStarterGlyphs } from "./starterGlyphs";
 import { ActiveBoardInfo, PersistedTypegenSettings, PluginToUiMessage, UiToPluginMessage } from "./pluginTypes";
 import { GLYPH_CHARS, type BoardSpacingSettings, type GlyphChar, type KerningPair } from "../shared/types";
@@ -8,6 +8,7 @@ declare const __html__: string;
 
 const SETTINGS_KEY = "typegen-settings-v1";
 const BOARD_SPACING_KEY = "typegen-board-spacing-v1";
+const PERF_LOG_PREFIX = "[Typegen perf]";
 const DEFAULT_BOARD_SPACING: BoardSpacingSettings = {
   letterSpacing: 0,
   spaceWidth: 320,
@@ -15,13 +16,23 @@ const DEFAULT_BOARD_SPACING: BoardSpacingSettings = {
   kerningPairs: [],
 };
 let activeBoardId = "";
+let selectionScanTimer: ReturnType<typeof setTimeout> | null = null;
+let deferredFullScanTimer: ReturnType<typeof setTimeout> | null = null;
+let scanVersion = 0;
 
 figma.showUI(__html__, { width: 420, height: 640, themeColors: true });
 postToUi({ type: "PLUGIN_READY" });
 postToUi({ type: "SETTINGS_LOADED", settings: loadSettings() });
 
 figma.on("selectionchange", () => {
-  void scanCurrentSelection({ silent: true, useLastActiveFallback: false });
+  if (selectionScanTimer) {
+    clearTimeout(selectionScanTimer);
+  }
+
+  selectionScanTimer = setTimeout(() => {
+    selectionScanTimer = null;
+    void scanCurrentSelection({ silent: true, useLastActiveFallback: false, mode: "lightweight" });
+  }, 120);
 });
 
 figma.ui.onmessage = async (message: UiToPluginMessage) => {
@@ -56,7 +67,9 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
     }
 
     if (message.type === "CREATE_GLYPH_BOARD") {
+      const done = startPerf("createGlyphBoard");
       const result = await createGlyphBoard(message.style, message.mode ?? "update");
+      done();
       activeBoardId = result.board.id;
       const action = result.duplicatePrevented
         ? `${result.board.name} already exists. Select it to update or generate starters.`
@@ -72,12 +85,14 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
         activeBoard: createActiveBoardInfo(result.board),
       });
       figma.notify(action);
-      postScanResult([result.board], { silent: true });
+      postScanResult([result.board], { silent: true, mode: "lightweight" });
       return;
     }
 
     if (message.type === "GENERATE_STARTER_GLYPHS") {
+      const done = startPerf("generateStarterGlyphs");
       const result = await generateStarterGlyphs(message.style);
+      done();
       activeBoardId = result.board.id;
       const action =
         result.filledSlots > 0
@@ -90,12 +105,12 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
         activeBoard: createActiveBoardInfo(result.board),
       });
       figma.notify(action);
-      postScanResult([result.board], { silent: true });
+      postScanResult([result.board], { silent: true, mode: "lightweight" });
       return;
     }
 
     if (message.type === "SCAN_SELECTED_GLYPHS") {
-      await scanCurrentSelection({ silent: false, useLastActiveFallback: true });
+      await scanCurrentSelection({ silent: false, useLastActiveFallback: true, mode: "full" });
       return;
     }
 
@@ -112,7 +127,9 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
       postToUi({
         type: "ALL_GLYPH_BOARDS_SCANNED",
         boards: boards.map((board) => {
+          const done = startPerf(`scanSelectedGlyphs export ${board.name}`);
           const result = scanSelectedGlyphs([board]);
+          done();
           return {
             activeBoard: createActiveBoardInfo(board),
             glyphs: result.glyphs,
@@ -132,7 +149,9 @@ figma.ui.onmessage = async (message: UiToPluginMessage) => {
   }
 };
 
-async function scanCurrentSelection(options: { silent: boolean; useLastActiveFallback: boolean }): Promise<void> {
+type ScanMode = "full" | "lightweight";
+
+async function scanCurrentSelection(options: { silent: boolean; useLastActiveFallback: boolean; mode: ScanMode }): Promise<void> {
   const scanSelection = await resolveScanSelection(options);
   if (scanSelection.length === 0) {
     if (options.silent) {
@@ -153,8 +172,13 @@ async function scanCurrentSelection(options: { silent: boolean; useLastActiveFal
   postScanResult(scanSelection, options);
 }
 
-function postScanResult(scanSelection: readonly SceneNode[], options: { silent: boolean }): void {
-  const result = scanSelectedGlyphs(scanSelection);
+function postScanResult(scanSelection: readonly SceneNode[], options: { silent: boolean; mode: ScanMode }): void {
+  const version = ++scanVersion;
+  const done = startPerf(`${options.mode} scan`);
+  const result = options.mode === "lightweight"
+    ? scanSelectedGlyphsLightweight(scanSelection)
+    : scanSelectedGlyphs(scanSelection);
+  done();
   const activeBoard = resolveActiveBoardForSelection(scanSelection);
   if (activeBoard) {
     activeBoardId = activeBoard.id;
@@ -169,6 +193,42 @@ function postScanResult(scanSelection: readonly SceneNode[], options: { silent: 
   if (!options.silent) {
     figma.notify(`Scanned glyphs: ${result.summary.valid} valid, ${result.summary.empty} empty${activeBoard ? ` from ${activeBoard.name}` : ""}.`);
   }
+
+  if (options.mode === "lightweight" && activeBoard) {
+    scheduleDeferredFullScan(activeBoard, version);
+  }
+}
+
+function scheduleDeferredFullScan(board: FrameNode, version: number): void {
+  if (deferredFullScanTimer) {
+    clearTimeout(deferredFullScanTimer);
+  }
+
+  deferredFullScanTimer = setTimeout(() => {
+    deferredFullScanTimer = null;
+    if (version !== scanVersion || activeBoardId !== board.id || board.removed) {
+      return;
+    }
+
+    postToUi({ type: "GLYPH_SCAN_STARTED", activeBoard: createActiveBoardInfo(board) });
+    setTimeout(() => {
+      if (version !== scanVersion || activeBoardId !== board.id || board.removed) {
+        return;
+      }
+
+      postScanResult([board], { silent: true, mode: "full" });
+    }, 80);
+  }, 350);
+}
+
+function startPerf(label: string): () => void {
+  const start = Date.now();
+  return () => {
+    const elapsed = Date.now() - start;
+    if (elapsed >= 50) {
+      console.log(`${PERF_LOG_PREFIX} ${label}: ${elapsed}ms`);
+    }
+  };
 }
 
 async function resolveScanSelection(options: { useLastActiveFallback: boolean }): Promise<SceneNode[]> {

@@ -359,6 +359,7 @@ export type ScanSummary = {
   empty: number;
   missing: number;
   unsupported: number;
+  warning: number;
   warnings: number;
 };
 

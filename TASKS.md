@@ -1,5 +1,41 @@
 # Typegen MVP Implementation Plan
 
+## 57. V9.1 Performance Audit / Responsiveness
+
+Goal: reduce Figma freezes and plugin latency after the V9 expanded glyph catalog increased board size to 209 slots.
+
+Plan:
+
+- Separate lightweight selection updates from export-grade glyph extraction.
+- Keep full flattening/normalization for explicit scan/export/generate flows, but avoid it on ordinary `selectionchange`.
+- Reduce board creation/update canvas mutation churn by caching layout and avoiding unnecessary helper recreation.
+- Add lightweight timing instrumentation around board creation and scan paths so future slowdowns are easier to locate.
+- Preserve the current output pipeline: Figma vectors -> glyph model -> preview -> OTF/ZIP export.
+
+Implementation status:
+
+- Added debounced lightweight auto-scan for selection changes, avoiding export-grade flattening on ordinary board clicks.
+- Added deferred full scan after lightweight board selection, guarded by scan version and active board id so stale async scans cannot overwrite newer selections.
+- Changed lightweight artwork detection to a quiet pending/empty status instead of warning tiles, so warnings remain reserved for real validation concerns.
+- Reverted per-glyph streamed scanning after manual testing showed message/render overhead made full board validation slower.
+- Added a `GLYPH_SCAN_STARTED` loading state so the Glyph health panel shows `Scanning glyph outlines...` while the deferred full batch scan runs.
+- Kept full glyph extraction for explicit scan and package export flows.
+- Changed post-board-create and post-starter-generation refreshes to lightweight scans so the canvas does not immediately re-flatten the whole board.
+- Reduced board helper churn by replacing six guide rectangles per slot with one guide vector and skipping guide/label recreation when helpers are current.
+- Cached board layout at module load instead of recalculating category layout for every slot.
+- Added plugin-side timing logs for board creation, starter generation, lightweight scans, full scans, and export scans.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run build` passed with unsandboxed execution because Vite/esbuild hit `spawn EPERM` in the sandbox.
+
+Remaining:
+
+- Manual Figma timing pass for creating a fresh V9 board and selecting existing boards.
+- Decide whether to restore background full validation after lightweight scan, or keep full validation only on explicit scan/export.
+
 ## 56. V9.0 Expanded Glyph Support Plan
 
 Goal: expand Typegen from the current compact Latin/basic symbol set to the requested 209 unique glyphs while keeping the board, scan, preview, spacing, kerning, starter, and export pipeline understandable for a designer.

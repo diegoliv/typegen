@@ -9,7 +9,7 @@ import {
 
 export const SUPPORTED_CHARS = [...GLYPH_CHARS];
 
-export type GlyphStatus = "valid" | "empty" | "unsupported" | "missing";
+export type GlyphStatus = "valid" | "empty" | "unsupported" | "missing" | "warning";
 
 export type GlyphCommand =
   | { type: "M"; x: number; y: number }
@@ -54,6 +54,7 @@ export type GlyphScanSummary = {
   empty: number;
   unsupported: number;
   missing: number;
+  warning: number;
   warnings: number;
 };
 
@@ -112,6 +113,10 @@ export type PluginToUiMessage =
       type: "GLYPHS_SCANNED";
       glyphs: GlyphScanResult[];
       summary: GlyphScanSummary;
+      activeBoard?: ActiveBoardInfo;
+    }
+  | {
+      type: "GLYPH_SCAN_STARTED";
       activeBoard?: ActiveBoardInfo;
     }
   | {

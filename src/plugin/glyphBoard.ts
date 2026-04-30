@@ -27,6 +27,8 @@ const SECTION_LABEL_HEIGHT = 24;
 const SECTION_GAP = 36;
 const LABEL_FONT: FontName = { family: "Inter", style: "Regular" };
 const BOARD_STYLE_KEY = "typegen-board-style";
+const GUIDE_NODE_NAME = "tg-guides";
+const GUIDE_SIGNATURE_KEY = "typegen-guide-signature";
 
 export type GlyphBoardStyle = FontWeightStyle;
 
@@ -234,14 +236,13 @@ function positionNewBoard(board: FrameNode): void {
 }
 
 function resizeBoardToFitSupportedSlots(board: FrameNode): void {
-  const layout = createBoardLayout();
   const boardWidth = PADDING * 2 + COLUMNS * UPPERCASE_SLOT_WIDTH + (COLUMNS - 1) * GAP;
-  const boardHeight = PADDING + layout.height;
+  const boardHeight = PADDING + BOARD_LAYOUT.height;
   board.resize(boardWidth, boardHeight);
 }
 
 function getSlotLayout(char: GlyphChar): { x: number; y: number } {
-  return createBoardLayout().slots.get(char) ?? { x: PADDING, y: PADDING + SECTION_LABEL_HEIGHT };
+  return BOARD_LAYOUT.slots.get(char) ?? { x: PADDING, y: PADDING + SECTION_LABEL_HEIGHT };
 }
 
 const UPPERCASE_SLOT_WIDTH = unifiedVisualGuideProfileForChar("A").slotWidth;
@@ -302,6 +303,8 @@ function getSectionRowsHeight(chars: string[], rowCount: number): number {
   return height;
 }
 
+const BOARD_LAYOUT = createBoardLayout();
+
 function createSlot(char: string): FrameNode {
   const profile = unifiedVisualGuideProfileForChar(char as GlyphChar);
   const slot = figma.createFrame();
@@ -320,15 +323,25 @@ function createSlot(char: string): FrameNode {
 function addGuides(slot: FrameNode, profile: SlotGuideProfile): void {
   const guideTop = profile.ascenderY;
   const guideBottom = profile.descenderY ?? profile.baselineY;
-  const guideHeight = Math.max(1, guideBottom - guideTop);
   const guideWidth = profile.rightBoundaryX - profile.leftBoundaryX;
-
-  addGuide(slot, "tg-left-boundary", profile.leftBoundaryX, guideTop, 1, guideHeight, 0.78);
-  addGuide(slot, "tg-right-boundary", profile.rightBoundaryX, guideTop, 1, guideHeight, 0.78);
-  addGuide(slot, "tg-ascender", profile.leftBoundaryX, profile.ascenderY, guideWidth, 1, 0.62);
-  addGuide(slot, "tg-x-height", profile.leftBoundaryX, profile.xHeightY ?? profile.ascenderY, guideWidth, 1, 0.5);
-  addGuide(slot, "tg-baseline", profile.leftBoundaryX, profile.baselineY, guideWidth, 1, 0.36);
-  addGuide(slot, "tg-descender", profile.leftBoundaryX, profile.descenderY ?? profile.baselineY, guideWidth, 1, 0.28);
+  const data = [
+    `M ${profile.leftBoundaryX} ${guideTop} L ${profile.leftBoundaryX} ${guideBottom}`,
+    `M ${profile.rightBoundaryX} ${guideTop} L ${profile.rightBoundaryX} ${guideBottom}`,
+    `M ${profile.leftBoundaryX} ${profile.ascenderY} L ${profile.leftBoundaryX + guideWidth} ${profile.ascenderY}`,
+    `M ${profile.leftBoundaryX} ${profile.xHeightY ?? profile.ascenderY} L ${profile.leftBoundaryX + guideWidth} ${profile.xHeightY ?? profile.ascenderY}`,
+    `M ${profile.leftBoundaryX} ${profile.baselineY} L ${profile.leftBoundaryX + guideWidth} ${profile.baselineY}`,
+    `M ${profile.leftBoundaryX} ${profile.descenderY ?? profile.baselineY} L ${profile.leftBoundaryX + guideWidth} ${profile.descenderY ?? profile.baselineY}`,
+  ].join(" ");
+  const guide = figma.createVector();
+  guide.name = GUIDE_NODE_NAME;
+  guide.vectorPaths = [{ windingRule: "NONZERO", data }];
+  guide.fills = [];
+  guide.strokes = [solid(0.16, 0.32, 0.68, 0.42)];
+  guide.strokeWeight = 1;
+  guide.locked = true;
+  guide.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_HELPER);
+  guide.setPluginData(GUIDE_SIGNATURE_KEY, guideSignature(profile));
+  slot.appendChild(guide);
 }
 
 function syncSlotGuides(slot: SceneNode, char: GlyphChar, labelsEnabled: boolean): void {
@@ -336,17 +349,53 @@ function syncSlotGuides(slot: SceneNode, char: GlyphChar, labelsEnabled: boolean
     return;
   }
 
+  const profile = unifiedVisualGuideProfileForChar(char);
+  if (slotHelpersAreCurrent(slot, char, profile, labelsEnabled)) {
+    return;
+  }
+
   for (const child of [...slot.children]) {
-    if (child.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_HELPER && (child.type === "RECTANGLE" || (labelsEnabled && child.name.startsWith("tg-label-")))) {
+    if (child.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_HELPER && (child.type === "RECTANGLE" || child.name === GUIDE_NODE_NAME || (labelsEnabled && child.name.startsWith("tg-label-")))) {
       child.remove();
     }
   }
 
-  addGuides(slot, unifiedVisualGuideProfileForChar(char));
+  addGuides(slot, profile);
 
   if (labelsEnabled) {
     addLabel(slot, glyphLabelForChar(char));
   }
+}
+
+function slotHelpersAreCurrent(slot: FrameNode, char: GlyphChar, profile: SlotGuideProfile, labelsEnabled: boolean): boolean {
+  const guide = slot.children.find((child) => child.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_HELPER && child.name === GUIDE_NODE_NAME);
+  if (!guide || guide.getPluginData(GUIDE_SIGNATURE_KEY) !== guideSignature(profile)) {
+    return false;
+  }
+
+  const hasLegacyGuideRect = slot.children.some((child) => child.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_HELPER && child.type === "RECTANGLE");
+  if (hasLegacyGuideRect) {
+    return false;
+  }
+
+  if (!labelsEnabled) {
+    return true;
+  }
+
+  return slot.children.some((child) => child.getPluginData(TYPEGEN_ROLE_KEY) === TYPEGEN_ROLE_HELPER && child.name === `tg-label-${glyphLabelForChar(char)}`);
+}
+
+function guideSignature(profile: SlotGuideProfile): string {
+  return [
+    profile.slotWidth,
+    profile.slotHeight,
+    profile.leftBoundaryX,
+    profile.rightBoundaryX,
+    profile.ascenderY,
+    profile.xHeightY ?? "",
+    profile.baselineY,
+    profile.descenderY ?? "",
+  ].join(":");
 }
 
 function syncBoardSectionLabels(board: FrameNode, labelsEnabled: boolean): void {
@@ -360,7 +409,7 @@ function syncBoardSectionLabels(board: FrameNode, labelsEnabled: boolean): void 
     return;
   }
 
-  for (const section of createBoardLayout().sections) {
+  for (const section of BOARD_LAYOUT.sections) {
     const label = figma.createText();
     label.name = `tg-section-${section.id}`;
     label.characters = `${section.label}  ${section.description}`;
@@ -374,18 +423,6 @@ function syncBoardSectionLabels(board: FrameNode, labelsEnabled: boolean): void 
     label.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_HELPER);
     board.appendChild(label);
   }
-}
-
-function addGuide(parent: FrameNode, name: string, x: number, y: number, width: number, height: number, alpha: number): void {
-  const guide = figma.createRectangle();
-  guide.name = name;
-  guide.x = x;
-  guide.y = y;
-  guide.resize(width, height);
-  guide.fills = [solid(0.16, 0.32, 0.68, alpha)];
-  guide.locked = true;
-  guide.setPluginData(TYPEGEN_ROLE_KEY, TYPEGEN_ROLE_HELPER);
-  parent.appendChild(guide);
 }
 
 function addLabel(parent: FrameNode, char: string): void {

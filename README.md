@@ -111,4 +111,4 @@ See [docs/QA.md](docs/QA.md) for the manual QA checklist, [docs/SMOKE_TEST.md](d
 
 ## Status
 
-V9.0 alpha expands glyph coverage and organizes the board/UI around categories while keeping the same one-static-OTF export path.
+V9.1 alpha keeps the expanded V9 glyph coverage and improves board creation plus scan responsiveness while keeping the same one-static-OTF export path.
