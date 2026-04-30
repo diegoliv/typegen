@@ -1,8 +1,8 @@
 # Typegen
 
-Typegen is a focused Figma plugin MVP for turning glyphs drawn in Figma into usable static font files.
+Typegen is a focused Figma plugin for turning glyphs drawn in Figma into usable static font packages.
 
-The current V9 alpha keeps the reliable V8 flattening/export loop and expands the supported glyph catalog to 209 Latin, punctuation, symbol, currency, math, and standalone mark glyphs:
+The current 1.0.0 release keeps the reliable temporary-flattening pipeline, supports a 209-glyph catalog, and includes release export settings for selected board weights, glyph sections, and font formats:
 
 1. Create a categorized starter glyph board.
 2. Generate starter glyph outlines in empty slots, draw filled vector glyphs yourself, or build glyphs from supported live shapes and booleans.
@@ -25,7 +25,7 @@ The starter glyph action is also artwork-safe: it fills empty supported slots, r
 Supported:
 
 - 209 glyphs across uppercase, lowercase, numbers, ASCII punctuation, inverted punctuation, quotes, dashes, currency, legal symbols, math symbols, standalone marks, and Latin extended letters.
-- The expanded v9 catalog matches the requested Latin, punctuation, symbol, currency, math, mark, and extended-letter set.
+- The expanded catalog matches the requested Latin, punctuation, symbol, currency, math, mark, and extended-letter set.
 - Simple filled vector paths
 - Filled shape layers such as rounded rectangles, ellipses, polygons, and stars
 - Live boolean operations
@@ -49,9 +49,9 @@ Supported:
 - Single HTML test page with inline `@font-face` rows for every generated weight
 - Saved settings and last scan restore inside the Figma document
 
-Not supported in the MVP:
+Not supported in the current release:
 
-- Characters outside the v9 catalog
+- Characters outside the 209-glyph catalog
 - Automatic accent composition from base letters plus marks
 - Variable fonts
 - AI glyph generation
@@ -107,8 +107,8 @@ Build output:
 
 ## QA
 
-See [docs/QA.md](docs/QA.md) for the manual QA checklist, [docs/SMOKE_TEST.md](docs/SMOKE_TEST.md) for exported font smoke testing, [docs/ROADMAP.md](docs/ROADMAP.md) for the V2 closeout / V3 boundary, [docs/V3_ROADMAP.md](docs/V3_ROADMAP.md) for the lowercase roadmap, and [docs/V3_LOWERCASE_GEOMETRY.md](docs/V3_LOWERCASE_GEOMETRY.md) for the V3 guide geometry spec.
+See [docs/QA.md](docs/QA.md) for the manual QA checklist, [docs/SMOKE_TEST.md](docs/SMOKE_TEST.md) for exported font smoke testing, and [docs/COMMUNITY_LAUNCH.md](docs/COMMUNITY_LAUNCH.md) for the Figma Community listing and launch asset brief. Historical planning docs remain in [docs/ROADMAP.md](docs/ROADMAP.md), [docs/V3_ROADMAP.md](docs/V3_ROADMAP.md), and [docs/V3_LOWERCASE_GEOMETRY.md](docs/V3_LOWERCASE_GEOMETRY.md).
 
 ## Status
 
-Release candidate export settings add selected weight, glyph-section, and OTF/TTF/WOFF/WOFF2 package output on top of the expanded V9 glyph coverage.
+Typegen 1.0.0 exports selected weights, glyph sections, and OTF/TTF/WOFF/WOFF2 package output on top of the expanded 209-glyph coverage.

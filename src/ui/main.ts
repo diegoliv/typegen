@@ -679,13 +679,12 @@ function renderRecipeOverlay(): string {
           <button id="close-recipe" class="icon-button" aria-label="Close recipe">Close</button>
         </div>
         <ol class="recipe-list">
-          <li>Use the generated board names for the full V9 catalog, including safe names such as <strong>glyph-dollar</strong>, <strong>glyph-endash</strong>, <strong>glyph-euro</strong>, and <strong>glyph-not-equal</strong>.</li>
+          <li>Use the generated board names for the full Typegen catalog, including safe names such as <strong>glyph-dollar</strong>, <strong>glyph-endash</strong>, <strong>glyph-euro</strong>, and <strong>glyph-not-equal</strong>.</li>
           <li>Draw filled vectors, filled live shapes, or live booleans inside each slot.</li>
           <li>Glyph slots are scanned from temporary flattened copies.</li>
           <li>Convert text, live lines, and strokes to filled outlines before scanning.</li>
           <li>Avoid images, effects, gradients, masks, and unsupported live shape layers.</li>
         </ol>
-        <p class="status">V9 supports the expanded Latin, punctuation, symbol, currency, math, and standalone mark set through temporary slot flattening and manual pair kerning. Variable fonts, AI generation, live lines, and automatic accent composition remain outside this MVP.</p>
       </section>
     </div>
   `;
@@ -1746,7 +1745,7 @@ function createPreviewExportWarning(): string {
   }
 
   if (unsupported.size > 0) {
-    return 'Preview includes unsupported characters. Exported fonts include the V9 glyph catalog and space when scanned as valid.';
+    return 'Preview includes unsupported characters. Exported fonts include supported Typegen catalog glyphs and space when scanned as valid.';
   }
 
   if (missing.size > 0) {
@@ -1832,7 +1831,7 @@ function createExportDiagnostics(): ExportDiagnostics {
   }
 
   if (previewUnsupported.length > 0) {
-    details.push('Preview contains unsupported characters; export only includes the V9 glyph catalog and space.');
+    details.push('Preview contains unsupported characters; export only includes supported Typegen catalog glyphs and space.');
   }
 
   if (overrideCount > 0) {
