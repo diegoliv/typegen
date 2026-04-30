@@ -1,6 +1,8 @@
 import { buildFont } from '../font/buildFont';
 import {
+  FONT_EXPORT_FORMATS,
   downloadFontPackageZip,
+  type FontExportFormat,
   type FontPackageItem,
   type FontPackageStyle,
 } from '../font/exportFont';
@@ -67,6 +69,10 @@ type UiState = {
   importSpacingBasics: boolean;
   importAdvanceOverrides: boolean;
   importKerningPairs: boolean;
+  exportSettingsOverlayOpen: boolean;
+  exportBoardIds: string[];
+  exportCategoryIds: GlyphCategoryId[];
+  exportFormats: FontExportFormat[];
   glyphOverlayOpen: boolean;
   previewCollapsed: boolean;
   healthCollapsed: boolean;
@@ -142,6 +148,10 @@ const state: UiState = {
   importSpacingBasics: true,
   importAdvanceOverrides: true,
   importKerningPairs: true,
+  exportSettingsOverlayOpen: false,
+  exportBoardIds: [],
+  exportCategoryIds: GLYPH_CATEGORIES.map((category) => category.id),
+  exportFormats: ['otf'],
   glyphOverlayOpen: false,
   previewCollapsed: false,
   healthCollapsed: false,
@@ -184,6 +194,7 @@ function render() {
       ${state.showRecipeOverlay ? renderRecipeOverlay() : ''}
       ${state.boardCreationOverlayOpen ? renderBoardCreationOverlay() : ''}
       ${state.importSettingsOverlayOpen ? renderImportSettingsOverlay() : ''}
+      ${state.exportSettingsOverlayOpen ? renderExportSettingsOverlay() : ''}
       ${state.glyphOverlayOpen ? renderGlyphOverlay(selectedGlyph) : ''}
       ${state.isScanning ? renderScanningOverlay() : ''}
     </section>
@@ -759,6 +770,111 @@ function renderImportSettingsOverlay(): string {
   `;
 }
 
+function renderExportSettingsOverlay(): string {
+  const sources = state.boardSettingsSources;
+  const selectedBoardIds = selectedExportBoardIds(sources);
+  const selectedCategories = selectedExportCategoryIds();
+  const selectedFormats = selectedExportFormats();
+  const canExport = !state.isGenerating && selectedBoardIds.length > 0 && selectedCategories.length > 0 && selectedFormats.length > 0;
+  const selectedGlyphCount = GLYPH_CHARS.filter((char) => selectedCategories.includes(glyphCategoryForChar(char))).length;
+
+  return `
+    <div class="overlay-backdrop" role="dialog" aria-modal="true" aria-label="Export settings">
+      <section class="overlay-card export-settings-overlay">
+        <div class="overlay-head">
+          <div>
+            <p class="eyebrow">Export</p>
+            <h2>Package settings</h2>
+          </div>
+          <button id="close-export-settings" class="icon-button" aria-label="Close export settings" ${state.isGenerating ? 'disabled' : ''}>Close</button>
+        </div>
+        <p class="status">Choose which existing boards, glyph sections, and file formats should be included in the ZIP package.</p>
+        <div class="export-section">
+          <div class="section-head">
+            <h3>Weights</h3>
+            <span class="section-count">${selectedBoardIds.length}/${sources.length || 0}</span>
+          </div>
+          <div class="selectable-tile-list export-weight-list">
+            ${
+              sources.length
+                ? sources.map((source) => `
+                    <label class="selectable-tile ${selectedBoardIds.includes(source.activeBoard.id) ? 'selected' : ''}">
+                      <input type="checkbox" data-export-board="${escapeAttr(source.activeBoard.id)}" ${selectedBoardIds.includes(source.activeBoard.id) ? 'checked' : ''} ${state.isGenerating ? 'disabled' : ''} />
+                      <span>${escapeHtml(source.activeBoard.name)}</span>
+                    </label>
+                  `).join('')
+                : '<p class="status">No Typegen boards found yet.</p>'
+            }
+          </div>
+        </div>
+        <div class="export-section">
+          <div class="section-head">
+            <h3>Glyph Sections</h3>
+            <span class="section-count">${selectedGlyphCount}/${GLYPH_CHARS.length}</span>
+          </div>
+          <div class="export-shortcuts">
+            <button id="select-all-export-categories" type="button" ${state.isGenerating ? 'disabled' : ''}>All</button>
+            <button id="clear-export-categories" type="button" ${state.isGenerating ? 'disabled' : ''}>None</button>
+          </div>
+          <div class="selectable-tile-list export-category-list">
+            ${GLYPH_CATEGORIES.map((category) => {
+              const count = GLYPH_CHARS.filter((char) => glyphCategoryForChar(char) === category.id).length;
+              return `
+                <label class="selectable-tile ${selectedCategories.includes(category.id) ? 'selected' : ''}">
+                  <input type="checkbox" data-export-category="${escapeAttr(category.id)}" ${selectedCategories.includes(category.id) ? 'checked' : ''} ${state.isGenerating ? 'disabled' : ''} />
+                  <span>${escapeHtml(category.label)}</span>
+                  <em>${count}</em>
+                </label>
+              `;
+            }).join('')}
+          </div>
+        </div>
+        <div class="export-section">
+          <div class="section-head">
+            <h3>Formats</h3>
+            <span class="section-count">${selectedFormats.length}/${FONT_EXPORT_FORMATS.length}</span>
+          </div>
+          <div class="selectable-tile-list format-list">
+            ${FONT_EXPORT_FORMATS.map((format) => `
+              <label class="selectable-tile format-tile ${selectedFormats.includes(format.id) ? 'selected' : ''}">
+                <input type="checkbox" data-export-format="${escapeAttr(format.id)}" ${selectedFormats.includes(format.id) ? 'checked' : ''} ${state.isGenerating ? 'disabled' : ''} />
+                <span>${escapeHtml(format.label)}</span>
+              </label>
+            `).join('')}
+          </div>
+          <p class="status">TTF and WOFF are converted from the verified OTF. WOFF2 uses a bundled WASM encoder and may take a little longer.</p>
+        </div>
+        <div class="actions overlay-actions">
+          <button id="confirm-export-settings" class="primary-action" ${canExport ? '' : 'disabled'}>${state.isGenerating ? 'Generating...' : 'Generate ZIP'}</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function selectedExportBoardIds(sources = state.boardSettingsSources): string[] {
+  const availableIds = sources.map((source) => source.activeBoard.id);
+  const selected = state.exportBoardIds.filter((id) => availableIds.includes(id));
+
+  if (selected.length > 0 || state.exportBoardIds.length > 0) {
+    return selected;
+  }
+
+  return availableIds;
+}
+
+function selectedExportCategoryIds(): GlyphCategoryId[] {
+  const allowed = GLYPH_CATEGORIES.map((category) => category.id);
+  const selected = state.exportCategoryIds.filter((id) => allowed.includes(id));
+  return selected.length > 0 ? selected : [];
+}
+
+function selectedExportFormats(): FontExportFormat[] {
+  const allowed = FONT_EXPORT_FORMATS.map((format) => format.id);
+  const selected = state.exportFormats.filter((format) => allowed.includes(format));
+  return selected.length > 0 ? selected : [];
+}
+
 function renderGlyphOverlay(row: GlyphScanResult): string {
   const glyph = row.glyph;
   const advanceOverride = state.spacing.glyphAdvanceOverrides[row.char];
@@ -1083,6 +1199,67 @@ function bindEvents() {
     render();
   });
 
+  document.querySelector<HTMLButtonElement>('#close-export-settings')?.addEventListener('click', () => {
+    if (state.isGenerating) {
+      return;
+    }
+    state.exportSettingsOverlayOpen = false;
+    render();
+  });
+
+  document.querySelectorAll<HTMLInputElement>('[data-export-board]').forEach((input) => {
+    input.addEventListener('change', () => {
+      state.exportBoardIds = readCheckedValues('exportBoard') as string[];
+      render();
+    });
+  });
+
+  document.querySelectorAll<HTMLInputElement>('[data-export-category]').forEach((input) => {
+    input.addEventListener('change', () => {
+      state.exportCategoryIds = readCheckedValues('exportCategory').filter((id): id is GlyphCategoryId =>
+        GLYPH_CATEGORIES.some((category) => category.id === id),
+      );
+      render();
+    });
+  });
+
+  document.querySelector<HTMLButtonElement>('#select-all-export-categories')?.addEventListener('click', () => {
+    state.exportCategoryIds = GLYPH_CATEGORIES.map((category) => category.id);
+    render();
+  });
+
+  document.querySelector<HTMLButtonElement>('#clear-export-categories')?.addEventListener('click', () => {
+    state.exportCategoryIds = [];
+    render();
+  });
+
+  document.querySelectorAll<HTMLInputElement>('[data-export-format]').forEach((input) => {
+    input.addEventListener('change', () => {
+      state.exportFormats = readCheckedValues('exportFormat').filter((format): format is FontExportFormat =>
+        FONT_EXPORT_FORMATS.some((item) => item.id === format),
+      );
+      render();
+    });
+  });
+
+  document.querySelector<HTMLButtonElement>('#confirm-export-settings')?.addEventListener('click', () => {
+    const selectedBoards = selectedExportBoardIds();
+    const selectedCategories = selectedExportCategoryIds();
+    const selectedFormats = selectedExportFormats();
+    if (state.isGenerating || selectedBoards.length === 0 || selectedCategories.length === 0 || selectedFormats.length === 0) {
+      return;
+    }
+
+    state.exportBoardIds = selectedBoards;
+    state.exportCategoryIds = selectedCategories;
+    state.exportFormats = selectedFormats;
+    state.isGenerating = true;
+    state.generatedFont = null;
+    state.statusMessage = 'Scanning selected Typegen boards and generating the ZIP package...';
+    postToPlugin({ type: 'SCAN_ALL_GLYPH_BOARDS' });
+    render();
+  });
+
   document.querySelector<HTMLSelectElement>('#import-settings-source')?.addEventListener('change', (event) => {
     state.importSourceBoardId = (event.target as HTMLSelectElement).value;
     render();
@@ -1274,12 +1451,19 @@ function bindEvents() {
   });
 
   document.querySelector<HTMLButtonElement>('#generate-font')?.addEventListener('click', () => {
-    state.isGenerating = true;
-    state.generatedFont = null;
-    state.statusMessage = 'Scanning all Typegen glyph boards and generating the ZIP package...';
-    postToPlugin({ type: 'SCAN_ALL_GLYPH_BOARDS' });
+    state.exportSettingsOverlayOpen = true;
+    state.boardSettingsSources = [];
+    state.statusMessage = 'Choose export settings before generating the ZIP package.';
+    postToPlugin({ type: 'REQUEST_BOARD_SETTINGS_SOURCES' });
     render();
   });
+}
+
+function readCheckedValues(datasetKey: 'exportBoard' | 'exportCategory' | 'exportFormat'): string[] {
+  return Array.from(document.querySelectorAll<HTMLInputElement>(`[data-${datasetKey.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`)}]`))
+    .filter((input) => input.checked)
+    .map((input) => input.dataset[datasetKey])
+    .filter((value): value is string => Boolean(value));
 }
 
 function bindMetricInputs(metric: string, min: number, max: number, applyValue: (value: number) => void, persistValue = persistSettings): void {
@@ -1454,11 +1638,12 @@ window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginToUiMessage }>) 
     state.glyphOverlayOpen = false;
     state.spacing = createDefaultSpacing();
     state.importSettingsOverlayOpen = false;
+    state.exportSettingsOverlayOpen = false;
     state.statusMessage = 'Select a Typegen board to auto-scan status, weight, and preview data.';
   }
 
   if (message.type === 'ALL_GLYPH_BOARDS_SCANNED') {
-    generateFontPackageFromBoards(message.boards);
+    void generateFontPackageFromBoards(message.boards);
   }
 
   if (message.type === 'BOARD_SETTINGS_SOURCES') {
@@ -1466,6 +1651,11 @@ window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginToUiMessage }>) 
     const sources = message.sources.filter((source) => source.activeBoard.id !== state.activeBoard?.id);
     if (!state.importSourceBoardId || !sources.some((source) => source.activeBoard.id === state.importSourceBoardId)) {
       state.importSourceBoardId = sources[0]?.activeBoard.id ?? '';
+    }
+    const availableExportBoardIds = message.sources.map((source) => source.activeBoard.id);
+    state.exportBoardIds = state.exportBoardIds.filter((id) => availableExportBoardIds.includes(id));
+    if (state.exportSettingsOverlayOpen && state.exportBoardIds.length === 0) {
+      state.exportBoardIds = availableExportBoardIds;
     }
   }
 
@@ -1497,7 +1687,10 @@ function escapeAttr(value: string) {
 }
 
 function exportedChars(): GlyphChar[] {
-  return validGlyphs().map((row) => row.char);
+  const selectedCategories = new Set(selectedExportCategoryIds());
+  return validGlyphs()
+    .map((row) => row.char)
+    .filter((char) => selectedCategories.size === 0 || selectedCategories.has(glyphCategoryForChar(char)));
 }
 
 function createScanExportWarning(): string {
@@ -1663,7 +1856,7 @@ function createExportDiagnostics(): ExportDiagnostics {
       details.push('Last generated package font did not verify cleanly.');
     }
   } else {
-    details.push('Generate font scans all Typegen boards and downloads one ZIP package.');
+    details.push('Generate font opens package settings, then scans selected Typegen boards before downloading one ZIP package.');
   }
 
   if (validCount === 0) {
@@ -1827,20 +2020,28 @@ function renderFontVerification(result: FontBuildResult): string {
   `;
 }
 
-function generateFontPackageFromBoards(boards: BoardScanResult[]): void {
+async function generateFontPackageFromBoards(boards: BoardScanResult[]): Promise<void> {
   try {
     const items: FontPackageItem[] = [];
     const seenStyles = new Set<FontPackageStyle>();
+    const selectedBoardIds = new Set(selectedExportBoardIds());
+    const selectedCategories = new Set(selectedExportCategoryIds());
+    const selectedFormats = selectedExportFormats();
     const skipped: string[] = [];
 
     for (const board of boards) {
+      if (!selectedBoardIds.has(board.activeBoard.id)) {
+        continue;
+      }
+
       const style = board.activeBoard.style;
       const validGlyphsForBoard = board.glyphs
         .filter((glyph) => glyph.status === 'valid' && glyph.glyph)
+        .filter((glyph) => selectedCategories.has(glyphCategoryForChar(glyph.char)))
         .map((glyph) => glyph.glyph!);
 
       if (validGlyphsForBoard.length === 0) {
-        skipped.push(`${board.activeBoard.name} has no valid glyphs`);
+        skipped.push(`${board.activeBoard.name} has no valid glyphs in the selected sections`);
         continue;
       }
 
@@ -1877,13 +2078,16 @@ function generateFontPackageFromBoards(boards: BoardScanResult[]): void {
       return;
     }
 
-    downloadFontPackageZip(items, createSmokeTestSampleText());
+    await downloadFontPackageZip(items, createSmokeTestSampleText(), selectedFormats);
     const weights = items.map((item) => item.style).join(', ');
-    state.statusMessage = `Generated ZIP package for ${weights}. ${skipped.length ? `Skipped: ${skipped.join(' ')}` : ''}`.trim();
+    const formats = selectedFormats.map((format) => format.toUpperCase()).join(', ');
+    state.exportSettingsOverlayOpen = false;
+    state.statusMessage = `Generated ZIP package for ${weights} as ${formats}. ${skipped.length ? `Skipped: ${skipped.join(' ')}` : ''}`.trim();
   } catch (error) {
     state.statusMessage = error instanceof Error ? error.message : 'Font package generation failed.';
   } finally {
     state.isGenerating = false;
+    render();
   }
 }
 

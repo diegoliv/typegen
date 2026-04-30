@@ -1,3 +1,4 @@
+import { createFont } from "fonteditor-core";
 import type { FontBuildResult } from "./glyphModel";
 import { fontWeightValueForStyle, type FontWeightStyle } from "../shared/types";
 
@@ -8,11 +9,32 @@ export const CSS_EXTENSION = "css";
 export const ZIP_EXTENSION = "zip";
 
 export type FontPackageStyle = FontWeightStyle;
+export type FontExportFormat = "otf" | "ttf" | "woff" | "woff2";
+
+export type FontPackageFile = {
+  format: FontExportFormat;
+  filename: string;
+  data: Uint8Array;
+};
 
 export type FontPackageItem = {
   result: FontBuildResult;
   style: FontPackageStyle;
+  files?: FontPackageFile[];
 };
+
+export const FONT_EXPORT_FORMATS: Array<{
+  id: FontExportFormat;
+  label: string;
+  extension: string;
+  cssFormat: string;
+  mimeType: string;
+}> = [
+  { id: "otf", label: "OTF", extension: "otf", cssFormat: "opentype", mimeType: "font/otf" },
+  { id: "ttf", label: "TTF", extension: "ttf", cssFormat: "truetype", mimeType: "font/ttf" },
+  { id: "woff", label: "WOFF", extension: "woff", cssFormat: "woff", mimeType: "font/woff" },
+  { id: "woff2", label: "WOFF2", extension: "woff2", cssFormat: "woff2", mimeType: "font/woff2" },
+];
 
 export function createFontBlob(arrayBuffer: ArrayBuffer): Blob {
   return new Blob([arrayBuffer], { type: FONT_MIME_TYPE });
@@ -43,9 +65,18 @@ export function createPackageDownloadName(familyName: string): string {
 }
 
 export function createWeightedFontDownloadName(familyName: string, style: FontPackageStyle): string {
-  const baseName = createSafeBaseName(familyName);
+  return createWeightedFontFormatDownloadName(familyName, style, "otf");
+}
 
-  return `${baseName || "Typegen-Font"}-${style}.${FONT_EXTENSION}`;
+export function createWeightedFontFormatDownloadName(
+  familyName: string,
+  style: FontPackageStyle,
+  format: FontExportFormat,
+): string {
+  const baseName = createSafeBaseName(familyName);
+  const extension = extensionForFormat(format);
+
+  return `${baseName || "Typegen-Font"}-${style}.${extension}`;
 }
 
 export function downloadFont(result: FontBuildResult): void {
@@ -79,10 +110,10 @@ export function createFontPackageHtml(items: FontPackageItem[], sampleText = "AB
   const fontFaces = orderedItems
     .map((item) => {
       const cssFamilyName = escapeCssString(item.result.familyName);
-      const filename = createWeightedFontDownloadName(item.result.familyName, item.style);
+      const sources = createFontFaceSources(item);
       return `    @font-face {
       font-family: "${cssFamilyName}";
-      src: url("./fonts/${filename}") format("opentype");
+      src: ${sources};
       font-weight: ${fontWeightForStyle(item.style)};
       font-style: normal;
       font-display: swap;
@@ -178,16 +209,26 @@ ${rows}
 </html>`;
 }
 
-export function createFontPackageZip(items: FontPackageItem[], sampleText?: string): Blob {
+export async function createFontPackageZip(
+  items: FontPackageItem[],
+  sampleText?: string,
+  formats: FontExportFormat[] = ["otf"],
+): Promise<Blob> {
   const orderedItems = sortPackageItems(items);
-  const files = [
-    ...orderedItems.map((item) => ({
-      name: `fonts/${createWeightedFontDownloadName(item.result.familyName, item.style)}`,
-      data: new Uint8Array(item.result.arrayBuffer),
+  const packageItems = await Promise.all(
+    orderedItems.map(async (item) => ({
+      ...item,
+      files: item.files ?? await createPackageFiles(item.result, item.style, formats),
     })),
+  );
+  const files = [
+    ...packageItems.flatMap((item) => item.files?.map((file) => ({
+      name: `fonts/${file.filename}`,
+      data: file.data,
+    })) ?? []),
     {
       name: "index.html",
-      data: stringToUtf8(createFontPackageHtml(orderedItems, sampleText)),
+      data: stringToUtf8(createFontPackageHtml(packageItems, sampleText)),
     },
   ];
 
@@ -285,12 +326,16 @@ export function downloadSmokeTestHtml(
   triggerDownload(blob, createSmokeTestDownloadName(result.familyName));
 }
 
-export function downloadFontPackageZip(items: FontPackageItem[], sampleText?: string): void {
+export async function downloadFontPackageZip(
+  items: FontPackageItem[],
+  sampleText?: string,
+  formats: FontExportFormat[] = ["otf"],
+): Promise<void> {
   if (items.length === 0) {
     return;
   }
 
-  triggerDownload(createFontPackageZip(items, sampleText), createPackageDownloadName(items[0].result.familyName));
+  triggerDownload(await createFontPackageZip(items, sampleText, formats), createPackageDownloadName(items[0].result.familyName));
 }
 
 function sortPackageItems(items: FontPackageItem[]): FontPackageItem[] {
@@ -299,6 +344,96 @@ function sortPackageItems(items: FontPackageItem[]): FontPackageItem[] {
 
 function fontWeightForStyle(style: FontPackageStyle): number {
   return fontWeightValueForStyle(style);
+}
+
+function extensionForFormat(format: FontExportFormat): string {
+  return FONT_EXPORT_FORMATS.find((item) => item.id === format)?.extension ?? "otf";
+}
+
+function cssFormatForFormat(format: FontExportFormat): string {
+  return FONT_EXPORT_FORMATS.find((item) => item.id === format)?.cssFormat ?? "opentype";
+}
+
+function createFontFaceSources(item: FontPackageItem): string {
+  const files = item.files && item.files.length > 0
+    ? item.files
+    : [{
+        format: "otf" as const,
+        filename: createWeightedFontFormatDownloadName(item.result.familyName, item.style, "otf"),
+        data: new Uint8Array(item.result.arrayBuffer),
+      }];
+
+  return [...files]
+    .sort((a, b) => fontSourcePriority(a.format) - fontSourcePriority(b.format))
+    .map((file) => `url("./fonts/${escapeCssUrl(file.filename)}") format("${cssFormatForFormat(file.format)}")`)
+    .join(",\n        ");
+}
+
+function fontSourcePriority(format: FontExportFormat): number {
+  return ({ woff2: 0, woff: 1, ttf: 2, otf: 3 } as Record<FontExportFormat, number>)[format];
+}
+
+async function createPackageFiles(
+  result: FontBuildResult,
+  style: FontPackageStyle,
+  formats: FontExportFormat[],
+): Promise<FontPackageFile[]> {
+  const uniqueFormats = sanitizeFormats(formats);
+  const files: FontPackageFile[] = [];
+
+  for (const format of uniqueFormats) {
+    files.push({
+      format,
+      filename: createWeightedFontFormatDownloadName(result.familyName, style, format),
+      data: new Uint8Array(await convertFontBuffer(result.arrayBuffer, format)),
+    });
+  }
+
+  return files;
+}
+
+function sanitizeFormats(formats: FontExportFormat[]): FontExportFormat[] {
+  const allowed = new Set(FONT_EXPORT_FORMATS.map((format) => format.id));
+  const unique = formats.filter((format, index) => allowed.has(format) && formats.indexOf(format) === index);
+  return unique.length > 0 ? unique : ["otf"];
+}
+
+async function convertFontBuffer(buffer: ArrayBuffer, format: FontExportFormat): Promise<ArrayBuffer> {
+  if (format === "otf") {
+    return buffer.slice(0);
+  }
+
+  if (format === "woff2") {
+    const { initializeWoff2Runtime } = await import("./woff2Runtime");
+    await initializeWoff2Runtime();
+  }
+
+  const font = createFont(buffer, {
+    type: "otf",
+    kerning: true,
+    compound2simple: true,
+  });
+  const output = font.write({
+    type: format,
+    toBuffer: false,
+    kerning: true,
+    writeZeroContoursGlyfData: false,
+  });
+
+  return fontOutputToArrayBuffer(output);
+}
+
+function fontOutputToArrayBuffer(output: ArrayBuffer | ArrayBufferView | string): ArrayBuffer {
+  if (typeof output === "string") {
+    return toArrayBuffer(stringToUtf8(output));
+  }
+
+  if (output instanceof ArrayBuffer) {
+    return output;
+  }
+
+  const bytes = new Uint8Array(output.buffer, output.byteOffset, output.byteLength);
+  return toArrayBuffer(bytes);
 }
 
 function triggerDownload(blob: Blob, filename: string): void {
@@ -462,4 +597,8 @@ function escapeHtml(value: string): string {
 
 function escapeCssString(value: string): string {
   return value.replace(/["\\\n\r\f]/g, (char) => `\\${char}`);
+}
+
+function escapeCssUrl(value: string): string {
+  return value.replace(/[\\")\n\r\f]/g, (char) => `\\${char}`);
 }

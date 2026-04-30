@@ -9,11 +9,11 @@ Validate that the smallest working Typegen loop remains stable and becomes relia
 3. Refine generated vector outlines as needed.
 4. Scan the selected board or glyph slots.
 5. Preview available glyphs and missing glyphs.
-6. Generate and export one static font file.
-7. Click `Generate font` to export the weight ZIP.
+6. Generate and export selected static font files.
+7. Click `Generate font`, choose export settings, and export the weight ZIP.
 8. Smoke test the exported font in a browser or font viewer.
 
-V9 alpha QA should first re-run the V8 happy path, then focus on expanded glyph coverage and board/UI organization: the OTF remains the only font binary format, and scan-time flattening must preserve the original Figma artwork.
+V9 alpha QA should first re-run the V8 happy path, then focus on expanded glyph coverage, board/UI organization, and release export settings. OTF remains the native generated format; TTF, WOFF, and WOFF2 are converted package outputs. Scan-time flattening must preserve the original Figma artwork.
 
 ## Supported Glyph Recipe
 
@@ -34,7 +34,7 @@ V9 alpha QA should first re-run the V8 happy path, then focus on expanded glyph 
 - Text, images, gradients, effects, masks, and complex unsupported layers should be rejected with clear messages.
 - Partial alphabets are allowed if at least one valid glyph exists.
 - Preview spaces are allowed; characters outside the v9 catalog are unsupported.
-- One static font export format is expected.
+- OTF, TTF, WOFF, and WOFF2 package formats are available from the export settings overlay.
 - Global letter spacing and space width controls should affect both preview and exported font output.
 
 ## Test Environment
@@ -71,8 +71,10 @@ Record these before each QA pass:
 18. Confirm `g` descends below the baseline while `a`, `o`, and `x` align around x-height.
 19. Generate at least two different weight boards if testing the multi-weight path.
 20. Click `Generate font`.
-21. Confirm the ZIP filename is based on `Typegen Demo`.
-22. Confirm the ZIP contains one `fonts/Typegen-Demo-{Weight}.otf` file per valid board weight plus `index.html`.
+21. Confirm the export settings overlay opens.
+22. Select the board weights, glyph sections, and font formats to export.
+23. Confirm the ZIP filename is based on `Typegen Demo`.
+24. Confirm the ZIP contains the selected `fonts/Typegen-Demo-{Weight}.{format}` files per valid board weight plus `index.html`.
 23. Open the ZIP `index.html` in a browser.
 24. Confirm it shows one row for each generated weight.
 25. Smoke test `ABOPR PRO BAR`, `2024 A10`, `ABC, 123! OK?`, `box`, `go`, `bag`, `go ox`, `ABC box 012`, `type`, `glyph`, `font`, `quick`, `boxing glyph`, `a/b @2+2`, `A+B=C`, `font@example`, and `(quick)`.
@@ -144,11 +146,15 @@ Record these before each QA pass:
 
 - [ ] UI label shows `Typegen V5.0 alpha`.
 - [ ] UI has only one output button: `Generate font`.
-- [ ] `Generate font` downloads a `.zip` file using the sanitized font name.
-- [ ] ZIP contains OTF files only for board weights that scan with at least one valid glyph and verify cleanly.
+- [ ] `Generate font` opens an export settings overlay before downloading.
+- [ ] Export settings allow selecting existing board weights.
+- [ ] Export settings allow selecting glyph sections.
+- [ ] Export settings allow selecting OTF, TTF, WOFF, and WOFF2.
+- [ ] `Generate ZIP` downloads a `.zip` file using the sanitized font name.
+- [ ] ZIP contains selected format files only for selected board weights that scan with at least one valid glyph in the selected sections and verify cleanly.
 - [ ] ZIP `index.html` contains inline `@font-face` CSS with matching numeric weights, such as `400` for Regular, `700` for Bold, and `900` for Black.
 - [ ] ZIP `index.html` shows one specimen row per generated weight.
-- [ ] WOFF and WOFF2 are not exposed in the UI.
+- [ ] WOFF and WOFF2 smoke-test correctly when selected.
 
 ## V8.0 Temporary Flattening Checks
 
@@ -349,7 +355,7 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 ### Export
 
 - [ ] Output action is a single `Generate font` button.
-- [ ] `Generate font` scans all Typegen boards before packaging.
+- [ ] `Generate font` opens package settings, then scans Typegen boards before packaging selected boards.
 - [ ] `Generate font` creates a local downloadable ZIP file when at least one board has verified glyphs.
 - [ ] Filename is sanitized from the font name.
 - [ ] File extension is `.zip`.
@@ -360,7 +366,7 @@ V2 is not a scope expansion. It is a hardening pass over the already-working V1 
 
 - [ ] Exported font can be loaded by a simple HTML page with `@font-face`.
 - [ ] Generated ZIP HTML opens without additional setup after extraction.
-- [ ] Generated ZIP test page references packaged OTF files with relative `fonts/` URLs.
+- [ ] Generated ZIP test page references packaged selected font files with relative `fonts/` URLs.
 - [ ] Generated ZIP test page includes rows for each packaged font weight.
 - [ ] Supported v9 glyphs render with custom outlines.
 - [ ] Missing v9 glyphs do not break rendering.
@@ -459,7 +465,7 @@ Run these after the main demo flow passes:
 
 ## Smoke-Test HTML
 
-Prefer the plugin's `Generate font` action after preparing the board weights you want to test. It scans all Typegen boards, downloads OTF files plus an `index.html` page with inline `@font-face` CSS, and shows one row per generated weight.
+Prefer the plugin's `Generate font` action after preparing the board weights you want to test. It opens export settings, scans Typegen boards, downloads selected font formats plus an `index.html` page with inline `@font-face` CSS, and shows one row per generated weight.
 
 If the generated ZIP is unavailable, use this local template after exporting a font from a development build. Update `src` and `font-family` to match the exported file/name.
 
@@ -508,7 +514,7 @@ Expected result: supported custom glyphs visibly render with Typegen outlines; u
 - No AI glyph generation.
 - Stroked lines and stroked vectors must be converted to filled outlines before scanning.
 - No image/text/gradient/effect support for glyph outlines.
-- Export is one static font file format only.
+- OTF is the native generated format; TTF, WOFF, and WOFF2 are converted package formats.
 - Compound path/counter support may be limited by current extraction behavior; document exact failures.
 
 ## QA Signoff Criteria

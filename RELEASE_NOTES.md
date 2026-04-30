@@ -1,5 +1,23 @@
 # Release Notes
 
+## Release Candidate Export Settings
+
+Typegen release-candidate export controls.
+
+### Added
+
+- `Generate font` now opens a package settings overlay before ZIP generation.
+- Export can be limited to selected existing board weights.
+- Export can be limited to selected V9 glyph sections.
+- Export formats now include OTF, TTF, WOFF, and WOFF2.
+- ZIP smoke-test HTML now writes `@font-face` sources for the selected packaged formats.
+
+### Notes
+
+- OTF remains Typegen's native generated font; TTF, WOFF, and WOFF2 are converted from the verified OTF.
+- WOFF2 uses a bundled WASM encoder, so all-format exports can take longer than OTF-only exports.
+- Variable fonts, AI generation, and automatic accent composition remain out of scope.
+
 ## 9.1.0-alpha.1
 
 Typegen V9.1 alpha performance and scan responsiveness.
