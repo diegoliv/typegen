@@ -1,5 +1,30 @@
 # Typegen MVP Implementation Plan
 
+## 61. Kerning Discoverability
+
+Goal: make common manual kerning work discoverable without adding auto-kerning, kerning classes, or a broader font-editor feature surface.
+
+Implementation status:
+
+- Added a static recommended kerning pair catalog with uppercase, lowercase, mixed, and punctuation families.
+- Expanded the recommended catalog with the requested uppercase, mixed-case, punctuation, and number pairs.
+- Added reusable recommended-pair review helpers that mark pairs as customized, default, or blocked by invalid/missing glyphs.
+- Added recommended pair suggestions to the glyph detail overlay Kerning tab's existing pair glyph field.
+- Added a standalone top-level Kerning tab with table-like family sections for reviewing the recommended workload.
+- Added a kerning overlay opened from global recommended pair tiles, reusing the existing manual editor.
+- Kept kerning persistence, preview layout, export tables, and generated-font verification on the existing board-scoped `kerningPairs` path.
+- Updated README, release notes, QA checklist, and regression checks.
+
+Verification completed:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run build` passed.
+
+Remaining:
+
+- Manual Figma QA for overlay recommended-pair selection, top-level Kerning tab selection, blocked status on missing glyphs, and export smoke test for customized pairs.
+
 ## 60. 1.0.0 Documentation And Community Launch Alignment
 
 Goal: align public-facing docs and release metadata with the current 1.0.0 baseline before Figma Community publication.

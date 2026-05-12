@@ -10,7 +10,8 @@ The current 1.0.0 release keeps the reliable temporary-flattening pipeline, supp
 4. Select a board and let Typegen auto-scan it.
 5. Preview available glyphs with custom text or quick presets.
 6. Tune spacing and optional manual kerning pairs in the glyph detail overlay.
-7. Click `Generate font`, choose export settings, and download a ZIP package containing selected weights, selected glyph sections, selected formats, and one test HTML file.
+7. Review recommended kerning pairs from the Glyph detail overlay or the standalone Kerning tab.
+8. Click `Generate font`, choose export settings, and download a ZIP package containing selected weights, selected glyph sections, selected formats, and one test HTML file.
 
 The board action is safe to re-run: it updates the selected board when one is active on the canvas, preserves existing glyph artwork, and adds/repositions supported slots into labeled category bands. Regular and Bold starter styles use separate boards, so creating a Bold board will not reuse an existing Regular board.
 
@@ -44,6 +45,7 @@ Supported:
 - Global letter spacing and space width
 - Per-glyph advance width overrides
 - Manual kerning pairs from the glyph detail overlay
+- Recommended kerning pairs in both the glyph overlay and standalone Kerning tab, with customized and blocked status
 - Export settings for board weights, glyph sections, and output formats
 - OTF, TTF, WOFF, and WOFF2 files for selected valid generated board weights
 - Single HTML test page with inline `@font-face` rows for every generated weight

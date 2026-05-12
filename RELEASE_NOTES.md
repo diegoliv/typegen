@@ -1,5 +1,24 @@
 # Release Notes
 
+## Internal Milestone: Kerning Discoverability
+
+Kerning discoverability milestone.
+
+### Added
+
+- The glyph detail overlay Kerning tab now exposes recommended common pairs through the existing pair glyph field's select list.
+- Recommended pairs show whether they are customized, still using default spacing, or blocked because one of the glyphs is not valid in the current scan.
+- Added a top-level Kerning tab with table-like family sections for reviewing the recommended kerning workload across the active board.
+- Clicking a recommended pair opens a kerning overlay that uses the existing manual editor, preserving the current board-scoped persistence, preview, export, and verification behavior.
+- Expanded the recommended pair catalog to cover broader uppercase, mixed-case, punctuation, and number pairs.
+
+### Still Out Of Scope
+
+- Auto-kerning.
+- Kerning classes.
+- AI suggestions.
+- OpenType feature editing beyond the existing manual pair export support.
+
 ## 1.0.0
 
 Official Typegen 1.0.0 release with expanded glyph coverage, export settings, and multi-format font package output.

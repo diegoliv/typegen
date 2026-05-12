@@ -825,6 +825,7 @@ h2 {
 }
 
 .glyph-overlay {
+  overflow: visible;
   gap: 22px;
   border-color: #e5e5e5;
   padding: 16px;
@@ -1223,10 +1224,231 @@ h2 {
   line-height: 20px;
 }
 
+.kerning-panel {
+  gap: 12px;
+}
+
+.kerning-review-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  color: #6b6b6b;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.kerning-intro {
+  margin: -4px 0 0;
+}
+
+.kerning-sections {
+  display: grid;
+  gap: 16px;
+}
+
+.kerning-section {
+  display: grid;
+  gap: 8px;
+}
+
+.kerning-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+}
+
+.kerning-pair-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 56px;
+  min-height: 56px;
+  border: 1px solid #e5e5e5;
+  border-radius: 0;
+  background: #ffffff;
+  color: rgba(0, 0, 0, 0.28);
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.kerning-pair-tile span {
+  color: currentColor;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.kerning-pair-tile em {
+  overflow: hidden;
+  max-width: 100%;
+  color: currentColor;
+  font-size: 10px;
+  font-style: normal;
+  line-height: 11px;
+  opacity: 0.64;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kerning-pair-tile.customized {
+  border-color: #d9d9d9;
+  background: #ffffff;
+  color: #000000;
+}
+
+.kerning-pair-tile.blocked {
+  border-color: #f5a623;
+  background: #fff8e6;
+  color: #b86200;
+}
+
+.kerning-pair-tile.selected {
+  border-color: #0d99ff;
+  outline: 1px solid #0d99ff;
+  outline-offset: -1px;
+}
+
+.compact-head {
+  min-height: 20px;
+}
+
+.compact-head h3 {
+  margin: 0;
+  color: #1f1f1f;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.compact-status {
+  margin: 0;
+  font-size: 11px;
+  line-height: 15px;
+}
+
 .kerning-fields {
   display: grid;
   width: 100%;
   gap: 12px;
+}
+
+.kerning-combobox {
+  position: relative;
+  display: grid;
+  gap: 4px;
+}
+
+.kerning-combobox-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  align-items: stretch;
+  min-height: 32px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.kerning-combobox.open .kerning-combobox-control {
+  border-color: #0d99ff;
+  box-shadow: 0 0 0 1px #0d99ff inset;
+}
+
+.kerning-combobox-control input {
+  width: 100%;
+  min-height: 30px;
+  border: 0;
+  background: transparent;
+  padding: 6px 8px;
+}
+
+.kerning-combobox-control input:focus {
+  outline: 0;
+}
+
+.kerning-combobox-control button {
+  display: grid;
+  width: 32px;
+  min-width: 32px;
+  min-height: 30px;
+  place-items: center;
+  border: 0;
+  border-left: 1px solid #e5e5e5;
+  border-radius: 0;
+  background: transparent;
+  color: #1f1f1f;
+  padding: 0;
+}
+
+.kerning-combobox-control button svg {
+  width: 12px;
+  height: 12px;
+}
+
+.kerning-combobox-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 20;
+  display: grid;
+  max-height: 132px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+  padding: 4px;
+}
+
+.kerning-combobox-menu p {
+  color: #6b6b6b;
+  font-size: 11px;
+  line-height: 15px;
+  padding: 8px;
+}
+
+.kerning-combobox-option {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 30px;
+  border: 0;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #1f1f1f;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.kerning-combobox-option:hover,
+.kerning-combobox-option:focus {
+  background: #f5f5f5;
+}
+
+.kerning-combobox-option.create {
+  background: #eff8ff;
+  color: #0b6fb7;
+}
+
+.kerning-combobox-option strong {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.kerning-combobox-option span {
+  overflow: hidden;
+  color: currentColor;
+  font-size: 11px;
+  line-height: 15px;
+  opacity: 0.72;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .kerning-amount-row {

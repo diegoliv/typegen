@@ -87,11 +87,25 @@ Record these before each QA pass:
 - [ ] Updating an older board adds the expanded-catalog slots without deleting existing artwork.
 - [ ] Glyphs tab can filter by each category and search by character, safe glyph name, or status.
 - [ ] Selecting a dense section glyph opens the existing detail overlay with preview, spacing, and kerning controls.
+- [ ] Opening glyph `A` in the overlay Kerning tab shows recommended pair values such as `V`, `W`, `T`, and `Y` in the pair glyph field's select list.
+- [ ] Choosing a suggested pair glyph from the overlay field updates the existing kerning preview.
 - [ ] Starter glyph generation fills empty slots across all categories where Inter can provide outlines.
 - [ ] Scan returns 209 supported glyph rows.
 - [ ] Preview presets cover mixed text, accented words, symbols, currency, math, and Latin extended samples.
 - [ ] Exported OTF and smoke-test HTML preserve representative glyphs from every category.
 - [ ] Standalone marks export as their own slots; automatic accent composition is not expected.
+
+## Kerning Discoverability Checks
+
+- [ ] Top-level tabs include a standalone `Kerning` tab.
+- [ ] Kerning tab lists recommended common pairs in table-like family sections across uppercase, lowercase, mixed, punctuation, and number families.
+- [ ] Kerning tab family filter narrows the recommended pair list without changing saved kerning values.
+- [ ] Not-customized recommended pairs appear muted/opaque in the Kerning tab.
+- [ ] Customized recommended pairs appear full black in the Kerning tab.
+- [ ] Recommended pairs with missing or invalid glyphs are marked as blocked.
+- [ ] Clicking a recommended pair in the Kerning tab opens a kerning overlay for that pair.
+- [ ] Editing or resetting a selected recommended pair updates the same board-scoped `kerningPairs` state used by preview and export.
+- [ ] The glyph overlay and Kerning tab agree on customized/default/blocked status for the same pair.
 
 ## Starter Glyph Checks
 
@@ -455,6 +469,8 @@ Run these after the main demo flow passes:
 | Reset A override | A returns to automatic advance width |
 | Kerning `AV` to `-80` | Preview and exported smoke test pull V closer to A |
 | Kerning `TA` to `60` | Preview and exported smoke test loosen A after T |
+| Choose `V` from glyph A overlay pair field suggestions | Pair field switches to V and the existing kerning slider controls AV |
+| Click recommended `AV` in top-level Kerning tab | Kerning overlay opens for AV and keeps board-scoped persistence |
 | Backspace in pair glyph field | Field clears normally and kerning slider disables until one supported glyph is typed |
 | Kerning pair right glyph missing | UI warns that the pair will be ignored until the glyph is valid |
 | Reset `AV` kerning | Pair returns to default spacing |
