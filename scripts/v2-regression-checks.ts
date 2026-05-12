@@ -29,6 +29,11 @@ import {
 import { glyphCharFromName, isSupportedGlyphName, unicodeForChar } from "../src/plugin/pluginTypes";
 import { fitPathsToAdvance, normalizePathsForSlotMetrics } from "../src/plugin/extractPaths";
 import { layoutPreviewText } from "../src/ui/preview/renderGlyphPreview";
+import {
+  RECOMMENDED_KERNING_PAIRS,
+  getRecommendedKerningPairsForLeft,
+  reviewKerningPair,
+} from "../src/font/kerningRecommendations";
 
 void main();
 
@@ -430,6 +435,47 @@ assert.equal(
   resolveKerningValue("A", "V", { ...DEFAULT_SPACING, kerningPairs: [{ left: "A", right: "V", value: -80 }] }),
   -80,
   "kerning lookup should return the configured pair value",
+);
+assert.ok(
+  getRecommendedKerningPairsForLeft("A").some((pair) => pair.left === "A" && pair.right === "V"),
+  "recommended kerning pairs should make AV discoverable from glyph A",
+);
+assert.ok(
+  RECOMMENDED_KERNING_PAIRS.every((pair) => isGlyphChar(pair.left) && isGlyphChar(pair.right)),
+  "recommended kerning pairs should only reference supported glyphs",
+);
+assert.ok(
+  RECOMMENDED_KERNING_PAIRS.some((pair) => pair.left === "T" && pair.right === "R" && pair.family === "uppercase"),
+  "recommended kerning pairs should include expanded uppercase pairs",
+);
+assert.ok(
+  RECOMMENDED_KERNING_PAIRS.some((pair) => pair.left === "A" && pair.right === ":" && pair.family === "punctuation"),
+  "recommended kerning pairs should include expanded punctuation pairs",
+);
+assert.ok(
+  RECOMMENDED_KERNING_PAIRS.some((pair) => pair.left === "7" && pair.right === "9" && pair.family === "numbers"),
+  "recommended kerning pairs should include requested numeric pairs",
+);
+assert.equal(
+  reviewKerningPair(
+    { left: "A", right: "V", family: "uppercase" },
+    [
+      { char: "A", name: "glyph-A", status: "valid", message: "Valid", warnings: [], glyph: glyphA },
+      { char: "V", name: "glyph-V", status: "valid", message: "Valid", warnings: [], glyph: makeRectGlyph("V", 86, "glyph-V", 40, 0, 650, 700) },
+    ],
+    { ...DEFAULT_SPACING, kerningPairs: [{ left: "A", right: "V", value: -80 }] },
+  ).status,
+  "customized",
+  "recommended kerning pair review should detect customized pairs",
+);
+assert.equal(
+  reviewKerningPair(
+    { left: "A", right: "V", family: "uppercase" },
+    [{ char: "A", name: "glyph-A", status: "valid", message: "Valid", warnings: [], glyph: glyphA }],
+    DEFAULT_SPACING,
+  ).status,
+  "blocked",
+  "recommended kerning pair review should block pairs with missing glyphs",
 );
 
 const tightMetricsWarnings = collectMetricsWarnings([glyphA], {

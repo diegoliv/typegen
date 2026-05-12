@@ -23,6 +23,14 @@ import {
   type GlyphChar,
   type GlyphModel,
 } from '../font/glyphModel';
+import {
+  KERNING_PAIR_FAMILIES,
+  RECOMMENDED_KERNING_PAIRS,
+  getRecommendedKerningPairsForLeft,
+  reviewRecommendedKerningPairs,
+  type KerningPairFamilyId,
+  type KerningPairReview,
+} from '../font/kerningRecommendations';
 import { postToPlugin, isPluginMessage, type ActiveBoardInfo, type BoardScanResult, type BoardSettingsSource, type PluginToUiMessage } from '../shared/messages';
 import {
   DEFAULT_FONT_WEIGHT_STYLE,
@@ -49,9 +57,11 @@ type UiState = {
   glyphDetailTab: GlyphDetailTab;
   kerningPairRight: GlyphChar;
   kerningPairInput: string;
+  kerningPairMenuOpen: boolean;
   starterStyle: FontWeightStyle;
   glyphCategoryFilter: GlyphCategoryId | 'all';
   glyphSearch: string;
+  kerningFamilyFilter: KerningPairFamilyId | 'all';
   glyphs: GlyphScanResult[];
   selectedGlyph: GlyphChar;
   activeBoard: ActiveBoardInfo | null;
@@ -74,6 +84,7 @@ type UiState = {
   exportCategoryIds: GlyphCategoryId[];
   exportFormats: FontExportFormat[];
   glyphOverlayOpen: boolean;
+  kerningOverlayOpen: boolean;
   previewCollapsed: boolean;
   healthCollapsed: boolean;
   fontSettingsCollapsed: boolean;
@@ -82,7 +93,7 @@ type UiState = {
   isGenerating: boolean;
 };
 
-type UiTab = 'glyphs' | 'preview' | 'settings';
+type UiTab = 'glyphs' | 'preview' | 'kerning' | 'settings';
 type GlyphDetailTab = 'glyph' | 'kerning';
 
 type ExportDiagnostics = {
@@ -128,9 +139,11 @@ const state: UiState = {
   glyphDetailTab: 'glyph',
   kerningPairRight: 'V',
   kerningPairInput: 'V',
+  kerningPairMenuOpen: false,
   starterStyle: DEFAULT_FONT_WEIGHT_STYLE,
   glyphCategoryFilter: 'all',
   glyphSearch: '',
+  kerningFamilyFilter: 'all',
   glyphs: [],
   selectedGlyph: 'A',
   activeBoard: null,
@@ -153,6 +166,7 @@ const state: UiState = {
   exportCategoryIds: GLYPH_CATEGORIES.map((category) => category.id),
   exportFormats: ['otf'],
   glyphOverlayOpen: false,
+  kerningOverlayOpen: false,
   previewCollapsed: false,
   healthCollapsed: false,
   fontSettingsCollapsed: false,
@@ -196,6 +210,7 @@ function render() {
       ${state.importSettingsOverlayOpen ? renderImportSettingsOverlay() : ''}
       ${state.exportSettingsOverlayOpen ? renderExportSettingsOverlay() : ''}
       ${state.glyphOverlayOpen ? renderGlyphOverlay(selectedGlyph) : ''}
+      ${state.kerningOverlayOpen ? renderKerningOverlay(selectedGlyph) : ''}
       ${state.isScanning ? renderScanningOverlay() : ''}
     </section>
   `;
@@ -227,6 +242,7 @@ function renderTabbedPanel(rows: GlyphScanResult[], diagnostics: ExportDiagnosti
     ${renderTopHeader(true)}
     ${state.activeTab === 'glyphs' ? renderGlyphsTab(rows, diagnostics) : ''}
     ${state.activeTab === 'preview' ? renderPreviewTab() : ''}
+    ${state.activeTab === 'kerning' ? renderKerningTab(rows) : ''}
     ${state.activeTab === 'settings' ? renderSettingsTab() : ''}
   `;
 }
@@ -265,6 +281,7 @@ function renderTabs(): string {
   const tabs: Array<{ id: UiTab; label: string }> = [
     { id: 'glyphs', label: 'Glyphs' },
     { id: 'preview', label: 'Preview' },
+    { id: 'kerning', label: 'Kerning' },
     { id: 'settings', label: 'Settings' },
   ];
 
@@ -375,6 +392,42 @@ function renderPreviewTab(): string {
             <div class="preview" style="--preview-font-size: ${state.previewFontSize}px">${renderPreviewMarkup(state.previewText, state.glyphs, state.spacing)}</div>
             ${previewWarning ? `<p class="warning">${escapeHtml(previewWarning)}</p>` : ''}`
       }
+    </section>
+  `;
+}
+
+function renderKerningTab(rows: GlyphScanResult[]): string {
+  const pairs = kerningPairsForReview();
+  const visiblePairs = visibleKerningPairs(pairs);
+  const reviews = reviewRecommendedKerningPairs(visiblePairs, rows, state.spacing);
+  const allReviews = reviewRecommendedKerningPairs(pairs, rows, state.spacing);
+  const customizedCount = allReviews
+    .filter((review) => review.status === 'customized').length;
+  const blockedCount = reviews.filter((review) => review.status === 'blocked').length;
+
+  return `
+    <section class="panel kerning-panel">
+      <div class="section-head">
+        <h2>Kerning</h2>
+        <span class="section-count">${customizedCount}/${pairs.length} customized</span>
+      </div>
+      <p class="status kerning-intro">These are common kerning pairs to review first. Any supported pair can still be customized from the pair editor.</p>
+      <div class="kerning-review-toolbar">
+        <select id="kerning-family-filter" class="glyph-category-filter" aria-label="Kerning pair family">
+          <option value="all" ${state.kerningFamilyFilter === 'all' ? 'selected' : ''}>All pairs (${pairs.length})</option>
+          ${KERNING_PAIR_FAMILIES.map((family) => {
+            const count = pairs.filter((pair) => pair.family === family.id).length;
+            if (count === 0) {
+              return '';
+            }
+            return `<option value="${escapeAttr(family.id)}" ${state.kerningFamilyFilter === family.id ? 'selected' : ''}>${escapeHtml(`${family.label} (${count})`)}</option>`;
+          }).join('')}
+        </select>
+        <span>${blockedCount ? `${blockedCount} blocked by missing glyphs` : 'All visible pairs have scanned glyphs'}</span>
+      </div>
+      <div class="kerning-sections">
+        ${renderKerningReviewSections(reviews)}
+      </div>
     </section>
   `;
 }
@@ -505,6 +558,101 @@ function visibleGlyphRows(rows: GlyphScanResult[]): GlyphScanResult[] {
     const categoryMatches = state.glyphCategoryFilter === 'all' || glyphCategoryForChar(row.char) === state.glyphCategoryFilter;
     return categoryMatches && glyphMatchesSearch(row, search);
   });
+}
+
+function kerningPairsForReview() {
+  const recommendedKeys = new Set(RECOMMENDED_KERNING_PAIRS.map((pair) => kerningPairKey(pair.left, pair.right)));
+  const customPairs = normalizeKerningPairs(state.spacing.kerningPairs)
+    .filter((pair) => !recommendedKeys.has(kerningPairKey(pair.left, pair.right)))
+    .map((pair) => ({
+      left: pair.left,
+      right: pair.right,
+      family: 'custom' as const,
+    }));
+
+  return [...RECOMMENDED_KERNING_PAIRS, ...customPairs];
+}
+
+function visibleKerningPairs(pairs = kerningPairsForReview()) {
+  return pairs.filter((pair) => state.kerningFamilyFilter === 'all' || pair.family === state.kerningFamilyFilter);
+}
+
+function renderKerningPairReviewButton(review: KerningPairReview): string {
+  const isSelected = state.selectedGlyph === review.pair.left && getKerningPairRight() === review.pair.right;
+  const valueLabel = review.status === 'customized' ? `${review.value}` : review.status === 'blocked' ? 'Blocked' : 'Default';
+
+  return `
+    <button
+      class="kerning-pair-tile ${review.status} ${isSelected ? 'selected' : ''}"
+      type="button"
+      data-kerning-left="${escapeAttr(review.pair.left)}"
+      data-kerning-right="${escapeAttr(review.pair.right)}"
+      aria-pressed="${isSelected}"
+      title="${escapeAttr(kerningReviewTitle(review))}"
+    >
+      <span>${escapeHtml(review.label)}</span>
+      <em>${escapeHtml(valueLabel)}</em>
+    </button>
+  `;
+}
+
+function renderKerningReviewSections(reviews: KerningPairReview[]): string {
+  if (reviews.length === 0) {
+    return '<p class="status">No recommended pairs match the current filter.</p>';
+  }
+
+  return KERNING_PAIR_FAMILIES.map((family) => {
+    const familyReviews = reviews.filter((review) => review.pair.family === family.id);
+    if (familyReviews.length === 0) {
+      return '';
+    }
+
+    const customized = familyReviews.filter((review) => review.status === 'customized').length;
+    const blocked = familyReviews.filter((review) => review.status === 'blocked').length;
+    return `
+      <section class="kerning-section">
+        <div class="glyph-section-head">
+          <div>
+            <h3>${escapeHtml(family.label)}</h3>
+            <p>${escapeHtml(kerningFamilyDescription(family.id))}</p>
+          </div>
+          <span>${customized}/${familyReviews.length}${blocked ? ` - ${blocked} blocked` : ''}</span>
+        </div>
+        <div class="kerning-grid" role="list" aria-label="${escapeAttr(family.label)} kerning pairs">
+          ${familyReviews.map((review) => renderKerningPairReviewButton(review)).join('')}
+        </div>
+      </section>
+    `;
+  }).join('');
+}
+
+function kerningFamilyDescription(family: KerningPairFamilyId): string {
+  if (family === 'uppercase') return 'Capital letter pairs with diagonal and open side shapes';
+  if (family === 'lowercase') return 'Common lowercase rhythm and overhang pairs';
+  if (family === 'mixed') return 'Capital-to-lowercase pairs for title case and names';
+  if (family === 'punctuation') return 'Letter pairs before punctuation and dashes';
+  if (family === 'numbers') return 'Number pairs that often need rhythm checks';
+  return 'Customized pairs outside the recommended list';
+}
+
+function kerningReviewTitle(review: KerningPairReview): string {
+  if (review.status === 'customized') {
+    return `${review.label} customized to ${review.value}`;
+  }
+
+  if (review.status === 'blocked') {
+    const missing = [
+      review.leftIsValid ? '' : glyphLabelForChar(review.pair.left),
+      review.rightIsValid ? '' : glyphLabelForChar(review.pair.right),
+    ].filter(Boolean).join(', ');
+    return `${review.label} blocked until ${missing} scans as valid`;
+  }
+
+  return `${review.label} uses default spacing`;
+}
+
+function kerningPairKey(left: GlyphChar, right: GlyphChar): string {
+  return `${left}\u0000${right}`;
 }
 
 function glyphMatchesSearch(row: GlyphScanResult, search: string): boolean {
@@ -908,6 +1056,25 @@ function renderGlyphOverlay(row: GlyphScanResult): string {
   `;
 }
 
+function renderKerningOverlay(row: GlyphScanResult): string {
+  const right = getKerningPairRight();
+  const pairLabel = right
+    ? `${glyphLabelForChar(row.char)}${glyphLabelForChar(right)}`
+    : glyphLabelForChar(row.char);
+
+  return `
+    <div class="overlay-backdrop" role="dialog" aria-modal="true" aria-label="Kerning pair details">
+      <section class="overlay-card glyph-overlay">
+        <div class="overlay-head">
+          <p class="eyebrow">Kerning ${escapeHtml(pairLabel)}</p>
+          <button id="close-kerning-overlay" class="icon-button" aria-label="Close kerning details">Close</button>
+        </div>
+        ${renderKerningDetailTab(row)}
+      </section>
+    </div>
+  `;
+}
+
 function renderGlyphDetailTab(row: GlyphScanResult, overrideValue: number, canOverride: boolean): string {
   return `
     ${renderGlyphSpecimen(row, overrideValue)}
@@ -951,7 +1118,7 @@ function renderKerningDetailTab(row: GlyphScanResult): string {
     <div class="kerning-fields">
       <label class="field compact">
         <span>Pair glyph</span>
-        <input id="kerning-right-glyph" maxlength="1" value="${escapeAttr(state.kerningPairInput)}" placeholder="V" ${canKern ? '' : 'disabled'} />
+        ${renderKerningPairCombobox(row, canKern)}
       </label>
       <div class="kerning-amount-row">
         ${renderMetricSlider('kerning-value', 'Kerning amount', value, -300, 300, 10, !canKern || !right)}
@@ -960,6 +1127,121 @@ function renderKerningDetailTab(row: GlyphScanResult): string {
     </div>
     <p class="glyph-message ${tone}">${escapeHtml(message)}</p>
   `;
+}
+
+function renderKerningPairCombobox(row: GlyphScanResult, canKern: boolean): string {
+  const options = kerningSearchOptions(row);
+  const created = createKerningSearchDraft(row);
+  const visibleOptions = created ? [] : options;
+
+  return `
+    <div class="kerning-combobox ${state.kerningPairMenuOpen ? 'open' : ''}">
+      <div class="kerning-combobox-control">
+        <input id="kerning-right-glyph" value="${escapeAttr(state.kerningPairInput)}" placeholder="V or AV" autocomplete="off" ${canKern ? '' : 'disabled'} />
+        <button id="toggle-kerning-pair-menu" type="button" aria-label="Show kerning pairs" ${canKern ? '' : 'disabled'}>${renderChevronIcon(!state.kerningPairMenuOpen)}</button>
+      </div>
+      ${
+        state.kerningPairMenuOpen && canKern
+          ? `<div class="kerning-combobox-menu" role="listbox">
+              ${created ? renderKerningSearchOption(created, true) : ''}
+              ${visibleOptions.length ? visibleOptions.map((option) => renderKerningSearchOption(option, false)).join('') : created ? '' : '<p>No common pairs for this glyph.</p>'}
+            </div>`
+          : ''
+      }
+    </div>
+  `;
+}
+
+type KerningSearchOption = {
+  left: GlyphChar;
+  right: GlyphChar;
+  input: string;
+  label: string;
+  meta: string;
+};
+
+function kerningSearchOptions(row: GlyphScanResult): KerningSearchOption[] {
+  const reviews = reviewRecommendedKerningPairs(
+    kerningPairsForLeftSearch(row.char),
+    state.glyphs,
+    state.spacing,
+  );
+  const query = state.kerningPairInput.trim().toLowerCase();
+
+  return reviews
+    .map((review) => ({
+      left: review.pair.left,
+      right: review.pair.right,
+      input: review.pair.right,
+      label: review.label,
+      meta: review.status === 'customized'
+        ? `${review.value}`
+        : review.status === 'blocked'
+          ? 'blocked'
+          : 'default',
+    }))
+    .filter((option) => {
+      if (!query) {
+        return true;
+      }
+      return option.input.toLowerCase().includes(query) || option.label.toLowerCase().includes(query);
+    });
+}
+
+function kerningPairsForLeftSearch(left: GlyphChar) {
+  const recommended = getRecommendedKerningPairsForLeft(left);
+  const recommendedKeys = new Set(recommended.map((pair) => kerningPairKey(pair.left, pair.right)));
+  const custom = normalizeKerningPairs(state.spacing.kerningPairs)
+    .filter((pair) => pair.left === left && !recommendedKeys.has(kerningPairKey(pair.left, pair.right)))
+    .map((pair) => ({
+      left: pair.left,
+      right: pair.right,
+      family: 'custom' as const,
+    }));
+
+  return [...recommended, ...custom];
+}
+
+function createKerningSearchDraft(row: GlyphScanResult): KerningSearchOption | null {
+  const parsed = parseKerningPairInput(row, state.kerningPairInput);
+  if (!parsed) {
+    return null;
+  }
+
+  const exists = kerningPairsForLeftSearch(parsed.left).some((pair) => pair.left === parsed.left && pair.right === parsed.right);
+  if (exists) {
+    return null;
+  }
+
+  return {
+    left: parsed.left,
+    right: parsed.right,
+    input: parsed.left === row.char ? parsed.right : `${parsed.left}${parsed.right}`,
+    label: `${glyphLabelForChar(parsed.left)}${glyphLabelForChar(parsed.right)}`,
+    meta: 'create pair',
+  };
+}
+
+function renderKerningSearchOption(option: KerningSearchOption, isCreate: boolean): string {
+  return `
+    <button class="kerning-combobox-option ${isCreate ? 'create' : ''}" type="button" data-kerning-left="${escapeAttr(option.left)}" data-kerning-right="${escapeAttr(option.right)}" data-kerning-menu-option="true">
+      <strong>${escapeHtml(option.input)}</strong>
+      <span>${escapeHtml(option.label)} - ${escapeHtml(option.meta)}</span>
+    </button>
+  `;
+}
+
+function parseKerningPairInput(row: GlyphScanResult, input: string): { left: GlyphChar; right: GlyphChar } | null {
+  const chars = Array.from(input.trim());
+  if (chars.length === 1 && isGlyphChar(chars[0])) {
+    return { left: row.char, right: chars[0] };
+  }
+
+  if (chars.length >= 2 && isGlyphChar(chars[0]) && isGlyphChar(chars[1])) {
+    return { left: chars[0], right: chars[1] };
+  }
+
+  return null;
 }
 
 function renderKerningPairPreview(row: GlyphScanResult, right: GlyphChar | null): string {
@@ -1110,7 +1392,7 @@ function bindEvents() {
   document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((button) => {
     button.addEventListener('click', () => {
       const tab = button.dataset.tab;
-      if (tab === 'glyphs' || tab === 'preview' || tab === 'settings') {
+      if (tab === 'glyphs' || tab === 'preview' || tab === 'kerning' || tab === 'settings') {
         state.activeTab = tab;
         render();
       }
@@ -1138,6 +1420,35 @@ function bindEvents() {
   document.querySelector<HTMLInputElement>('#glyph-search')?.addEventListener('input', (event) => {
     state.glyphSearch = (event.target as HTMLInputElement).value;
     render();
+  });
+
+  document.querySelector<HTMLSelectElement>('#kerning-family-filter')?.addEventListener('change', (event) => {
+    const family = (event.target as HTMLSelectElement).value;
+    if (family === 'all' || KERNING_PAIR_FAMILIES.some((item) => item.id === family)) {
+      state.kerningFamilyFilter = family as KerningPairFamilyId | 'all';
+      render();
+    }
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('[data-kerning-left][data-kerning-right]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const left = button.dataset.kerningLeft;
+      const right = button.dataset.kerningRight;
+      if (!left || !right || !isGlyphChar(left) || !isGlyphChar(right)) {
+        return;
+      }
+
+      state.selectedGlyph = left;
+      state.kerningPairRight = right;
+      state.kerningPairInput = right;
+      state.glyphDetailTab = 'kerning';
+      state.kerningPairMenuOpen = false;
+      if (!button.dataset.kerningMenuOption) {
+        state.kerningOverlayOpen = true;
+      }
+      persistSettings();
+      render();
+    });
   });
 
   document.querySelectorAll<HTMLButtonElement>('[data-glyph]').forEach((button) => {
@@ -1328,6 +1639,11 @@ function bindEvents() {
     render();
   });
 
+  document.querySelector<HTMLButtonElement>('#close-kerning-overlay')?.addEventListener('click', () => {
+    state.kerningOverlayOpen = false;
+    render();
+  });
+
   document.querySelector<HTMLButtonElement>('#toggle-preview')?.addEventListener('click', () => {
     state.previewCollapsed = !state.previewCollapsed;
     render();
@@ -1412,14 +1728,31 @@ function bindEvents() {
 
   document.querySelector<HTMLInputElement>('#kerning-right-glyph')?.addEventListener('input', (event) => {
     const input = event.target as HTMLInputElement;
-    const next = Array.from(input.value)[0] ?? '';
+    const next = Array.from(input.value).slice(0, 2).join('');
     state.kerningPairInput = next;
+    state.kerningPairMenuOpen = true;
+    const parsed = parseKerningPairInput(getSelectedGlyph(state.glyphs), next);
 
-    if (isGlyphChar(next)) {
-      state.kerningPairRight = next;
+    if (parsed) {
+      state.selectedGlyph = parsed.left;
+      state.kerningPairRight = parsed.right;
+      state.kerningPairInput = parsed.left === state.selectedGlyph ? parsed.right : `${parsed.left}${parsed.right}`;
       state.generatedFont = null;
     }
 
+    render();
+  });
+
+  document.querySelector<HTMLInputElement>('#kerning-right-glyph')?.addEventListener('focus', () => {
+    if (state.kerningPairMenuOpen) {
+      return;
+    }
+    state.kerningPairMenuOpen = true;
+    render();
+  });
+
+  document.querySelector<HTMLButtonElement>('#toggle-kerning-pair-menu')?.addEventListener('click', () => {
+    state.kerningPairMenuOpen = !state.kerningPairMenuOpen;
     render();
   });
 
