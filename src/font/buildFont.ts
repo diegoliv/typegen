@@ -39,8 +39,8 @@ export function buildFont(
   const glyphs = [
     createNotdefGlyph(),
     createSpaceGlyph(spacing.spaceWidth),
-    ...sortGlyphsByAlphabet(usableGlyphs).map((glyph) =>
-      createOpenTypeGlyph(glyph, spacing),
+    ...sortGlyphsByAlphabet(usableGlyphs).flatMap((glyph) =>
+      createOpenTypeGlyphs(glyph, spacing),
     ),
   ];
 
@@ -71,13 +71,44 @@ export function buildFont(
   };
 }
 
-function createOpenTypeGlyph(glyph: GlyphModel, spacing: ReturnType<typeof normalizeSpacingSettings>) {
+function createOpenTypeGlyphs(glyph: GlyphModel, spacing: ReturnType<typeof normalizeSpacingSettings>): opentype.Glyph[] {
+  return smartQuoteExportGlyphsFor(glyph).map((exportGlyph) =>
+    createOpenTypeGlyph(glyph, spacing, exportGlyph),
+  );
+}
+
+function createOpenTypeGlyph(
+  glyph: GlyphModel,
+  spacing: ReturnType<typeof normalizeSpacingSettings>,
+  exportGlyph: { name: string; unicode: number },
+) {
   return new opentype.Glyph({
-    name: glyph.name || glyph.char,
-    unicode: glyph.unicode,
+    name: exportGlyph.name,
+    unicode: exportGlyph.unicode,
     advanceWidth: positiveAdvanceWidth(resolveGlyphAdvance(glyph, spacing)),
     path: toOpenTypePath(glyph),
   });
+}
+
+function smartQuoteExportGlyphsFor(glyph: GlyphModel): Array<{ name: string; unicode: number }> {
+  const base = { name: glyph.name || glyph.char, unicode: glyph.unicode };
+  if (glyph.char === "'") {
+    return [
+      base,
+      { name: `${base.name}.quoteleft`, unicode: 0x2018 },
+      { name: `${base.name}.quoteright`, unicode: 0x2019 },
+    ];
+  }
+
+  if (glyph.char === '"') {
+    return [
+      base,
+      { name: `${base.name}.quotedblleft`, unicode: 0x201c },
+      { name: `${base.name}.quotedblright`, unicode: 0x201d },
+    ];
+  }
+
+  return [base];
 }
 
 function createNotdefGlyph() {

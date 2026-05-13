@@ -12,8 +12,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@preact/signals": "^2.9.0",
     "fonteditor-core": "^2.6.3",
-    "opentype.js": "^1.3.4"
+    "opentype.js": "^1.3.4",
+    "preact": "^10.29.1"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.82.0",

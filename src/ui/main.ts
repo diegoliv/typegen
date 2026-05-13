@@ -44,7 +44,11 @@ import {
   type GlyphScanResult,
   type PersistedTypegenSettings,
 } from '../shared/types';
+import { h, render as renderPreact } from 'preact';
+import { App } from './App';
 import { layoutPreviewText, renderPreviewMarkup } from './preview/renderGlyphPreview';
+import { syncUiSnapshot } from './state/appState';
+import type { GlyphDetailTab, UiTab } from './state/types';
 import './styles.css';
 
 type UiState = {
@@ -92,9 +96,6 @@ type UiState = {
   isScanning: boolean;
   isGenerating: boolean;
 };
-
-type UiTab = 'glyphs' | 'preview' | 'kerning' | 'settings';
-type GlyphDetailTab = 'glyph' | 'kerning';
 
 type ExportDiagnostics = {
   status: 'ready' | 'blocked' | 'needs-scan';
@@ -201,7 +202,7 @@ function render() {
       }));
   const selectedGlyph = getSelectedGlyph(rows);
 
-  app.innerHTML = `
+  const markup = `
     <section class="shell">
       ${state.activeBoard ? renderTabbedPanel(rows, diagnostics) : renderEmptyPanel()}
       ${SHOW_DEBUG_CONTENT ? renderGeneratedPanel() : ''}
@@ -215,8 +216,24 @@ function render() {
     </section>
   `;
 
-  bindEvents();
-  restoreRenderInteraction(interaction);
+  syncUiSnapshot({
+    activeTab: state.activeTab,
+    glyphCount: state.glyphs.length,
+    isScanning: state.isScanning,
+    isGenerating: state.isGenerating,
+    activeBoardName: state.activeBoard?.name ?? null,
+  });
+
+  renderPreact(
+    h(App, {
+      markup,
+      onRendered: () => {
+        bindEvents();
+        restoreRenderInteraction(interaction);
+      },
+    }),
+    app,
+  );
 }
 
 function renderEmptyPanel(): string {

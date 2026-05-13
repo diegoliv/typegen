@@ -25,6 +25,7 @@ import {
   createSmokeTestDownloadName,
   createSmokeTestHtml,
   createWeightedFontDownloadName,
+  createWeightedFontFormatDownloadName,
 } from "../src/font/exportFont";
 import { glyphCharFromName, isSupportedGlyphName, unicodeForChar } from "../src/plugin/pluginTypes";
 import { fitPathsToAdvance, normalizePathsForSlotMetrics } from "../src/plugin/extractPaths";
@@ -275,6 +276,8 @@ const glyphPeriod: GlyphModel = {
   warnings: [],
 };
 
+const glyphApostrophe = makeRectGlyph("'", 39, "glyph-apostrophe", 120, 420, 220, 700, defaultAdvanceForChar("'"));
+const glyphQuote = makeRectGlyph('"', 34, "glyph-quote", 90, 420, 270, 700, defaultAdvanceForChar('"'));
 const glyphLowerA: GlyphModel = {
   char: "a",
   unicode: 97,
@@ -345,6 +348,8 @@ assert.equal(defaultAdvanceForChar("A"), 700, "letters should keep the standard 
 assert.equal(isSupportedGlyphName("glyph-A"), true, "strict uppercase glyph name should parse");
 assert.equal(isSupportedGlyphName("glyph-2"), true, "strict numeric glyph name should parse");
 assert.equal(isSupportedGlyphName("glyph-exclamation"), true, "strict punctuation glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-apostrophe"), true, "strict apostrophe glyph name should parse");
+assert.equal(isSupportedGlyphName("glyph-quote"), true, "strict quote glyph name should parse");
 assert.equal(isSupportedGlyphName("glyph-a"), true, "lowercase glyph name should parse");
 assert.equal(isSupportedGlyphName("glyph-z"), true, "lowercase z glyph name should parse");
 assert.equal(isSupportedGlyphName("glyph-at"), true, "safe symbol glyph name should parse");
@@ -372,6 +377,8 @@ assert.equal(isSupportedGlyphName("glyph-AA"), false, "multi-character glyph nam
 assert.equal(glyphCharFromName("glyph-Z"), "Z", "glyph-Z should map to Z");
 assert.equal(glyphCharFromName("glyph-0"), "0", "glyph-0 should map to 0");
 assert.equal(glyphCharFromName("glyph-exclamation"), "!", "glyph-exclamation should map to !");
+assert.equal(glyphCharFromName("glyph-apostrophe"), "'", "glyph-apostrophe should map to apostrophe");
+assert.equal(glyphCharFromName("glyph-quote"), '"', "glyph-quote should map to quote");
 assert.equal(glyphCharFromName("glyph-a"), "a", "glyph-a should map to a");
 assert.equal(glyphCharFromName("glyph-z"), "z", "glyph-z should map to z");
 assert.equal(glyphCharFromName("glyph-at"), "@", "glyph-at should map to @");
@@ -800,14 +807,45 @@ assertTableExists(kerningFont.arrayBuffer, "GPOS", "kerning fixture should inclu
 
 const punctuationFont = buildFont({
   familyName: "Typegen Punctuation Regression",
-  glyphs: [glyphA, glyphExclamation, glyphPeriod],
+  glyphs: [glyphA, glyphExclamation, glyphPeriod, glyphApostrophe, glyphQuote],
   spacing: DEFAULT_SPACING,
 });
 
-assert.equal(punctuationFont.glyphCount, 3, "punctuation fixture should include A, !, and . glyphs");
+assert.equal(punctuationFont.glyphCount, 5, "punctuation fixture should include A, !, ., apostrophe, and quote glyphs");
 assert.equal(punctuationFont.verification.failedGlyphs.length, 0, "punctuation fixture should verify cleanly");
 assertRoundTripGlyph(punctuationFont.arrayBuffer, "!", 360, "punctuation fixture should preserve !");
 assertRoundTripGlyph(punctuationFont.arrayBuffer, ".", 260, "punctuation fixture should preserve narrow period advance");
+assertRoundTripGlyph(punctuationFont.arrayBuffer, "'", 260, "punctuation fixture should preserve apostrophe");
+assertRoundTripGlyph(punctuationFont.arrayBuffer, '"', 360, "punctuation fixture should preserve quote");
+assertGlyphAliasMapsToGlyph(punctuationFont.arrayBuffer, "\u2018", 260, "left smart apostrophe should map to apostrophe outline");
+assertGlyphAliasMapsToGlyph(punctuationFont.arrayBuffer, "\u2019", 260, "right smart apostrophe should map to apostrophe outline");
+assertGlyphAliasMapsToGlyph(punctuationFont.arrayBuffer, "\u201c", 360, "left smart quote should map to quote outline");
+assertGlyphAliasMapsToGlyph(punctuationFont.arrayBuffer, "\u201d", 360, "right smart quote should map to quote outline");
+assert.ok(
+  punctuationFont.verification.parsedGlyphCount >= 11,
+  "punctuation fixture should include standalone exported smart quote glyph records",
+);
+const punctuationPackageZip = await createFontPackageZip(
+  [{ result: punctuationFont, style: "Regular" }],
+  "LET\u2019S \u201cQUOTE\u201d",
+  ["otf", "ttf"],
+);
+const punctuationTtfBytes = await extractZipFileBytes(
+  punctuationPackageZip,
+  `fonts/${createWeightedFontFormatDownloadName("Typegen Punctuation Regression", "Regular", "ttf")}`,
+);
+assertGlyphAliasMapsToGlyph(
+  toOwnedArrayBuffer(punctuationTtfBytes),
+  "\u2019",
+  260,
+  "packaged TTF should preserve smart apostrophe mapping",
+);
+assertGlyphAliasMapsToGlyph(
+  toOwnedArrayBuffer(punctuationTtfBytes),
+  "\u201d",
+  360,
+  "packaged TTF should preserve smart quote mapping",
+);
 
 const symbolFont = buildFont({
   familyName: "Typegen Symbol Regression",
@@ -882,6 +920,20 @@ function assertRoundTripGlyph(
 
   assert.equal(glyph.unicode, char.charCodeAt(0), `${message}: unicode should survive font parse`);
   assert.equal(glyph.advanceWidth, expectedAdvanceWidth, `${message}: advance width should survive font parse`);
+  assert.ok(glyph.path.commands.length > 0, `${message}: outline commands should survive font parse`);
+}
+
+function assertGlyphAliasMapsToGlyph(
+  buffer: ArrayBuffer,
+  char: string,
+  expectedAdvanceWidth: number,
+  message: string,
+): void {
+  const parsed = opentype.parse(buffer);
+  const glyph = parsed.charToGlyph(char);
+
+  assert.equal(glyph.unicode, char.codePointAt(0), `${message}: unicode should resolve directly`);
+  assert.equal(glyph.advanceWidth, expectedAdvanceWidth, `${message}: advance width should match`);
   assert.ok(glyph.path.commands.length > 0, `${message}: outline commands should survive font parse`);
 }
 
@@ -968,4 +1020,34 @@ async function listZipFileNames(blob: Blob): Promise<string[]> {
     offset = nameEnd + extraLength + compressedSize - 1;
   }
   return names;
+}
+
+async function extractZipFileBytes(blob: Blob, targetName: string): Promise<Uint8Array> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  for (let offset = 0; offset < bytes.length - 4; offset++) {
+    if (bytes[offset] !== 0x50 || bytes[offset + 1] !== 0x4b || bytes[offset + 2] !== 0x03 || bytes[offset + 3] !== 0x04) {
+      continue;
+    }
+    const view = new DataView(bytes.buffer, bytes.byteOffset + offset);
+    const nameLength = view.getUint16(26, true);
+    const extraLength = view.getUint16(28, true);
+    const compressedSize = view.getUint32(18, true);
+    const nameStart = offset + 30;
+    const nameEnd = nameStart + nameLength;
+    const name = new TextDecoder().decode(bytes.slice(nameStart, nameEnd));
+    const dataStart = nameEnd + extraLength;
+    const dataEnd = dataStart + compressedSize;
+    if (name === targetName) {
+      return bytes.slice(dataStart, dataEnd);
+    }
+    offset = dataEnd - 1;
+  }
+
+  assert.fail(`Expected ZIP entry ${targetName} to exist`);
+}
+
+function toOwnedArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
 }
