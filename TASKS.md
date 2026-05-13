@@ -1,5 +1,42 @@
 # Typegen MVP Implementation Plan
 
+## 63. Smart Quote Export Mapping Fix
+
+Goal: make installed/exported fonts render common smart quote substitutions with the existing straight quote and apostrophe glyph artwork, matching the plugin preview more closely in real text apps.
+
+Implementation status:
+
+- Added export-time duplicate glyph records so `glyph-apostrophe` also exports left/right single quotation marks and `glyph-quote` also exports left/right double quotation marks.
+- Switched away from same-glyph Unicode aliases after Figma did not render the aliases reliably even though other apps did.
+- Kept the supported catalog and starter board unchanged; this is an export compatibility fix, not a new glyph-slot feature.
+- Added regression coverage for straight apostrophe/quote roundtrip, standalone smart quote records in the native OTF, and smart quote records after ZIP TTF conversion.
+
+Verification completed:
+
+- `npm.cmd run test:regression` passed.
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run build` passed.
+
+## 62. Preact UI Framework Migration
+
+Goal: move the plugin iframe UI from one manual DOM-rendered TypeScript file toward a modular Preact + TypeScript + `@preact/signals` implementation while preserving the Figma vectors -> glyph model -> preview -> static font package export pipeline.
+
+Migration plan:
+
+- Component boundaries: `src/ui/App.tsx` owns the Preact root, with follow-on component files for tabs, glyph table, glyph overlay, kerning overlay/tab, metric sliders, export settings, board creation, and settings import surfaces.
+- State model: keep plugin/font/shared contracts stable, mirror UI render state through `@preact/signals`, and move derived UI decisions into `src/ui/state/` so glyph health, kerning status, and export diagnostics can be tested independently from DOM rendering.
+- Event/message flow: keep existing `postToPlugin` message types unchanged. UI actions continue to send the same typed messages, and plugin responses continue to update UI state without controller rewrites.
+- Incremental strategy: first let Preact own the iframe root and preserve behavior, then peel dense surfaces out of the legacy markup into components without changing preview/export math.
+- Performance risks: avoid rerendering the whole dense glyph/kerning tables for single-field input changes where signals can isolate updates; keep the custom kerning dropdown responsive by avoiding full event rebinding as it becomes a component.
+- Verification: run `npm.cmd run typecheck`, `npm.cmd run test:regression`, and `npm.cmd run build`, then keep the generated `dist/` output committed.
+
+Implementation status:
+
+- Created branch `codex/preact-ui-migration`.
+- Added `preact` and `@preact/signals`.
+- Added TSX compiler settings for Preact.
+- Added a Preact-owned app root and an initial signals-backed UI snapshot store.
+
 ## 61. Kerning Discoverability
 
 Goal: make common manual kerning work discoverable without adding auto-kerning, kerning classes, or a broader font-editor feature surface.

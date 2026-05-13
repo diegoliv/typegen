@@ -7,6 +7,8 @@
     "types": ["@figma/plugin-typings"],
     "skipLibCheck": true,
     "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
     "allowImportingTsExtensions": false,
     "resolveJsonModule": true,
     "isolatedModules": true,

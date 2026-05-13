@@ -1,6 +1,6 @@
 {
   "name": "Typegen",
-  "id": "typegen-mvp",
+  "id": "1631822706023967079",
   "api": "1.0.0",
   "main": "dist/controller.js",
   "ui": "dist/index.html",
